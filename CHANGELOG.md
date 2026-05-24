@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.0 — 2026-05-24
+### Added
+- **AI Code Review** (Copilot-powered) — three entry points:
+  - `AI Review (Staged / Working)` — review what you're about to commit. Available as a button in the SCM panel title bar next to the AI commit-message button.
+  - `AI Review Commit…` — right-click any commit in the GitSight commits view, or run from the palette with a SHA.
+  - `AI Review Range…` — review any `git diff` range (e.g. `main..HEAD`).
+- Output is a structured markdown report: Summary, Issues (with 🔴/🟡/🟢 severity + suggested fixes), Nits, Approval verdict.
+
 ## 1.9.0 — 2026-05-24
 ### Added
 - **Stash Visualizer** — webview showing every stash with diff preview, file-level changes (A/M/D/R), and per-file checkboxes. Apply only the files you want with **Apply selected files** — no need to pop the whole stash. Standard Apply / Pop / Drop / View diff also available per stash.

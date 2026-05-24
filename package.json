@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -413,6 +413,9 @@
       { "command": "gitsight.bisectReset", "title": "GitSight: Bisect — Reset / Abort" },
       { "command": "gitsight.bisectMenu",  "title": "GitSight: Bisect — Actions Menu" },
       { "command": "gitsight.stashVisualizer", "title": "GitSight: Stash Visualizer (partial apply)", "icon": "$(archive)" },
+      { "command": "gitsight.aiReviewStaged", "title": "GitSight: AI Review (Staged / Working)", "icon": "$(comment-discussion)" },
+      { "command": "gitsight.aiReviewCommit", "title": "GitSight: AI Review Commit…" },
+      { "command": "gitsight.aiReviewRange",  "title": "GitSight: AI Review Range…" },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",
@@ -584,6 +587,11 @@
           "group": "3_actions@2"
         },
         {
+          "command": "gitsight.aiReviewCommit",
+          "when": "viewItem == commit",
+          "group": "3_actions@4"
+        },
+        {
           "command": "gitsight.resetToCommit",
           "when": "viewItem == commit",
           "group": "3_actions@3"
@@ -592,6 +600,11 @@
       "scm/title": [
         {
           "command": "gitsight.generateCommitMessage",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        },
+        {
+          "command": "gitsight.aiReviewStaged",
           "group": "navigation",
           "when": "scmProvider == git"
         }

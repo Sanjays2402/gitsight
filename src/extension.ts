@@ -22,6 +22,7 @@ import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { generateChangelog } from './ai/changelog';
 import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
+import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -413,6 +414,21 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.stashVisualizer', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await showStashVisualizer(git);
+  }));
+
+  // ── AI code review ──────────────────────────────────────────────
+  reg('gitsight.aiReviewStaged', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await reviewStaged(ctx, git);
+  }));
+  reg('gitsight.aiReviewCommit', (n: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const sha = n?.sha ?? await vscode.window.showInputBox({ prompt: 'Commit SHA to review' });
+    if (sha) await reviewCommit(ctx, git, sha);
+  }));
+  reg('gitsight.aiReviewRange', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await reviewRange(ctx, git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
