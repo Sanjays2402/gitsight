@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.0 — 2026-05-24
+### Added
+- **Branch Protection Viewer** — `GitSight: Show Branch Protection Rules…` pulls the live policy for a chosen branch from GitHub (`gh api`) or Azure DevOps (`az repos policy list`) and renders a clean markdown table: required reviewers, required status checks, linear history, signed commits, admin enforcement, force-push & deletion permissions. Works on both `github.com` and `dev.azure.com` remotes.
+
 ## 1.10.0 — 2026-05-24
 ### Added
 - **AI Code Review** (Copilot-powered) — three entry points:

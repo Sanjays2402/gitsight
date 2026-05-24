@@ -23,6 +23,7 @@ import { generateChangelog } from './ai/changelog';
 import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
+import { showBranchProtection } from './views/branchProtection';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -429,6 +430,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.aiReviewRange', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await reviewRange(ctx, git);
+  }));
+
+  // ── Branch protection viewer ────────────────────────────────────
+  reg('gitsight.branchProtection', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await showBranchProtection(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
