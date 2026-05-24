@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -639,6 +639,19 @@
     "configuration": {
       "title": "GitSight",
       "properties": {
+        "gitsight.sparkline.days": {
+          "type": "number",
+          "default": 14,
+          "minimum": 1,
+          "maximum": 90,
+          "description": "Number of days to summarize in the commit sparkline status-bar item."
+        },
+        "gitsight.sparkline.author": {
+          "type": "string",
+          "enum": ["all", "me"],
+          "default": "all",
+          "description": "Whose commits to count in the sparkline: 'all' contributors or just 'me' (config user.email)."
+        },
         "gitsight.blame.enabled": {
           "type": "boolean",
           "default": true,

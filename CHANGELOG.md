@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.0 — 2026-05-24
+### Added
+- **Commit Sparkline** — status-bar mini-chart (`▁▂▃▄▅▆▇█`) of your last 14 days of commits with total count. Configurable window (`gitsight.sparkline.days`, 1-90) and author filter (`gitsight.sparkline.author`: `all` or `me`). Click jumps to the full activity heatmap. Auto-refreshes every 5 minutes.
+
 ## 1.13.0 — 2026-05-24
 ### Added
 - **CI Status Panel** — polls every 60s and surfaces the most recent **GitHub Actions** or **Azure Pipelines** run in the status bar with a color-coded pill (green/yellow/red). Click for the full list of recent runs in a quick-pick — selecting one opens it in the browser. Auto-detects host from the `origin` remote; uses `gh run list` or `az pipelines runs list`.

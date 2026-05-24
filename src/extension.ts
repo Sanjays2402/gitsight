@@ -26,6 +26,7 @@ import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
 import { showBranchProtection } from './views/branchProtection';
 import { CodeownersOverlay } from './views/codeownersOverlay';
 import { CiPanel } from './views/ciPanel';
+import { CommitSparkline } from './views/commitSparkline';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -451,6 +452,9 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(ci);
   reg('gitsight.ciShow', () => errorWrap(() => ci.show()));
   reg('gitsight.ciRefresh', () => errorWrap(() => ci.refresh()));
+
+  // ── Commit sparkline ─────────────────────────────────────────────
+  ctx.subscriptions.push(new CommitSparkline(() => primary()));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
