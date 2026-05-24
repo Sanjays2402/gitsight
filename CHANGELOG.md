@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.0 — 2026-05-24
+### Added
+- **Stash Visualizer** — webview showing every stash with diff preview, file-level changes (A/M/D/R), and per-file checkboxes. Apply only the files you want with **Apply selected files** — no need to pop the whole stash. Standard Apply / Pop / Drop / View diff also available per stash.
+
 ## 1.8.0 — 2026-05-24
 ### Added
 - **Bisect Wizard** — guided `git bisect` with status-bar indicator: Start (pick known good/bad), Mark Good/Bad/Skip, Automated Run (any shell command), Reset. Auto-detects when a bisect is in progress and surfaces a yellow status pill anywhere in the workspace.

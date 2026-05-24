@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -412,6 +412,7 @@
       { "command": "gitsight.bisectRun",   "title": "GitSight: Bisect — Run Automated…" },
       { "command": "gitsight.bisectReset", "title": "GitSight: Bisect — Reset / Abort" },
       { "command": "gitsight.bisectMenu",  "title": "GitSight: Bisect — Actions Menu" },
+      { "command": "gitsight.stashVisualizer", "title": "GitSight: Stash Visualizer (partial apply)", "icon": "$(archive)" },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",
@@ -474,6 +475,11 @@
           "command": "gitsight.stashSave",
           "when": "view == gitsight.stashes",
           "group": "navigation@1"
+        },
+        {
+          "command": "gitsight.stashVisualizer",
+          "when": "view == gitsight.stashes",
+          "group": "navigation@2"
         },
         {
           "command": "gitsight.createWorktree",

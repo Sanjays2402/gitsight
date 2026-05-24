@@ -21,6 +21,7 @@ import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } f
 import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { generateChangelog } from './ai/changelog';
 import { BisectWizard } from './views/bisectWizard';
+import { showStashVisualizer } from './webviews/stashVisualizer';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -407,6 +408,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.bisectRun', () => errorWrap(() => bisect.run()));
   reg('gitsight.bisectReset', () => errorWrap(() => bisect.reset()));
   reg('gitsight.bisectMenu', () => errorWrap(() => bisect.menu()));
+
+  // ── Stash visualizer (partial apply) ────────────────────────────
+  reg('gitsight.stashVisualizer', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await showStashVisualizer(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
