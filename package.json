@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -405,6 +405,13 @@
         "title": "GitSight: Generate AI Changelog…",
         "icon": "$(book)"
       },
+      { "command": "gitsight.bisectStart", "title": "GitSight: Bisect — Start…", "icon": "$(beaker)" },
+      { "command": "gitsight.bisectGood",  "title": "GitSight: Bisect — Mark Good" },
+      { "command": "gitsight.bisectBad",   "title": "GitSight: Bisect — Mark Bad" },
+      { "command": "gitsight.bisectSkip",  "title": "GitSight: Bisect — Skip" },
+      { "command": "gitsight.bisectRun",   "title": "GitSight: Bisect — Run Automated…" },
+      { "command": "gitsight.bisectReset", "title": "GitSight: Bisect — Reset / Abort" },
+      { "command": "gitsight.bisectMenu",  "title": "GitSight: Bisect — Actions Menu" },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",

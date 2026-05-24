@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.0 — 2026-05-24
+### Added
+- **Bisect Wizard** — guided `git bisect` with status-bar indicator: Start (pick known good/bad), Mark Good/Bad/Skip, Automated Run (any shell command), Reset. Auto-detects when a bisect is in progress and surfaces a yellow status pill anywhere in the workspace.
+
 ## 1.7.0 — 2026-05-24
 ### Added
 - **AI Changelog Generator** — `GitSight: Generate AI Changelog…` picks a commit range (last 20/50, since latest tag, between tags, or custom) and uses your selected Copilot model to produce a polished Keep-a-Changelog markdown section (Added/Changed/Fixed/Removed) ready to paste into `CHANGELOG.md`.

@@ -20,6 +20,7 @@ import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
 import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { generateChangelog } from './ai/changelog';
+import { BisectWizard } from './views/bisectWizard';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -395,6 +396,17 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return;
     await generateChangelog(ctx, git);
   }));
+
+  // ── Bisect wizard ───────────────────────────────────────────────
+  const bisect = new BisectWizard(() => primary());
+  ctx.subscriptions.push(bisect);
+  reg('gitsight.bisectStart', () => errorWrap(() => bisect.start()));
+  reg('gitsight.bisectGood', () => errorWrap(() => bisect.mark('good')));
+  reg('gitsight.bisectBad', () => errorWrap(() => bisect.mark('bad')));
+  reg('gitsight.bisectSkip', () => errorWrap(() => bisect.mark('skip')));
+  reg('gitsight.bisectRun', () => errorWrap(() => bisect.run()));
+  reg('gitsight.bisectReset', () => errorWrap(() => bisect.reset()));
+  reg('gitsight.bisectMenu', () => errorWrap(() => bisect.menu()));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
