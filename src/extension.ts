@@ -25,6 +25,7 @@ import { showStashVisualizer } from './webviews/stashVisualizer';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
 import { showBranchProtection } from './views/branchProtection';
 import { CodeownersOverlay } from './views/codeownersOverlay';
+import { CiPanel } from './views/ciPanel';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -444,6 +445,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(codeowners);
   reg('gitsight.codeownersExplain', () => errorWrap(() => codeowners.explain()));
   reg('gitsight.codeownersCheckStaged', () => errorWrap(() => codeowners.checkStagedOwnership()));
+
+  // ── CI panel (GitHub Actions / Azure Pipelines) ─────────────────
+  const ci = new CiPanel(() => primary());
+  ctx.subscriptions.push(ci);
+  reg('gitsight.ciShow', () => errorWrap(() => ci.show()));
+  reg('gitsight.ciRefresh', () => errorWrap(() => ci.refresh()));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

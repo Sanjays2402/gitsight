@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -419,6 +419,8 @@
       { "command": "gitsight.branchProtection", "title": "GitSight: Show Branch Protection Rules…", "icon": "$(shield)" },
       { "command": "gitsight.codeownersExplain", "title": "GitSight: CODEOWNERS — Explain Current File" },
       { "command": "gitsight.codeownersCheckStaged", "title": "GitSight: CODEOWNERS — Check Staged Files" },
+      { "command": "gitsight.ciShow", "title": "GitSight: Show CI Runs…", "icon": "$(rocket)" },
+      { "command": "gitsight.ciRefresh", "title": "GitSight: Refresh CI Status" },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",

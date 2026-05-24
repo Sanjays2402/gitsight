@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.0 — 2026-05-24
+### Added
+- **CI Status Panel** — polls every 60s and surfaces the most recent **GitHub Actions** or **Azure Pipelines** run in the status bar with a color-coded pill (green/yellow/red). Click for the full list of recent runs in a quick-pick — selecting one opens it in the browser. Auto-detects host from the `origin` remote; uses `gh run list` or `az pipelines runs list`.
+
 ## 1.12.0 — 2026-05-24
 ### Added
 - **CODEOWNERS Overlay** — auto-loads `CODEOWNERS`, `.github/CODEOWNERS`, or `docs/CODEOWNERS`. Adds a status-bar pill showing owners of the active file (warning style if no rule matches). Click to view the full rule list as markdown.
