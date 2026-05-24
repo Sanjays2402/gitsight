@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -33,6 +33,19 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "keybindings": [
+      {
+        "command": "gitsight.worktreeSwitcher",
+        "key": "ctrl+shift+w",
+        "mac": "cmd+shift+w",
+        "when": "!editorTextFocus || editorReadonly"
+      },
+      {
+        "command": "gitsight.pickAIModel",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -381,6 +394,11 @@
       {
         "command": "gitsight.showAIStatus",
         "title": "GitSight: Show AI Status / Available Models"
+      },
+      {
+        "command": "gitsight.worktreeSwitcher",
+        "title": "GitSight: Switch Worktree…",
+        "icon": "$(versions)"
       },
       {
         "command": "gitsight.refresh",

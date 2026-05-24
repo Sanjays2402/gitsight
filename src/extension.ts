@@ -18,6 +18,7 @@ import { showConflictResolver } from './webviews/conflictResolver';
 import { showActivityHeatmap } from './webviews/activityHeatmap';
 import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
+import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -380,6 +381,12 @@ export function activate(ctx: vscode.ExtensionContext) {
       `GitSight AI · Active: ${sel?.name ?? 'auto'} · Available: ${names}`,
       'Change model',
     ).then(c => { if (c === 'Change model') pickModel(ctx); });
+  }));
+
+  // ── Worktree quick-switcher ─────────────────────────────────────
+  reg('gitsight.worktreeSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await showWorktreeSwitcher(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

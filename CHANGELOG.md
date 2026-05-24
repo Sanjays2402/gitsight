@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 — 2026-05-24
+### Added
+- **Worktree quick-switcher** — `GitSight: Switch Worktree…` (Cmd+Shift+W / Ctrl+Shift+W) opens a quick-pick listing every worktree with branch, lock status, and current-marker. One click opens it in a new VS Code window. Inline shortcuts for *Create new worktree…* and *Remove a worktree…*.
+- Keybinding `Cmd+Alt+M` / `Ctrl+Alt+M` for `GitSight: Pick AI Model`.
+
 ## 1.5.0 — 2026-05-24
 ### Changed — Enterprise AI
 - **GitHub Copilot is now the only supported AI provider.** Removed Ollama and any local-model code paths so GitSight is safe to deploy in enterprise environments (Microsoft, regulated orgs, etc.) where local LLMs and third-party API keys are prohibited.
