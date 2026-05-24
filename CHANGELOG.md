@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-05-24
+### Added
+- **Split-diff range viewer** — Compare any two refs (`main` ↔ `feature/foo`) in a GitHub-style side-by-side view with file tree, per-file +/- stats, and chunk-level highlighting. Command: `GitSight: Compare Refs (Split Diff)`.
+- **Merge conflict 3-pane resolver** — Visual conflict resolution with Accept Ours / Accept Theirs / Accept Both / Edit per chunk. Saves and stages in one click. Command: `GitSight: Resolve Merge Conflicts`.
+- **GitHub Issues sidebar** — Full Issues view alongside Pull Requests. Filter by All / Assigned to Me / Created by Me. Click any issue to open a rich webview with full body and comment thread. Backed by `gh` CLI.
+- **Contribution Activity Heatmap** — GitHub-style year-long contribution grid with current streak, longest streak, total commits, active days. Filter by author. Pure local git log — no API calls.
+
 ## 1.2.0 — 2026-05-24
 ### Added
 - **Azure DevOps support** — Pull Requests sidebar now auto-detects ADO remotes (`dev.azure.com`, legacy `*.visualstudio.com`) and lists PRs via `az repos pr` CLI alongside existing GitHub support.
