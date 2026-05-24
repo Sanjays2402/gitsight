@@ -38,14 +38,22 @@ Same sidebar, auto-detected from your `origin` remote. Provider badge at the top
 ### Split-Diff Range Viewer
 Compare any two refs (`main` ↔ `feature/x`, `v1.0` ↔ `HEAD`) in a GitHub-style side-by-side view. File tree sidebar with per-file `+/-` stats, chunk-level highlighting, jump-to-file. Command: **GitSight: Compare Refs (Split Diff)**.
 
+![Split-Diff Range Viewer](screenshots/range-diff.png)
+
 ### Merge Conflict 3-Pane Resolver
 Drop the `<<<<<<<` markers. Visual conflict resolution with **Accept Ours / Accept Theirs / Accept Both / Edit** buttons per chunk. Optional base view. Click Save & Stage — done. Command: **GitSight: Resolve Merge Conflicts**.
+
+![Merge Conflict Resolver](screenshots/conflict-resolver.png)
 
 ### GitHub Issues Sidebar
 Full Issues view alongside Pull Requests. Filter by **All / Assigned to Me / Created by Me**. Click any issue to open a rich webview with full markdown body, labels, and the entire comment thread. Backed by `gh` CLI — no token management.
 
+![GitHub Issues Sidebar](screenshots/issues.png)
+
 ### Contribution Activity Heatmap
 GitHub-style year-long contribution grid with **current streak**, **longest streak**, total commits, and active days. Filter by author. 100% local — pure `git log`, no API calls. Command: **GitSight: Contribution Activity Heatmap**.
+
+![Contribution Activity Heatmap](screenshots/activity-heatmap.png)
 
 
 ## Features
