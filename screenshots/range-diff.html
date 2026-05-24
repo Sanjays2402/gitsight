@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; font:13px -apple-system,system-ui,sans-serif; color:#cccccc; background:#1e1e1e; display:flex; height:100vh; }
+  .sidebar { width:300px; flex-shrink:0; background:#181818; border-right:1px solid #2b2b2b; overflow-y:auto; }
+  .sb-head { padding:12px 14px; border-bottom:1px solid #2b2b2b; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#9d9d9d; background:#252526; }
+  .sb-meta { padding:8px 14px; font-size:11px; color:#9d9d9d; border-bottom:1px solid #2b2b2b; }
+  .tree-item { padding:6px 14px; display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+  .tree-item:hover { background:#2a2d2e; }
+  .tree-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"SF Mono",Menlo,monospace; }
+  .tree-stat { font-family:"SF Mono",Menlo,monospace; font-size:11px; flex-shrink:0; }
+  .add { color:#4ade80; } .del { color:#f87171; }
+  .main { flex:1; overflow:auto; padding:20px 28px; }
+  .header { padding-bottom:14px; border-bottom:1px solid #2b2b2b; margin-bottom:16px; }
+  .header h1 { margin:0 0 8px; font-size:18px; font-weight:600; color:#fff; }
+  .header .ref { font-family:"SF Mono",Menlo,monospace; background:#0e639c33; color:#7dd3fc; padding:3px 10px; border-radius:12px; font-size:11px; }
+  .header .sum { color:#9d9d9d; font-size:12px; margin-top:8px; }
+  .file { margin-bottom:24px; border:1px solid #2b2b2b; border-radius:6px; overflow:hidden; }
+  .file-head { padding:10px 14px; background:#252526; display:flex; justify-content:space-between; font-family:"SF Mono",Menlo,monospace; font-size:12px; border-bottom:1px solid #2b2b2b; }
+  .fp { color:#7dd3fc; font-weight:600; }
+  table.diff { width:100%; border-collapse:collapse; font-family:"SF Mono",Menlo,monospace; font-size:12px; }
+  table.diff td { padding:2px 10px; vertical-align:top; white-space:pre; }
+  td.ln { width:50px; color:#666; text-align:right; user-select:none; background:#1a1a1a; border-right:1px solid #2b2b2b; }
+  td.src.d { background:#ef444422; color:#fca5a5; }
+  td.src.a { background:#10b98122; color:#86efac; }
+  td.src.e { background:#3a3a3a44; }
+  td.src.c { color:#cccccc; }
+  tr.hunk-head td { background:#0e639c22; color:#7dd3fc; padding:8px 14px; font-style:italic; font-size:11px; }
+</style></head><body>
+  <aside class="sidebar">
+    <div class="sb-head">Changed Files (10)</div>
+    <div class="sb-meta"><span class="add">+762</span> additions · <span class="del">−86</span> deletions</div>
+    <div class="tree-item"><span class="tree-path">src/auth/oauth.ts</span><span class="tree-stat"><span class="add">+47</span> <span class="del">−12</span></span></div><div class="tree-item"><span class="tree-path">src/auth/middleware.ts</span><span class="tree-stat"><span class="add">+23</span> <span class="del">−8</span></span></div><div class="tree-item"><span class="tree-path">src/payments/stripe.ts</span><span class="tree-stat"><span class="add">+156</span> <span class="del">−22</span></span></div><div class="tree-item"><span class="tree-path">src/payments/webhook.ts</span><span class="tree-stat"><span class="add">+89</span> <span class="del">−4</span></span></div><div class="tree-item"><span class="tree-path">src/models/User.ts</span><span class="tree-stat"><span class="add">+12</span> <span class="del">−3</span></span></div><div class="tree-item"><span class="tree-path">src/models/Subscription.ts</span><span class="tree-stat"><span class="add">+78</span> <span class="del">−0</span></span></div><div class="tree-item"><span class="tree-path">tests/auth.test.ts</span><span class="tree-stat"><span class="add">+134</span> <span class="del">−18</span></span></div><div class="tree-item"><span class="tree-path">tests/payments.test.ts</span><span class="tree-stat"><span class="add">+201</span> <span class="del">−12</span></span></div><div class="tree-item"><span class="tree-path">package.json</span><span class="tree-stat"><span class="add">+4</span> <span class="del">−2</span></span></div><div class="tree-item"><span class="tree-path">README.md</span><span class="tree-stat"><span class="add">+18</span> <span class="del">−5</span></span></div>
+  </aside>
+  <main class="main">
+    <div class="header">
+      <h1>Comparing changes</h1>
+      <div><span class="ref">main</span> → <span class="ref">feature/stripe-retry</span></div>
+      <div class="sum">10 files changed · <span class="add">+762 additions</span> · <span class="del">−86 deletions</span> · 7 commits</div>
+    </div>
+    <section class="file">
+      <header class="file-head"><span class="fp">src/payments/stripe.ts</span><span><span class="add">+156</span> <span class="del">−22</span></span></header>
+      <table class="diff"><tbody><tr class="hunk-head"><td colspan="4">@@ -118,8 +118,14 @@ export class StripeService {</td></tr><tr><td class="ln">118</td><td class="src c">  async createCharge(amount: number, customerId: string) {</td><td class="ln">124</td><td class="src c">  async createCharge(amount: number, customerId: string) {</td></tr><tr><td class="ln">119</td><td class="src c">    const idempotencyKey = randomUUID();</td><td class="ln">125</td><td class="src c">    const idempotencyKey = randomUUID();</td></tr><tr><td class="ln">120</td><td class="src d">    return this.stripe.charges.create({</td><td class="ln"></td><td class="src e"></td></tr><tr><td class="ln">121</td><td class="src d">      amount, currency: "usd", customer: customerId,</td><td class="ln"></td><td class="src e"></td></tr><tr><td class="ln">122</td><td class="src d">    }, { idempotencyKey });</td><td class="ln"></td><td class="src e"></td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">126</td><td class="src a">    return this.stripe.charges.create({</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">127</td><td class="src a">      amount,</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">128</td><td class="src a">      currency: "usd",</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">129</td><td class="src a">      customer: customerId,</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">130</td><td class="src a">      metadata: { source: "gitsight", retryable: "true" },</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">131</td><td class="src a">    }, {</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">132</td><td class="src a">      idempotencyKey,</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">133</td><td class="src a">      maxNetworkRetries: 3,</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">134</td><td class="src a">    });</td></tr><tr><td class="ln">123</td><td class="src c">  }</td><td class="ln">135</td><td class="src c">  }</td></tr><tr><td class="ln">124</td><td class="src c"></td><td class="ln">136</td><td class="src c"></td></tr><tr class="hunk-head"><td colspan="4">@@ -201,6 +207,12 @@ export class StripeService {</td></tr><tr><td class="ln">201</td><td class="src c">  async refundCharge(chargeId: string, amount?: number) {</td><td class="ln">207</td><td class="src c">  async refundCharge(chargeId: string, amount?: number) {</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">208</td><td class="src a">    const charge = await this.stripe.charges.retrieve(chargeId);</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">209</td><td class="src a">    if (charge.refunded) {</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">210</td><td class="src a">      throw new AlreadyRefundedError(chargeId);</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">211</td><td class="src a">    }</td></tr><tr><td class="ln"></td><td class="src e"></td><td class="ln">212</td><td class="src a"></td></tr><tr><td class="ln">202</td><td class="src c">    return this.stripe.refunds.create({ charge: chargeId, amount });</td><td class="ln">213</td><td class="src c">    return this.stripe.refunds.create({ charge: chargeId, amount });</td></tr><tr><td class="ln">203</td><td class="src c">  }</td><td class="ln">214</td><td class="src c">  }</td></tr></tbody></table>
+    </section>
+  </main>
+</body></html>

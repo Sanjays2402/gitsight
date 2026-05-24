@@ -35,6 +35,8 @@ export interface PrProvider {
   checkout(number: number): Promise<void>;
   /** Optional rich detail (body, files, reviews). Best-effort. */
   detail(number: number): Promise<{ body: string; files: { path: string; additions: number; deletions: number }[]; reviews: { author: string; state: string; body: string }[] }>;
+  /** Optional: resolve current user's display name/login for @me filter. */
+  currentUser?(): Promise<string | undefined>;
 }
 
 export async function detectProvider(git: Git): Promise<PrProvider | undefined> {
@@ -88,6 +90,13 @@ class GitHubProvider implements PrProvider {
 
   async checkout(number: number): Promise<void> {
     await pexec('gh', ['pr', 'checkout', String(number)], { cwd: this.git.cwd });
+  }
+
+  async currentUser(): Promise<string | undefined> {
+    try {
+      const { stdout } = await pexec('gh', ['api', 'user', '--jq', '.login'], { cwd: this.git.cwd });
+      return stdout.trim() || undefined;
+    } catch { return undefined; }
   }
 
   async detail(number: number) {
@@ -184,6 +193,13 @@ class AzureDevOpsProvider implements PrProvider {
       await pexec('git', ['fetch', 'origin', `refs/pull/${number}/merge:pr-${number}`], { cwd: this.git.cwd });
     });
     await pexec('git', ['checkout', `pr-${number}`], { cwd: this.git.cwd });
+  }
+
+  async currentUser(): Promise<string | undefined> {
+    try {
+      const u = await this.az(['account', 'show', '--query', 'user.name']);
+      return (typeof u === 'string' ? u : undefined) || undefined;
+    } catch { return undefined; }
   }
 
   async detail(number: number) {

@@ -1,0 +1,120 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; font:13px -apple-system,system-ui,sans-serif; color:#cccccc; background:#1e1e1e; }
+  .wrap { width:480px; background:#181818; border-right:1px solid #2b2b2b; min-height:100vh; }
+  .vh { padding:10px 14px; background:#252526; border-bottom:1px solid #2b2b2b; display:flex; justify-content:space-between; align-items:center; }
+  .vh .title { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#cccccc; }
+  .vh .actions { display:flex; gap:6px; color:#888; }
+  .filter-bar { padding:8px 14px; background:#1f1f1f; border-bottom:1px solid #2b2b2b; display:flex; gap:6px; }
+  .filter-bar .chip { padding:3px 10px; border-radius:11px; font-size:11px; background:#33333366; color:#9d9d9d; cursor:pointer; }
+  .filter-bar .chip.active { background:#0e639c; color:#fff; }
+  .group { padding:6px 14px; background:#1a1a1a; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#9d9d9d; border-bottom:1px solid #2b2b2b; }
+  .group .count { float:right; background:#33333366; padding:1px 8px; border-radius:10px; font-size:10px; }
+  .row { padding:10px 14px; display:flex; gap:10px; border-bottom:1px solid #232323; cursor:pointer; }
+  .row:hover { background:#2a2d2e; }
+  .row-icon { padding-top:2px; flex-shrink:0; }
+  .row-body { flex:1; min-width:0; }
+  .row-title { font-size:13px; color:#cccccc; line-height:1.4; }
+  .row-meta { margin-top:5px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  .lbl { padding:1px 7px; border-radius:10px; font-size:10px; font-weight:600; }
+  .dim { color:#888; font-size:11px; }
+</style></head><body>
+  <div class="wrap">
+    <div class="vh">
+      <span class="title">Issues</span>
+      <span class="actions">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="#888"><path d="M8 1v10M3 6l5-5 5 5M2 14h12" stroke="#888" stroke-width="1.5" fill="none"/></svg>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="#888"><path d="M8 3v10M3 8l5 5 5-5" stroke="#888" stroke-width="1.5" fill="none"/></svg>
+      </span>
+    </div>
+    <div class="filter-bar">
+      <span class="chip active">All</span>
+      <span class="chip">Assigned to me</span>
+      <span class="chip">Created by me</span>
+    </div>
+    <div class="group">Open <span class="count">6</span></div>
+    <div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2847 OAuth refresh tokens not rotating on /api/v2 endpoints</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#d73a4a; color:#fff;">bug</span><span class="lbl" style="background:#b60205; color:#fff;">priority:p0</span><span class="lbl" style="background:#fbca04; color:#000;">auth</span>
+        <span class="dim">@sanjays2402 · 💬 14 · 2h ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2845 Add Prometheus metrics exporter to subscription service</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#a2eeef; color:#000;">enhancement</span><span class="lbl" style="background:#0075ca; color:#fff;">observability</span>
+        <span class="dim">@sanjays2402 +1 · 💬 8 · 5h ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2842 Documentation: clarify rate-limit headers for webhook endpoints</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#0075ca; color:#fff;">docs</span><span class="lbl" style="background:#7057ff; color:#fff;">good-first-issue</span>
+        <span class="dim">💬 3 · 1d ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2839 Flaky test: tests/payments.test.ts &gt; "retries on 5xx" intermittent</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#bfdadc; color:#000;">test</span><span class="lbl" style="background:#fef2c0; color:#000;">flaky</span>
+        <span class="dim">💬 6 · 2d ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2836 Memory leak in WebSocket connection pool under high churn</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#d73a4a; color:#fff;">bug</span><span class="lbl" style="background:#fbca04; color:#000;">performance</span>
+        <span class="dim">@anjali-k · 💬 22 · 3d ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#4ade80"><circle cx="8" cy="8" r="7" stroke="#4ade80" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2831 feat: add support for ProtonMail SMTP server</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#a2eeef; color:#000;">enhancement</span><span class="lbl" style="background:#008672; color:#fff;">help-wanted</span>
+        <span class="dim">💬 11 · 5d ago</span>
+      </div>
+    </div>
+  </div>
+    <div class="group">Closed <span class="count">3</span></div>
+    <div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#c084fc"><circle cx="8" cy="8" r="7" stroke="#c084fc" stroke-width="1.5" fill="none"/><path d="M5 8l2 2 4-4" stroke="#c084fc" stroke-width="1.8" fill="none"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2828 CVE-2026-3847: axios prototype pollution (CVSS 7.5)</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#b60205; color:#fff;">security</span><span class="lbl" style="background:#0366d6; color:#fff;">dependencies</span>
+        <span class="dim">@sanjays2402 · 💬 4 · 7d ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#c084fc"><circle cx="8" cy="8" r="7" stroke="#c084fc" stroke-width="1.5" fill="none"/><path d="M5 8l2 2 4-4" stroke="#c084fc" stroke-width="1.8" fill="none"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2824 Dashboard breaks when user has &gt; 1000 subscriptions</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#d73a4a; color:#fff;">bug</span><span class="lbl" style="background:#c2e0c6; color:#000;">frontend</span>
+        <span class="dim">@mgonzalez · 💬 9 · 10d ago</span>
+      </div>
+    </div>
+  </div><div class="row">
+    <div class="row-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="#c084fc"><circle cx="8" cy="8" r="7" stroke="#c084fc" stroke-width="1.5" fill="none"/><path d="M5 8l2 2 4-4" stroke="#c084fc" stroke-width="1.8" fill="none"/></svg></div>
+    <div class="row-body">
+      <div class="row-title">#2819 Improve onboarding wizard copy</div>
+      <div class="row-meta">
+        <span class="lbl" style="background:#0075ca; color:#fff;">docs</span>
+        <span class="dim">@priyaram · 💬 2 · 14d ago</span>
+      </div>
+    </div>
+  </div>
+  </div>
+</body></html>

@@ -11,7 +11,7 @@ import { CommitGraphPanel } from './webviews/commitGraph';
 import { showBlameHeatmap } from './webviews/blameHeatmap';
 import { showInteractiveRebase } from './webviews/interactiveRebase';
 import { GitVirtualFs, openHistoricFile, diffRevisions } from './git/virtualFs';
-import { PullRequestProvider, openPrWebview } from './views/githubPrView';
+import { PullRequestProvider, openPrWebview, pickPrAuthorFilter } from './views/githubPrView';
 import { IssuesProvider, openIssueWebview, Issue } from './views/issuesView';
 import { showRangeDiff } from './webviews/rangeDiff';
 import { showConflictResolver } from './webviews/conflictResolver';
@@ -40,7 +40,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const fileHistory = new FileHistoryView(repos);
   const lineHistory = new LineHistoryView(repos);
   const search = new SearchView(repos);
-  const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()));
+  const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()), ctx);
   const issues = new IssuesProvider(() => repos.primary());
 
   // Virtual filesystem for historic files (gitsight://)
@@ -403,6 +403,9 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── GitHub PRs ──────────────────────────────────────────────────
   reg('gitsight.refreshPullRequests', () => prs.refresh());
+  reg('gitsight.filterPrsByAuthor', () => pickPrAuthorFilter(prs));
+  reg('gitsight.filterPrsByMe', () => prs.setAuthorFilter('@me'));
+  reg('gitsight.clearPrAuthorFilter', () => prs.setAuthorFilter(undefined));
   reg('gitsight.openPr', (pr: any) => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await openPrWebview(pr, prs.getProvider());

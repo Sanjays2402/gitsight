@@ -3,6 +3,8 @@ import { Git } from '../git/git';
 import { PR, PrProvider, detectProvider } from '../git/prProviders';
 import { timeAgo } from '../git/format';
 
+const FILTER_KEY = 'gitsight.prAuthorFilter';
+
 export class PullRequestProvider implements vscode.TreeDataProvider<PrItem> {
   private _change = new vscode.EventEmitter<PrItem | void>();
   onDidChangeTreeData = this._change.event;
@@ -10,10 +12,40 @@ export class PullRequestProvider implements vscode.TreeDataProvider<PrItem> {
   private loading = false;
   private error?: string;
   private provider?: PrProvider;
+  private authorFilter?: string;     // exact-match (case-insensitive) on PR.author
+  private currentUser?: string;      // resolved @me for current provider
 
-  constructor(private getGit: () => Git | undefined) {}
+  constructor(private getGit: () => Git | undefined, private ctx?: vscode.ExtensionContext) {
+    this.authorFilter = ctx?.workspaceState.get<string>(FILTER_KEY) || undefined;
+  }
 
-  refresh(): void { this.prs = []; this.error = undefined; this.provider = undefined; this.load(); }
+  refresh(): void { this.prs = []; this.error = undefined; this.provider = undefined; this.currentUser = undefined; this.load(); }
+
+  /** Set/clear the active author filter. Pass `undefined` to clear. */
+  async setAuthorFilter(value: string | undefined) {
+    this.authorFilter = value && value.trim() ? value.trim() : undefined;
+    await this.ctx?.workspaceState.update(FILTER_KEY, this.authorFilter);
+    vscode.commands.executeCommand('setContext', 'gitsight.prFilterActive', !!this.authorFilter);
+    this._change.fire();
+  }
+
+  getAuthorFilter(): string | undefined { return this.authorFilter; }
+  getAuthors(): string[] {
+    return [...new Set(this.prs.map(p => p.author).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }
+
+  /** Returns PRs after applying the current filter (or all if no filter). */
+  private filtered(): PR[] {
+    if (!this.authorFilter) return this.prs;
+    const needle = this.authorFilter.toLowerCase();
+    // "@me" is resolved during load(); fall back to literal match if not resolved yet.
+    const me = this.currentUser?.toLowerCase();
+    return this.prs.filter(p => {
+      const a = (p.author || '').toLowerCase();
+      if (needle === '@me') return me ? a === me : false;
+      return a === needle || a.includes(needle);  // exact OR substring fallback
+    });
+  }
 
   async load() {
     const git = this.getGit();
@@ -31,6 +63,9 @@ export class PullRequestProvider implements vscode.TreeDataProvider<PrItem> {
         return;
       }
       this.prs = await this.provider.list();
+      // Best-effort: resolve current user for @me filter
+      try { this.currentUser = await this.provider.currentUser?.(); } catch {/* ignore */}
+      vscode.commands.executeCommand('setContext', 'gitsight.prFilterActive', !!this.authorFilter);
     } catch (e: any) {
       const msg = (e.stderr || e.message || '').toString();
       if (msg.includes('not found') || msg.includes('command not found')) {
@@ -57,22 +92,42 @@ export class PullRequestProvider implements vscode.TreeDataProvider<PrItem> {
     if (parent) return [];
     if (this.loading) return [new PrItem('Loading PRs…', '', 'loading')];
     if (this.error) return [new PrItem(`⚠ ${this.error}`, '', 'error')];
-    if (!this.prs.length) {
-      const hint = this.provider ? `No pull requests on ${this.provider.name}. Click ↻ to refresh.` : 'No pull requests. Click ↻ to refresh.';
-      return [new PrItem(hint, '', 'empty')];
-    }
 
     const items: PrItem[] = [];
     if (this.provider) items.push(new PrItem(`Provider: ${this.provider.name}`, '', 'provider'));
 
+    // Filter chip (always visible when active, clickable to clear)
+    if (this.authorFilter) {
+      const label = this.authorFilter === '@me'
+        ? `Filter: @me${this.currentUser ? ` (${this.currentUser})` : ''}`
+        : `Filter: author = ${this.authorFilter}`;
+      const chip = new PrItem(`✕  ${label}`, 'click to clear', 'filter');
+      chip.command = { command: 'gitsight.clearPrAuthorFilter', title: 'Clear filter' };
+      items.push(chip);
+    }
+
+    const visible = this.filtered();
+
+    if (!this.prs.length) {
+      const hint = this.provider ? `No pull requests on ${this.provider.name}. Click ↻ to refresh.` : 'No pull requests. Click ↻ to refresh.';
+      items.push(new PrItem(hint, '', 'empty'));
+      return items;
+    }
+    if (!visible.length && this.authorFilter) {
+      items.push(new PrItem(`No PRs match author "${this.authorFilter}".`, `${this.prs.length} hidden`, 'empty'));
+      return items;
+    }
+
     const groups: Record<string, PR[]> = { OPEN: [], DRAFT: [], MERGED: [], CLOSED: [] };
-    for (const pr of this.prs) {
+    for (const pr of visible) {
       const key = pr.isDraft ? 'DRAFT' : pr.state;
       (groups[key] ?? (groups[key] = [])).push(pr);
     }
     for (const [k, list] of Object.entries(groups)) {
       if (!list.length) continue;
-      items.push(new PrItem(`${k} · ${list.length}`, '', 'group'));
+      const total = this.prs.filter(p => (p.isDraft ? 'DRAFT' : p.state) === k).length;
+      const countLabel = this.authorFilter && total !== list.length ? `${k} · ${list.length} of ${total}` : `${k} · ${list.length}`;
+      items.push(new PrItem(countLabel, '', 'group'));
       for (const pr of list) {
         const checkIcon = pr.checksState === 'SUCCESS' ? '✓' : pr.checksState === 'FAILURE' ? '✗' : pr.checksState === 'PENDING' ? '○' : ' ';
         const reviewBadge = pr.reviewDecision === 'APPROVED' ? '✓' : pr.reviewDecision === 'CHANGES_REQUESTED' ? '✗' : pr.reviewDecision === 'REVIEW_REQUIRED' ? '◐' : ' ';
@@ -121,9 +176,35 @@ class PrItem extends vscode.TreeItem {
       this.command = { command: 'gitsight.openPr', title: 'Open PR', arguments: [pr] };
     } else if (kind === 'group') this.iconPath = new vscode.ThemeIcon('folder');
     else if (kind === 'provider') this.iconPath = new vscode.ThemeIcon('rocket');
+    else if (kind === 'filter') this.iconPath = new vscode.ThemeIcon('filter-filled', new vscode.ThemeColor('charts.yellow'));
     else if (kind === 'loading') this.iconPath = new vscode.ThemeIcon('loading~spin');
     else if (kind === 'error') this.iconPath = new vscode.ThemeIcon('warning');
   }
+}
+
+/** Show a quick-pick to choose a filter: @me / specific author / clear / custom. */
+export async function pickPrAuthorFilter(prs: PullRequestProvider) {
+  const authors = prs.getAuthors();
+  const current = prs.getAuthorFilter();
+  const items: vscode.QuickPickItem[] = [
+    { label: '$(account) @me', description: 'PRs authored by you (resolved from gh/az)', detail: current === '@me' ? '✓ current' : undefined },
+    { label: '$(clear-all) Clear filter', description: 'Show all PRs', detail: !current ? '✓ current' : undefined },
+    { label: '$(edit) Custom…', description: 'Type any author name / substring' },
+    { kind: vscode.QuickPickItemKind.Separator, label: 'Authors in current list' },
+    ...authors.map(a => ({ label: `$(person) ${a}`, description: undefined, detail: current?.toLowerCase() === a.toLowerCase() ? '✓ current' : undefined })),
+  ];
+  const pick = await vscode.window.showQuickPick(items, { placeHolder: current ? `Filtering by: ${current}` : 'Filter PRs by author', matchOnDescription: true });
+  if (!pick) return;
+  if (pick.label.includes('@me')) return prs.setAuthorFilter('@me');
+  if (pick.label.includes('Clear filter')) return prs.setAuthorFilter(undefined);
+  if (pick.label.includes('Custom')) {
+    const v = await vscode.window.showInputBox({ prompt: 'Author name (exact or substring)', value: current ?? '' });
+    if (v !== undefined) await prs.setAuthorFilter(v || undefined);
+    return;
+  }
+  // Author pick — strip the icon prefix
+  const name = pick.label.replace(/^\$\(person\)\s*/, '');
+  await prs.setAuthorFilter(name);
 }
 
 function esc(s: string) { return (s || '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!)); }

@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+// Standalone renderer for the merge-conflict 3-pane resolver screenshot.
+const fs = require('fs');
+const out = process.argv[2] || 'screenshots/conflict-resolver.html';
+const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; font:13px -apple-system,system-ui,sans-serif; color:#cccccc; background:#1e1e1e; }
+  .header { padding:16px 20px; border-bottom:1px solid #2b2b2b; background:#252526; display:flex; justify-content:space-between; align-items:center; }
+  .header h1 { margin:0; font-size:15px; color:#fff; }
+  .header .meta { color:#9d9d9d; font-size:11px; margin-top:4px; }
+  .save { background:#10b981; color:white; border:none; padding:9px 20px; border-radius:4px; font-weight:600; font-size:13px; }
+  .body { padding:20px; max-width:1500px; margin:0 auto; }
+  .chunk { margin-bottom:10px; }
+  .chunk.normal pre { background:#252526; padding:10px 14px; border-radius:4px; margin:0; font-family:"SF Mono",Menlo,monospace; font-size:12px; white-space:pre; overflow-x:auto; color:#cccccc; }
+  .chunk.conflict { border:2px solid #fbbf24; border-radius:6px; overflow:hidden; margin:16px 0; }
+  .actions { background:#fbbf2422; padding:10px 14px; display:flex; gap:8px; align-items:center; }
+  .actions .lbl { color:#fbbf24; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-right:8px; }
+  .actions button { background:#0e639c; color:white; border:none; padding:6px 12px; border-radius:3px; font-size:11px; cursor:pointer; }
+  .actions button.ok { background:#10b981; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; }
+  .col-head { padding:7px 12px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .col.ours .col-head { background:#10b98122; color:#4ade80; }
+  .col.theirs .col-head { background:#a855f722; color:#c084fc; }
+  .col pre { margin:0; padding:10px 14px; font-family:"SF Mono",Menlo,monospace; font-size:12px; white-space:pre; min-height:60px; color:#cccccc; }
+  .col.ours pre { background:#10b98109; border-right:1px solid #2b2b2b; }
+  .col.theirs pre { background:#a855f709; }
+  details.base summary { cursor:pointer; padding:7px 14px; color:#9d9d9d; font-size:11px; background:#33333366; }
+  .resolved { padding:14px 18px; color:#4ade80; font-weight:600; background:#10b98111; font-size:12px; }
+</style></head><body>
+  <div class="header">
+    <div><h1>🔀 Resolving: src/auth/sessionManager.ts</h1><div class="meta">3 conflict region(s) · Click Accept buttons or edit panes directly · Save & Stage when done</div></div>
+    <button class="save">💾 Save & Stage</button>
+  </div>
+  <div class="body">
+    <div class="chunk normal"><pre>import { Session } from '../models/Session';
+import { redis } from '../db/redis';
+
+export class SessionManager {
+  private ttl = 3600;</pre></div>
+
+    <div class="chunk conflict">
+      <div class="actions">
+        <span class="lbl">⚠ Conflict #1</span>
+        <button>← Accept Ours</button>
+        <button>Accept Theirs →</button>
+        <button>Accept Both</button>
+        <button>✎ Edit Manually</button>
+      </div>
+      <div class="cols">
+        <div class="col ours">
+          <div class="col-head">OURS (HEAD)</div>
+          <pre>  async create(userId: string): Promise&lt;Session&gt; {
+    const token = randomUUID();
+    await redis.setex(token, this.ttl, userId);
+    return new Session(token, userId, Date.now());
+  }</pre>
+        </div>
+        <div class="col theirs">
+          <div class="col-head">THEIRS (incoming)</div>
+          <pre>  async create(userId: string, opts?: SessionOpts): Promise&lt;Session&gt; {
+    const token = await this.generateSecureToken();
+    const ttl = opts?.ttl ?? this.ttl;
+    await redis.setex(token, ttl, userId);
+    return new Session(token, userId, Date.now(), ttl);
+  }</pre>
+        </div>
+      </div>
+      <details class="base"><summary>Show base (common ancestor)</summary></details>
+    </div>
+
+    <div class="chunk conflict" style="border-color:#10b981">
+      <div class="resolved">✓ Resolved as <strong>theirs</strong>. <a href="#" style="color:#7dd3fc">undo</a></div>
+    </div>
+
+    <div class="chunk normal"><pre>
+  async revoke(token: string): Promise&lt;void&gt; {
+    await redis.del(token);
+  }
+}</pre></div>
+  </div>
+</body></html>`;
+fs.writeFileSync(out, html);
+console.log(out);
