@@ -24,6 +24,7 @@ import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
 import { showBranchProtection } from './views/branchProtection';
+import { CodeownersOverlay } from './views/codeownersOverlay';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -437,6 +438,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return;
     await showBranchProtection(git);
   }));
+
+  // ── CODEOWNERS overlay ──────────────────────────────────────────
+  const codeowners = new CodeownersOverlay(() => primary());
+  ctx.subscriptions.push(codeowners);
+  reg('gitsight.codeownersExplain', () => errorWrap(() => codeowners.explain()));
+  reg('gitsight.codeownersCheckStaged', () => errorWrap(() => codeowners.checkStagedOwnership()));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

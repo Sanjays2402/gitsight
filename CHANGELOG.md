@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.0 — 2026-05-24
+### Added
+- **CODEOWNERS Overlay** — auto-loads `CODEOWNERS`, `.github/CODEOWNERS`, or `docs/CODEOWNERS`. Adds a status-bar pill showing owners of the active file (warning style if no rule matches). Click to view the full rule list as markdown.
+- `GitSight: CODEOWNERS — Check Staged Files` flags staged files that require review from owners you are not part of (great before pushing in enterprise repos).
+
 ## 1.11.0 — 2026-05-24
 ### Added
 - **Branch Protection Viewer** — `GitSight: Show Branch Protection Rules…` pulls the live policy for a chosen branch from GitHub (`gh api`) or Azure DevOps (`az repos policy list`) and renders a clean markdown table: required reviewers, required status checks, linear history, signed commits, admin enforcement, force-push & deletion permissions. Works on both `github.com` and `dev.azure.com` remotes.
