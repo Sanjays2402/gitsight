@@ -1,0 +1,154 @@
+{
+  "name": "gitsight",
+  "displayName": "GitSight — Git Supercharged",
+  "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
+  "version": "1.0.0",
+  "publisher": "gitsight",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["SCM Providers", "Visualization", "Other"],
+  "keywords": ["git", "blame", "history", "graph", "worktree", "branch", "tag", "stash", "remote", "gitlens", "commit", "diff", "compare", "log"],
+  "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "gitsight", "title": "GitSight", "icon": "media/sight.svg" }
+      ]
+    },
+    "views": {
+      "gitsight": [
+        { "id": "gitsight.repositories", "name": "Repositories", "icon": "$(repo)" },
+        { "id": "gitsight.commits", "name": "Commits", "icon": "$(git-commit)" },
+        { "id": "gitsight.branches", "name": "Branches", "icon": "$(git-branch)" },
+        { "id": "gitsight.remotes", "name": "Remotes", "icon": "$(cloud)" },
+        { "id": "gitsight.tags", "name": "Tags", "icon": "$(tag)" },
+        { "id": "gitsight.stashes", "name": "Stashes", "icon": "$(archive)" },
+        { "id": "gitsight.worktrees", "name": "Worktrees", "icon": "$(versions)" },
+        { "id": "gitsight.contributors", "name": "Contributors", "icon": "$(organization)" },
+        { "id": "gitsight.fileHistory", "name": "File History", "icon": "$(history)" },
+        { "id": "gitsight.lineHistory", "name": "Line History", "icon": "$(list-flat)" },
+        { "id": "gitsight.search", "name": "Search & Compare", "icon": "$(search)" }
+      ]
+    },
+    "commands": [
+      { "command": "gitsight.showCommitGraph", "title": "GitSight: Show Commit Graph", "icon": "$(git-merge)" },
+      { "command": "gitsight.toggleBlame", "title": "GitSight: Toggle Inline Blame", "icon": "$(eye)" },
+      { "command": "gitsight.toggleHeatmap", "title": "GitSight: Toggle File Heatmap" },
+      { "command": "gitsight.toggleAuthors", "title": "GitSight: Toggle Author Gutter" },
+      { "command": "gitsight.showFileHistory", "title": "GitSight: Show File History", "icon": "$(history)" },
+      { "command": "gitsight.showLineHistory", "title": "GitSight: Show Line History" },
+      { "command": "gitsight.openLineCommit", "title": "GitSight: Open Commit for Current Line" },
+      { "command": "gitsight.openCommitOnRemote", "title": "GitSight: Open Commit on Remote" },
+      { "command": "gitsight.copyCommitSha", "title": "GitSight: Copy Commit SHA" },
+      { "command": "gitsight.copyCommitMessage", "title": "GitSight: Copy Commit Message" },
+      { "command": "gitsight.cherryPick", "title": "GitSight: Cherry-Pick Commit" },
+      { "command": "gitsight.revertCommit", "title": "GitSight: Revert Commit" },
+      { "command": "gitsight.resetToCommit", "title": "GitSight: Reset Branch to Commit…" },
+      { "command": "gitsight.createBranch", "title": "GitSight: Create Branch", "icon": "$(add)" },
+      { "command": "gitsight.deleteBranch", "title": "GitSight: Delete Branch", "icon": "$(trash)" },
+      { "command": "gitsight.checkoutBranch", "title": "GitSight: Checkout Branch" },
+      { "command": "gitsight.renameBranch", "title": "GitSight: Rename Branch" },
+      { "command": "gitsight.mergeBranch", "title": "GitSight: Merge Branch into Current" },
+      { "command": "gitsight.rebaseBranch", "title": "GitSight: Rebase Current onto Branch" },
+      { "command": "gitsight.compareBranches", "title": "GitSight: Compare Branches…" },
+      { "command": "gitsight.compareWithWorking", "title": "GitSight: Compare with Working Tree" },
+      { "command": "gitsight.createTag", "title": "GitSight: Create Tag", "icon": "$(add)" },
+      { "command": "gitsight.deleteTag", "title": "GitSight: Delete Tag", "icon": "$(trash)" },
+      { "command": "gitsight.fetch", "title": "GitSight: Fetch", "icon": "$(sync)" },
+      { "command": "gitsight.pull", "title": "GitSight: Pull", "icon": "$(arrow-down)" },
+      { "command": "gitsight.push", "title": "GitSight: Push", "icon": "$(arrow-up)" },
+      { "command": "gitsight.addRemote", "title": "GitSight: Add Remote", "icon": "$(add)" },
+      { "command": "gitsight.removeRemote", "title": "GitSight: Remove Remote", "icon": "$(trash)" },
+      { "command": "gitsight.stashApply", "title": "GitSight: Apply Stash" },
+      { "command": "gitsight.stashPop", "title": "GitSight: Pop Stash" },
+      { "command": "gitsight.stashDrop", "title": "GitSight: Drop Stash", "icon": "$(trash)" },
+      { "command": "gitsight.stashSave", "title": "GitSight: Stash Working Changes", "icon": "$(archive)" },
+      { "command": "gitsight.createWorktree", "title": "GitSight: Create Worktree", "icon": "$(add)" },
+      { "command": "gitsight.removeWorktree", "title": "GitSight: Remove Worktree", "icon": "$(trash)" },
+      { "command": "gitsight.switchToWorktree", "title": "GitSight: Open Worktree in New Window" },
+      { "command": "gitsight.searchCommits", "title": "GitSight: Search Commits…", "icon": "$(search)" },
+      { "command": "gitsight.generateCommitMessage", "title": "GitSight: Generate AI Commit Message", "icon": "$(sparkle)" },
+      { "command": "gitsight.explainCommit", "title": "GitSight: Explain Commit with AI" },
+      { "command": "gitsight.refresh", "title": "GitSight: Refresh", "icon": "$(refresh)" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "gitsight.refresh", "when": "view =~ /^gitsight\\./", "group": "navigation@99" },
+        { "command": "gitsight.showCommitGraph", "when": "view == gitsight.commits", "group": "navigation@1" },
+        { "command": "gitsight.searchCommits", "when": "view == gitsight.commits", "group": "navigation@2" },
+        { "command": "gitsight.createBranch", "when": "view == gitsight.branches", "group": "navigation@1" },
+        { "command": "gitsight.createTag", "when": "view == gitsight.tags", "group": "navigation@1" },
+        { "command": "gitsight.stashSave", "when": "view == gitsight.stashes", "group": "navigation@1" },
+        { "command": "gitsight.createWorktree", "when": "view == gitsight.worktrees", "group": "navigation@1" },
+        { "command": "gitsight.addRemote", "when": "view == gitsight.remotes", "group": "navigation@1" },
+        { "command": "gitsight.fetch", "when": "view =~ /^gitsight\\./", "group": "navigation@90" }
+      ],
+      "view/item/context": [
+        { "command": "gitsight.checkoutBranch", "when": "viewItem == branch", "group": "1_actions@1" },
+        { "command": "gitsight.renameBranch", "when": "viewItem == branch", "group": "1_actions@2" },
+        { "command": "gitsight.mergeBranch", "when": "viewItem == branch", "group": "1_actions@3" },
+        { "command": "gitsight.rebaseBranch", "when": "viewItem == branch", "group": "1_actions@4" },
+        { "command": "gitsight.compareWithWorking", "when": "viewItem == branch", "group": "2_compare@1" },
+        { "command": "gitsight.deleteBranch", "when": "viewItem == branch", "group": "9_destroy@1" },
+        { "command": "gitsight.deleteTag", "when": "viewItem == tag", "group": "9_destroy@1" },
+        { "command": "gitsight.stashApply", "when": "viewItem == stash", "group": "1_actions@1" },
+        { "command": "gitsight.stashPop", "when": "viewItem == stash", "group": "1_actions@2" },
+        { "command": "gitsight.stashDrop", "when": "viewItem == stash", "group": "9_destroy@1" },
+        { "command": "gitsight.removeWorktree", "when": "viewItem == worktree", "group": "9_destroy@1" },
+        { "command": "gitsight.removeRemote", "when": "viewItem == remote", "group": "9_destroy@1" },
+        { "command": "gitsight.copyCommitSha", "when": "viewItem == commit", "group": "1_copy@1" },
+        { "command": "gitsight.copyCommitMessage", "when": "viewItem == commit", "group": "1_copy@2" },
+        { "command": "gitsight.openCommitOnRemote", "when": "viewItem == commit", "group": "2_open@1" },
+        { "command": "gitsight.cherryPick", "when": "viewItem == commit", "group": "3_actions@1" },
+        { "command": "gitsight.revertCommit", "when": "viewItem == commit", "group": "3_actions@2" },
+        { "command": "gitsight.resetToCommit", "when": "viewItem == commit", "group": "3_actions@3" }
+      ],
+      "scm/title": [
+        { "command": "gitsight.generateCommitMessage", "group": "navigation", "when": "scmProvider == git" }
+      ],
+      "editor/context": [
+        { "command": "gitsight.openLineCommit", "group": "gitsight@1" },
+        { "command": "gitsight.showLineHistory", "group": "gitsight@2" },
+        { "command": "gitsight.showFileHistory", "group": "gitsight@3" }
+      ],
+      "editor/title": [
+        { "command": "gitsight.showFileHistory", "when": "resourceScheme == file", "group": "navigation@99" }
+      ]
+    },
+    "configuration": {
+      "title": "GitSight",
+      "properties": {
+        "gitsight.blame.enabled":  { "type": "boolean", "default": true, "description": "Show inline blame on the current line." },
+        "gitsight.blame.format":   { "type": "string",  "default": "${author}, ${ago} • ${message}", "description": "Inline blame template. Tokens: ${author} ${ago} ${date} ${sha} ${message}" },
+        "gitsight.blame.delay":    { "type": "number",  "default": 200, "description": "Delay (ms) before inline blame appears." },
+        "gitsight.heatmap.enabled":{ "type": "boolean", "default": false, "description": "Color the gutter by commit age (heatmap)." },
+        "gitsight.heatmap.coldDays":{ "type": "number", "default": 365, "description": "Days at which a line is considered cold." },
+        "gitsight.authors.enabled":{ "type": "boolean", "default": false, "description": "Show per-line author colour stripe in the gutter." },
+        "gitsight.statusBar.enabled":{ "type": "boolean", "default": true, "description": "Show repo summary in the status bar." },
+        "gitsight.graph.maxCommits":{ "type": "number", "default": 1000, "description": "Maximum commits to render in the Commit Graph." },
+        "gitsight.graph.showAllBranches":{ "type": "boolean", "default": true, "description": "Show commits from all branches in the Commit Graph." },
+        "gitsight.ai.provider":    { "type": "string", "enum": ["copilot","ollama","none"], "default": "copilot", "description": "AI provider." },
+        "gitsight.ai.model":       { "type": "string", "default": "gpt-4o-mini", "description": "Model name (Ollama only)." }
+      }
+    },
+    "colors": [
+      { "id": "gitsight.heatmap.hot", "description": "Heatmap hot colour", "defaults": { "dark": "#ef4444", "light": "#dc2626", "highContrast": "#ff0000" } },
+      { "id": "gitsight.heatmap.cold","description": "Heatmap cold colour","defaults": { "dark": "#3b82f6", "light": "#2563eb", "highContrast": "#0000ff" } }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies",
+    "lint": "tsc -p ./ --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.0"
+  },
+  "repository": { "type": "git", "url": "https://github.com/gitsight/gitsight" },
+  "license": "MIT"
+}
