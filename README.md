@@ -119,8 +119,37 @@ Native PR sidebar (requires `gh` CLI). Grouped by Open / Draft / Merged / Closed
 ### ⚙️ Quick Branch Ops
 Cherry-pick, revert, reset (soft/mixed/hard), checkout — right-click any commit.
 
+### 🏢 Enterprise Suite (NEW in 1.11 – 1.15)
+
+GitSight now ships a complete enterprise / CI overlay — all free, all open:
+
+- **🛡️ Branch Protection Viewer** (1.11) — Pull the live policy for any branch from **GitHub** (`gh api`) or **Azure DevOps** (`az repos policy list`) and render it as a clean markdown table: required reviewers, status checks, linear history, signed commits, admin enforcement, force-push & deletion permissions.
+- **👥 CODEOWNERS Overlay** (1.12) — Auto-loads `CODEOWNERS` / `.github/CODEOWNERS` / `docs/CODEOWNERS`. Status-bar pill shows the owner(s) of the active file. `GitSight: CODEOWNERS — Check Staged Files` flags any staged file that needs review from owners you're not part of — perfect for catching cross-team changes before you push.
+- **🚀 CI Status Panel** (1.13) — Status-bar pill auto-polls **GitHub Actions** (`gh run list`) or **Azure Pipelines** (`az pipelines runs list`) every 60s. Color-coded (green/yellow/red). Click for the full recent-runs quick-pick → opens any run in the browser.
+- **📈 Commit Sparkline** (1.14) — Tiny `▁▂▃▄▅▆▇█` status-bar chart of your last 14 days of commits + total count. Configurable window (1-90 days) and author filter (`all` / `me`). Click → activity heatmap.
+- **🎨 Commit Graph Themes** (1.15) — 8 palettes for the commit graph: Default, Catppuccin Mocha, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Monochrome. Pick via `GitSight: Pick Commit Graph Theme…`.
+
+### 🤖 AI — Copilot only, enterprise-safe (refactored in 1.5)
+
+All AI features run through `vscode.lm.selectChatModels({ vendor: 'copilot' })` — no third-party API keys, no local model spawning, no data leaving your Copilot tenant. Includes:
+
+- **Generate Commit Message** from staged diff
+- **Explain Commit** — natural-language summary of any commit
+- **AI Code Review** — review staged changes, a commit, or any commit range with severity-tagged findings (🔴 / 🟡 / 🟢)
+- **AI Changelog Generator** — pick a range, get a clean markdown changelog
+- **Model Picker** — `GitSight: Pick AI Model` switches the active Copilot model (GPT-4o, Claude, etc.)
+
+### 🪓 Worktree Quick-Switcher (1.6)
+`Cmd+Shift+W` → instant quick-pick of all worktrees with open / create / remove actions.
+
+### 🪜 Bisect Wizard (1.8)
+Status-bar driven `git bisect` — Start / Good / Bad / Skip / Run a test command / Reset / Menu. The pill auto-appears when `.git/BISECT_LOG` exists.
+
+### 📦 Stash Visualizer (1.9)
+Webview with per-file checkboxes — **partial-apply** any subset of files from a stash without leaving VS Code.
+
 ### 📊 Status Bar
-Current branch + ahead/behind indicator. Click to open the Commit Graph.
+Branch + ahead/behind, commit sparkline, CI status pill, CODEOWNERS owner pill, bisect state, all auto-shown when relevant.
 
 ## Configuration
 
@@ -135,8 +164,19 @@ Current branch + ahead/behind indicator. Click to open the Commit Graph.
 | `gitsight.statusBar.enabled` | `true` | Status bar branch info |
 | `gitsight.graph.maxCommits` | `1000` | Max commits in graph |
 | `gitsight.graph.showAllBranches` | `true` | Include all branches in graph |
-| `gitsight.ai.provider` | `copilot` | `copilot`, `ollama`, `none` |
-| `gitsight.ai.model` | `gpt-4o-mini` | Model name (Ollama) |
+| `gitsight.graph.theme` | `default` | Graph palette: `default` / `catppuccin` / `tokyo-night` / `dracula` / `nord` / `gruvbox` / `solarized` / `monochrome` |
+| `gitsight.sparkline.days` | `14` | Commit sparkline window (1-90 days) |
+| `gitsight.sparkline.author` | `all` | `all` contributors or `me` only |
+| `gitsight.ai.provider` | `copilot` | Locked to `copilot` (enterprise-safe) |
+| `gitsight.ai.model` | _auto_ | Copilot model — set via `GitSight: Pick AI Model` |
+
+## External CLI requirements (optional, per-feature)
+
+| Feature | Requires |
+|---|---|
+| GitHub PRs / CI / Branch protection | [`gh`](https://cli.github.com) authenticated (`gh auth login`) |
+| Azure DevOps PRs / Pipelines / Branch policies | [`az`](https://learn.microsoft.com/cli/azure/) + `az extension add --name azure-devops` + `az login` |
+| AI features | GitHub Copilot subscription (signed in to VS Code) |
 
 ## Develop
 
@@ -149,8 +189,8 @@ npm run compile
 ## Package & Install
 
 ```bash
-npm run package         # outputs gitsight-1.0.0.vsix
-code --install-extension gitsight-1.0.0.vsix
+npm run package         # outputs gitsight-1.15.0.vsix
+code --install-extension gitsight-1.15.0.vsix
 ```
 
 ## Why?
