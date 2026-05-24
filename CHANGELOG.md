@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — 2026-05-24
+### Changed — Enterprise AI
+- **GitHub Copilot is now the only supported AI provider.** Removed Ollama and any local-model code paths so GitSight is safe to deploy in enterprise environments (Microsoft, regulated orgs, etc.) where local LLMs and third-party API keys are prohibited.
+- Added **`GitSight: Pick AI Model`** — quick-pick lists every Copilot Chat model the user has access to (GPT-4o, Claude Sonnet, o1, etc.) and persists the choice in `globalState`.
+- Added **`GitSight: Sign in to GitHub Copilot`** — one-click sign-in / install prompt when no Copilot models are detected. Routes through the official `GitHub.copilot-chat` extension.
+- Added **`GitSight: Show AI Status / Available Models`** — diagnostic command showing active model + every model the user can pick from.
+- AI commit messages and commit explanations now route through the selected Copilot model.
+
 ## 1.4.0 — 2026-05-24
 ### Added
 - **Filter Pull Requests by author** — three new commands in the PR view title bar:

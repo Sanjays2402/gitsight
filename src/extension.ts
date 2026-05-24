@@ -17,6 +17,7 @@ import { showRangeDiff } from './webviews/rangeDiff';
 import { showConflictResolver } from './webviews/conflictResolver';
 import { showActivityHeatmap } from './webviews/activityHeatmap';
 import { generateCommitMessage, explainCommit } from './ai/commitMessage';
+import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -194,7 +195,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       { location: vscode.ProgressLocation.Notification, title: 'GitSight: explaining commit…' },
       async () => {
         const out = await git.show(sha);
-        const explanation = await explainCommit(out);
+        const explanation = await explainCommit(ctx, out);
         const md = new vscode.MarkdownString(`# Commit ${sha.slice(0, 7)}\n\n${explanation}`);
         const doc = await vscode.workspace.openTextDocument({ content: md.value, language: 'markdown' });
         vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
@@ -348,7 +349,7 @@ export function activate(ctx: vscode.ExtensionContext) {
         let diff = await git.diff({ staged: true });
         if (!diff.trim()) diff = await git.diff();
         if (!diff.trim()) return vscode.window.showInformationMessage('Nothing to commit.');
-        const msg = await generateCommitMessage(diff);
+        const msg = await generateCommitMessage(ctx, diff);
         const gitExt = vscode.extensions.getExtension('vscode.git')?.exports;
         const api = gitExt?.getAPI(1);
         const repo = api?.repositories?.[0];
@@ -361,6 +362,24 @@ export function activate(ctx: vscode.ExtensionContext) {
         }
       },
     );
+  }));
+
+  // ── AI: Copilot model picker ────────────────────────────────────
+  reg('gitsight.pickAIModel', () => errorWrap(async () => { await pickModel(ctx); }));
+  reg('gitsight.signInCopilot', () => errorWrap(async () => { await promptCopilotSignIn(); }));
+  reg('gitsight.showAIStatus', () => errorWrap(async () => {
+    const sel = getSelectedModel(ctx);
+    const models = await listCopilotModels();
+    if (!models.length) {
+      const go = await vscode.window.showWarningMessage('No Copilot models available. Sign in?', 'Sign in', 'Cancel');
+      if (go === 'Sign in') await promptCopilotSignIn();
+      return;
+    }
+    const names = models.map((m: any) => m.name ?? m.family).join(', ');
+    vscode.window.showInformationMessage(
+      `GitSight AI · Active: ${sel?.name ?? 'auto'} · Available: ${names}`,
+      'Change model',
+    ).then(c => { if (c === 'Change model') pickModel(ctx); });
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

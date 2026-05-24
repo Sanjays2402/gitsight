@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -370,6 +370,19 @@
         "title": "GitSight: Explain Commit with AI"
       },
       {
+        "command": "gitsight.pickAIModel",
+        "title": "GitSight: Pick AI Model (GitHub Copilot)",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "gitsight.signInCopilot",
+        "title": "GitSight: Sign in to GitHub Copilot"
+      },
+      {
+        "command": "gitsight.showAIStatus",
+        "title": "GitSight: Show AI Status / Available Models"
+      },
+      {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",
         "icon": "$(refresh)"
@@ -620,17 +633,15 @@
         "gitsight.ai.provider": {
           "type": "string",
           "enum": [
-            "copilot",
-            "ollama",
-            "none"
+            "copilot"
           ],
           "default": "copilot",
-          "description": "AI provider."
+          "description": "AI provider for GitSight. Only GitHub Copilot is supported (enterprise-safe, no local models, no third-party API keys). Users select a Copilot model via 'GitSight: Pick AI Model'."
         },
-        "gitsight.ai.model": {
+        "gitsight.ai.preferredFamily": {
           "type": "string",
-          "default": "gpt-4o-mini",
-          "description": "Model name (Ollama only)."
+          "default": "",
+          "description": "Optional Copilot model family preference (e.g. 'gpt-4o', 'claude-3-5-sonnet'). Leave empty to use last-picked model or auto-select."
         }
       }
     },
