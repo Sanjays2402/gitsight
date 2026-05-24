@@ -26,7 +26,7 @@ Drag-to-reorder commits, set actions (pick/reword/squash/fixup/drop), edit messa
 
 ![Interactive Rebase](screenshots/interactive-rebase.png)
 
-### Pull Requests (GitHub)
+### Pull Requests (GitHub + Azure DevOps)
 Native PR sidebar grouped by Open / Draft / Merged / Closed. Status check & review badges. One-click checkout via `gh pr checkout`.
 
 ![Pull Requests](screenshots/pull-requests.png)
@@ -82,7 +82,14 @@ GUI replacement for `git rebase -i`. Drag commits to reorder. Pick action per co
 ### 📂 Historic File Filesystem (NEW)
 Custom `gitsight://` virtual filesystem. Open any file at any commit as a real read-only VS Code editor tab — language services, peek-definition, and diff-against-working all work natively. Powers the file-history → "open at this commit" command.
 
-### 🔄 GitHub Pull Requests (NEW)
+### 🔄 Pull Requests — GitHub + Azure DevOps (NEW in 1.2)
+
+Auto-detects the host from your `origin` remote and uses the right CLI:
+
+- **GitHub** — needs `gh` (`brew install gh && gh auth login`)
+- **Azure DevOps** — needs `az` with the devops extension (`brew install azure-cli && az extension add --name azure-devops && az login`). Supports both `dev.azure.com/{org}/{project}/_git/{repo}` and legacy `{org}.visualstudio.com`.
+
+Same sidebar UI for both — grouped by Open/Draft/Merged(Completed)/Closed(Abandoned), with review and status-check badges, and a provider tag so you always know which host you're looking at. The PR detail webview renders body, files, and reviews (ADO reviewer votes → APPROVED / WAITING_FOR_AUTHOR / REJECTED).
 Native PR sidebar (requires `gh` CLI). Grouped by Open / Draft / Merged / Closed. Status check + review decision badges. Tooltip shows full PR metadata, author, branch, diff size, labels. Click to open a rich PR webview with body, files changed, and reviews. Right-click → Checkout PR.
 
 ### ⚙️ Quick Branch Ops

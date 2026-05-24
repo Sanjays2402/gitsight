@@ -36,7 +36,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const fileHistory = new FileHistoryView(repos);
   const lineHistory = new LineHistoryView(repos);
   const search = new SearchView(repos);
-  const prs = new PullRequestProvider(repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()));
+  const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()));
 
   // Virtual filesystem for historic files (gitsight://)
   ctx.subscriptions.push(
@@ -399,7 +399,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.refreshPullRequests', () => prs.refresh());
   reg('gitsight.openPr', (pr: any) => errorWrap(async () => {
     const git = primary(); if (!git) return;
-    await openPrWebview(pr, git.cwd);
+    await openPrWebview(pr, prs.getProvider());
   }));
   reg('gitsight.checkoutPr', (n: any) => errorWrap(async () => {
     const git = primary(); if (!git) return;
