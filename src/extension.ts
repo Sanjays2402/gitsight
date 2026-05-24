@@ -19,6 +19,7 @@ import { showActivityHeatmap } from './webviews/activityHeatmap';
 import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
 import { showWorktreeSwitcher } from './views/worktreeSwitcher';
+import { generateChangelog } from './ai/changelog';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -387,6 +388,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.worktreeSwitcher', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await showWorktreeSwitcher(git);
+  }));
+
+  // ── AI changelog generator ──────────────────────────────────────
+  reg('gitsight.generateChangelog', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await generateChangelog(ctx, git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

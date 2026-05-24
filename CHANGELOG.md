@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 — 2026-05-24
+### Added
+- **AI Changelog Generator** — `GitSight: Generate AI Changelog…` picks a commit range (last 20/50, since latest tag, between tags, or custom) and uses your selected Copilot model to produce a polished Keep-a-Changelog markdown section (Added/Changed/Fixed/Removed) ready to paste into `CHANGELOG.md`.
+
 ## 1.6.0 — 2026-05-24
 ### Added
 - **Worktree quick-switcher** — `GitSight: Switch Worktree…` (Cmd+Shift+W / Ctrl+Shift+W) opens a quick-pick listing every worktree with branch, lock status, and current-marker. One click opens it in a new VS Code window. Inline shortcuts for *Create new worktree…* and *Remove a worktree…*.

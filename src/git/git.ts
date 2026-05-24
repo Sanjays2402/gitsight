@@ -46,6 +46,11 @@ export class Git {
   constructor(public readonly cwd: string) {}
 
   private async run(args: string[]): Promise<string> {
+    return this._run(args);
+  }
+  /** Public escape hatch for advanced features (changelog, bisect, etc.). */
+  async raw(args: string[]): Promise<string> { return this._run(args); }
+  private async _run(args: string[]): Promise<string> {
     try {
       const { stdout } = await pexec('git', args, { cwd: this.cwd, maxBuffer: 100 * 1024 * 1024 });
       return stdout;
