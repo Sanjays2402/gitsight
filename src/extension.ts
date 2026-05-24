@@ -27,6 +27,7 @@ import { showBranchProtection } from './views/branchProtection';
 import { CodeownersOverlay } from './views/codeownersOverlay';
 import { CiPanel } from './views/ciPanel';
 import { CommitSparkline } from './views/commitSparkline';
+import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -455,6 +456,9 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Commit sparkline ─────────────────────────────────────────────
   ctx.subscriptions.push(new CommitSparkline(() => primary()));
+
+  // ── Commit graph theme picker ────────────────────────────────────
+  reg('gitsight.pickGraphTheme', () => errorWrap(() => pickTheme()));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

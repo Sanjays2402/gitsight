@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Git, Commit } from '../git/git';
 import { timeAgo, colorForAuthor } from '../git/format';
+import { activePalette } from '../views/graphThemes';
 
 export class CommitGraphPanel {
   private static current?: CommitGraphPanel;
@@ -72,7 +73,7 @@ function renderGraph(commits: Commit[], search: string): string {
   type Lane = { sha: string; color: string };
   const lanes: (Lane | null)[] = [];
   const rows: { commit: Commit; lane: number; lanes: (Lane | null)[]; color: string }[] = [];
-  const palette = ['#f97316', '#3b82f6', '#10b981', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#ef4444', '#84cc16', '#14b8a6'];
+  const palette = activePalette();
   let colorIdx = 0;
   const byParent = new Map<string, number>();
 

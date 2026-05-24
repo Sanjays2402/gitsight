@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -421,6 +421,7 @@
       { "command": "gitsight.codeownersCheckStaged", "title": "GitSight: CODEOWNERS — Check Staged Files" },
       { "command": "gitsight.ciShow", "title": "GitSight: Show CI Runs…", "icon": "$(rocket)" },
       { "command": "gitsight.ciRefresh", "title": "GitSight: Refresh CI Status" },
+      { "command": "gitsight.pickGraphTheme", "title": "GitSight: Pick Commit Graph Theme…", "icon": "$(symbol-color)" },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",
@@ -639,6 +640,22 @@
     "configuration": {
       "title": "GitSight",
       "properties": {
+        "gitsight.graph.theme": {
+          "type": "string",
+          "enum": ["default", "catppuccin", "tokyo-night", "dracula", "nord", "gruvbox", "solarized", "monochrome"],
+          "enumDescriptions": [
+            "GitSight default (vivid)",
+            "Catppuccin Mocha",
+            "Tokyo Night",
+            "Dracula",
+            "Nord",
+            "Gruvbox",
+            "Solarized",
+            "Monochrome (grayscale)"
+          ],
+          "default": "default",
+          "description": "Color palette for the commit graph lanes/branches."
+        },
         "gitsight.sparkline.days": {
           "type": "number",
           "default": 14,

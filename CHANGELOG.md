@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.15.0 — 2026-05-24
+### Added
+- **Commit Graph Themes** — 8 palettes for the commit graph: Default, Catppuccin Mocha, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Monochrome. Pick via `GitSight: Pick Commit Graph Theme…` or set `gitsight.graph.theme`.
+
 ## 1.14.0 — 2026-05-24
 ### Added
 - **Commit Sparkline** — status-bar mini-chart (`▁▂▃▄▅▆▇█`) of your last 14 days of commits with total count. Configurable window (`gitsight.sparkline.days`, 1-90) and author filter (`gitsight.sparkline.author`: `all` or `me`). Click jumps to the full activity heatmap. Auto-refreshes every 5 minutes.
