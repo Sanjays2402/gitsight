@@ -29,7 +29,11 @@ Drag-to-reorder commits, set actions (pick/reword/squash/fixup/drop), edit messa
 ### Pull Requests (GitHub + Azure DevOps)
 Native PR sidebar grouped by Open / Draft / Merged / Closed. Status check & review badges. One-click checkout via `gh pr checkout`.
 
-![Pull Requests](screenshots/pull-requests.png)
+| GitHub | Azure DevOps |
+|---|---|
+| ![GitHub PRs](screenshots/pull-requests.png) | ![Azure DevOps PRs](screenshots/pull-requests-ado.png) |
+
+Same sidebar, auto-detected from your `origin` remote. Provider badge at the top tells you which host you're looking at; group labels swap to ADO terminology ("Completed" / "Abandoned") when on Azure DevOps.
 
 
 ## Features

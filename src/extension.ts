@@ -12,6 +12,10 @@ import { showBlameHeatmap } from './webviews/blameHeatmap';
 import { showInteractiveRebase } from './webviews/interactiveRebase';
 import { GitVirtualFs, openHistoricFile, diffRevisions } from './git/virtualFs';
 import { PullRequestProvider, openPrWebview } from './views/githubPrView';
+import { IssuesProvider, openIssueWebview, Issue } from './views/issuesView';
+import { showRangeDiff } from './webviews/rangeDiff';
+import { showConflictResolver } from './webviews/conflictResolver';
+import { showActivityHeatmap } from './webviews/activityHeatmap';
 import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { StatusBar } from './views/statusBar';
 
@@ -37,6 +41,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const lineHistory = new LineHistoryView(repos);
   const search = new SearchView(repos);
   const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()));
+  const issues = new IssuesProvider(() => repos.primary());
 
   // Virtual filesystem for historic files (gitsight://)
   ctx.subscriptions.push(
@@ -56,6 +61,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('gitsight.lineHistory', lineHistory),
     vscode.window.registerTreeDataProvider('gitsight.search', search),
     vscode.window.registerTreeDataProvider('gitsight.pullRequests', prs),
+    vscode.window.registerTreeDataProvider('gitsight.issues', issues),
   );
 
   const refreshAll = () => {
@@ -412,6 +418,50 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   // Auto-load PRs on startup
   setTimeout(() => prs.load(), 1500);
+
+  // ── GitHub Issues ───────────────────────────────────────────────
+  reg('gitsight.refreshIssues', () => issues.refresh());
+  reg('gitsight.openIssue', (iss: Issue) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await openIssueWebview(iss, git);
+  }));
+  reg('gitsight.filterIssuesAll', () => issues.setFilter('all'));
+  reg('gitsight.filterIssuesAssigned', () => issues.setFilter('assigned'));
+  reg('gitsight.filterIssuesCreated', () => issues.setFilter('created'));
+  reg('gitsight.createIssue', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const title = await vscode.window.showInputBox({ prompt: 'Issue title' });
+    if (!title) return;
+    const body = await vscode.window.showInputBox({ prompt: 'Issue body (optional)' }) ?? '';
+    const term = vscode.window.createTerminal({ name: 'GitSight: gh issue create', cwd: git.cwd });
+    term.show();
+    term.sendText(`gh issue create --title ${JSON.stringify(title)} --body ${JSON.stringify(body)}`);
+  }));
+  setTimeout(() => issues.load(), 2000);
+
+  // ── Range Diff (split-view) ─────────────────────────────────────
+  reg('gitsight.rangeDiff', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRangeDiff(git);
+  }));
+  reg('gitsight.diffBranchAgainstMain', (n: any) => errorWrap(async () => {
+    const git: Git = n?.git ?? primary(); if (!git) return;
+    const branch = n?.branch?.name ?? n?.name;
+    if (!branch) return;
+    await showRangeDiff(git, 'main', branch);
+  }));
+
+  // ── Merge Conflict Resolver ─────────────────────────────────────
+  reg('gitsight.resolveConflicts', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showConflictResolver(git);
+  }));
+
+  // ── Contribution Activity Heatmap ───────────────────────────────
+  reg('gitsight.activityHeatmap', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showActivityHeatmap(git, ctx);
+  }));
 }
 
 export function deactivate() {}

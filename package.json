@@ -2,7 +2,7 @@
   "name": "gitsight",
   "displayName": "GitSight — Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -103,6 +103,11 @@
           "id": "gitsight.pullRequests",
           "name": "Pull Requests",
           "icon": "$(git-pull-request)"
+        },
+        {
+          "id": "gitsight.issues",
+          "name": "Issues",
+          "icon": "$(issues)"
         }
       ]
     },
@@ -111,6 +116,47 @@
         "command": "gitsight.showCommitGraph",
         "title": "GitSight: Show Commit Graph",
         "icon": "$(git-merge)"
+      },
+      {
+        "command": "gitsight.rangeDiff",
+        "title": "GitSight: Compare Refs (Split Diff)",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "gitsight.resolveConflicts",
+        "title": "GitSight: Resolve Merge Conflicts",
+        "icon": "$(merge)"
+      },
+      {
+        "command": "gitsight.activityHeatmap",
+        "title": "GitSight: Contribution Activity Heatmap",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "gitsight.refreshIssues",
+        "title": "GitSight: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.openIssue",
+        "title": "GitSight: Open Issue"
+      },
+      {
+        "command": "gitsight.createIssue",
+        "title": "GitSight: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitsight.filterIssuesAll",
+        "title": "GitSight: Issues - Show All"
+      },
+      {
+        "command": "gitsight.filterIssuesAssigned",
+        "title": "GitSight: Issues - Assigned to Me"
+      },
+      {
+        "command": "gitsight.filterIssuesCreated",
+        "title": "GitSight: Issues - Created by Me"
       },
       {
         "command": "gitsight.showBlameHeatmap",
@@ -320,6 +366,16 @@
           "command": "gitsight.refresh",
           "when": "view =~ /^gitsight\\./",
           "group": "navigation@99"
+        },
+        {
+          "command": "gitsight.refreshIssues",
+          "when": "view == gitsight.issues",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitsight.createIssue",
+          "when": "view == gitsight.issues",
+          "group": "navigation@2"
         },
         {
           "command": "gitsight.showCommitGraph",
