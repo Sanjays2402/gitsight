@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-05-24
+### Added
+- **Filter Pull Requests by author** — three new commands in the PR view title bar:
+  - `Filter Pull Requests by Author…` → quick-pick with `@me`, all current PR authors, custom input.
+  - `Show My Pull Requests (@me)` → one-click "just mine" view (resolves login via `gh api user` / `az account show`).
+  - `Clear PR Author Filter` (only shown when a filter is active).
+- Persistent filter — selection survives reloads via `workspaceState`.
+- Inline filter chip at top of PR sidebar (click ✕ to clear) + group counts show `N of TOTAL` while filtered.
+
 ## 1.3.0 — 2026-05-24
 ### Added
 - **Split-diff range viewer** — Compare any two refs (`main` ↔ `feature/foo`) in a GitHub-style side-by-side view with file tree, per-file +/- stats, and chunk-level highlighting. Command: `GitSight: Compare Refs (Split Diff)`.

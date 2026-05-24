@@ -48,16 +48,23 @@ for (let col = 0; col < weeks; col++) {
     if (d > today) continue;
     const k = d.toISOString().slice(0,10);
     const n = counts[k] || 0;
-    const x = col * (cellSize + gap);
+    const x = 28 + col * (cellSize + gap);
     const y = 24 + row * (cellSize + gap);
     cells.push(`<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${colorFor(n)}"/>`);
   }
-  if (cd.getMonth() !== lastMonth) {
+  // Only label month if it's a new month AND we're 3+ cols past the last label
+  if (cd.getMonth() !== lastMonth && (months.length === 0 || col - months[months.length-1].col >= 3)) {
     lastMonth = cd.getMonth();
-    const x = col * (cellSize + gap);
-    months.push(`<text x="${x}" y="16" fill="#9d9d9d" font-size="11" font-family="-apple-system,sans-serif">${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastMonth]}</text>`);
+    const x = 28 + col * (cellSize + gap);
+    months.push({ col, html: `<text x="${x}" y="16" fill="#9d9d9d" font-size="11" font-family="-apple-system,sans-serif">${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastMonth]}</text>` });
   }
 }
+// Weekday labels (Mon/Wed/Fri only, like GitHub)
+const dayLabels = [
+  `<text x="0" y="${24 + 1*(cellSize+gap) + 10}" fill="#9d9d9d" font-size="10" font-family="-apple-system,sans-serif">Mon</text>`,
+  `<text x="0" y="${24 + 3*(cellSize+gap) + 10}" fill="#9d9d9d" font-size="10" font-family="-apple-system,sans-serif">Wed</text>`,
+  `<text x="0" y="${24 + 5*(cellSize+gap) + 10}" fill="#9d9d9d" font-size="10" font-family="-apple-system,sans-serif">Fri</text>`,
+];
 
 // Compute streaks
 const sortedKeys = Object.keys(counts).sort();
@@ -74,7 +81,7 @@ for (let i = 1; i < sortedKeys.length; i++) {
   if (cur > longest) longest = cur;
 }
 
-const w = weeks * (cellSize + gap);
+const w = 28 + weeks * (cellSize + gap);
 const h = 7 * (cellSize + gap) + 30;
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -108,7 +115,8 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   </div>
   <div class="grid-wrap">
     <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
-      ${months.join('')}
+      ${months.map(m=>m.html).join('')}
+      ${dayLabels.join('')}
       ${cells.join('')}
     </svg>
     <div class="legend">
