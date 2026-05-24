@@ -4,6 +4,19 @@
 
 > Commit Graph. Inline Blame. File & Line History. Worktrees. Branch & Tag Explorer. Compare. AI Commit Messages. All free.
 
+## Screenshots
+
+### Commit Graph
+Multi-lane graph webview with branch/tag/HEAD ref pills, per-author colors, live search.
+
+![Commit Graph](screenshots/commit-graph-hero.png)
+
+### Sidebar Views
+11 tree views — Repositories, Commits, Branches, Remotes, Tags, Stashes, Worktrees, Contributors, File History, Line History, Search.
+
+![Sidebar](screenshots/sidebar.png)
+
+
 ## Features
 
 ### 🔀 Commit Graph
