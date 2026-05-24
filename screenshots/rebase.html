@@ -1,0 +1,147 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; font: 13px -apple-system, 'SF Pro Text', system-ui, sans-serif; color:#d4d4d4; background:#1e1e1e; }
+  .header { padding:14px 18px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; background:#252526; }
+  .header h1 { margin:0; font-size:15px; font-weight:600; color:#e7e7e7; }
+  .header .meta { color:#888; font-size:11px; margin-top:3px; }
+  .actions { display:flex; gap:10px; }
+  button { background:#0e639c; color:#fff; border:none; padding:7px 16px; border-radius:4px; cursor:pointer; font-weight:500; font-size:12px; }
+  button.secondary { background:#3a3d41; }
+  .list { padding:14px; }
+  .row { display:flex; align-items:center; gap:12px; padding:9px 12px; background:#252526; border-radius:5px; margin-bottom:5px; border:1px solid #333; cursor:move; transition:.15s; }
+  .row:hover { border-color:#0e639c80; }
+  .row.drop { opacity:0.5; background:#3d1a1a; }
+  .row.drop .msg { text-decoration:line-through; color:#888; }
+  .row.squash, .row.fixup { background:#0e639c22; border-left:3px solid #0e639c; padding-left:9px; }
+  .row.reword { border-left:3px solid #fbbf24; padding-left:9px; }
+  .row.edit { border-left:3px solid #a855f7; padding-left:9px; }
+  .grip { color:#555; cursor:grab; user-select:none; font-size:14px; }
+  select.action { background:#1e1e1e; color:#d4d4d4; border:1px solid #444; padding:4px 8px; border-radius:3px; min-width:200px; font-size:11px; font-family:inherit; }
+  .sha { font-family:'SF Mono',Menlo,monospace; color:#fbbf24; min-width:60px; font-size:12px; }
+  .author { min-width:140px; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .ago { color:#888; font-size:11px; min-width:65px; }
+  .msg { flex:1; background:transparent; color:#d4d4d4; border:none; border-bottom:1px dashed transparent; padding:4px 6px; font:inherit; }
+  .msg:focus { outline:none; border-bottom-color:#0e639c; }
+  .help { padding:11px 18px; color:#888; font-size:11px; background:#252526; border-top:1px solid #333; }
+</style></head><body>
+  <div class="header">
+    <div><h1>Interactive Rebase</h1><div class="meta">Rebasing 8 commits onto <code style="color:#fbbf24">HEAD~8</code></div></div>
+    <div class="actions">
+      <button class="secondary">Cancel</button>
+      <button>Apply Rebase →</button>
+    </div>
+  </div>
+  <div class="list"><div class="row pick" data-sha="aa05ffba530fde599b6515120578364cce682ac7">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option selected>pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">aa05ffba5</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(xai): surface provider 'error' SSE frame in Codex fallback stream (#27184)"/>
+  </div><div class="row pick" data-sha="4ab9a06a51268a2864cc66ee36ef34bf6f9ef6e8">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option selected>pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">4ab9a06a5</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(agent): reset _fallback_index at turn start even when no fallback activated"/>
+  </div><div class="row reword" data-sha="b5bcffe1674fa9ab3ba7a754c07ab77bedde83a8">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option >pick — use commit</option>
+      <option selected>reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">b5bcffe16</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(fallback): forward custom_providers to fallback model context-length detection"/>
+  </div><div class="row pick" data-sha="4ece521bcf37401686e73f1d08ebaa87caaae05a">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option selected>pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">4ece521bc</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(run_agent): isolate background review fork from external memory plugins (#27190)"/>
+  </div><div class="row squash" data-sha="36ad8336f9fcf2fe03f43782281cc7a555cbc6ed">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option >pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option selected>squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">36ad8336f</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(run_agent): guard memory provider init against empty/whitespace string"/>
+  </div><div class="row fixup" data-sha="563b4d9e51a46cc421e327b351cb7efe1ccb151b">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option >pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option selected>fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">563b4d9e5</span>
+    <span class="author" style="color:hsl(260,70%,60%)">teknium1</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix: strip image parts for non-vision models with provider profiles + getattr-safe _custom_providers"/>
+  </div><div class="row edit" data-sha="56ad30de1759484bf7d65b4dfdd1444658d1298e">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option >pick — use commit</option>
+      <option >reword — edit message</option>
+      <option selected>edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option >drop — remove commit</option>
+    </select>
+    <span class="sha">56ad30de1</span>
+    <span class="author" style="color:hsl(85,70%,60%)">Teknium</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="Merge pull request #27248 from NousResearch/hermes/hermes-27dc9cc2"/>
+  </div><div class="row drop" data-sha="519657aa98d4969ec9e23c70c074d1982ef3ccf1">
+    <span class="grip">⋮⋮</span>
+    <select class="action">
+      <option >pick — use commit</option>
+      <option >reword — edit message</option>
+      <option >edit — pause for amend</option>
+      <option >squash — merge into previous</option>
+      <option >fixup — squash, discard msg</option>
+      <option selected>drop — remove commit</option>
+    </select>
+    <span class="sha">519657aa9</span>
+    <span class="author" style="color:hsl(316,70%,60%)">kshitij</span>
+    <span class="ago">7d ago</span>
+    <input class="msg" value="fix(matrix): warn on clock-skew silent message drops (#12614) (#27330)"/>
+  </div></div>
+  <div class="help">💡 Drag commits to reorder. Squash/fixup merge into the commit <em>above</em>. Color stripe shows the action.</div>
+</body></html>

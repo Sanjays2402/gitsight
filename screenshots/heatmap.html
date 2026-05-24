@@ -1,0 +1,502 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; font-family: 'SF Mono', Menlo, monospace; color:#d4d4d4; background:#1e1e1e; font-size:12px; }
+  .toolbar { display:flex; padding:10px 14px; gap:14px; border-bottom:1px solid #333; align-items:center; background:#252526; }
+  .toolbar h2 { font-size:13px; margin:0; font-weight:600; color:#e7e7e7; font-family:-apple-system,sans-serif; }
+  .toolbar .meta { color:#888; font-size:11px; font-family:-apple-system,sans-serif; }
+  .legend { display:flex; gap:6px; flex-wrap:wrap; padding:8px 14px; background:#252526; border-bottom:1px solid #333; font-family:-apple-system,sans-serif; }
+  .lg-item { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 8px; background:#2d2d30; border-radius:10px; }
+  .lg-n { color:#888; margin-left:3px; }
+  .dot { width:8px; height:8px; border-radius:4px; display:inline-block; }
+  .row { display:flex; align-items:center; gap:10px; padding:0 14px; height:22px; white-space:pre; line-height:22px; }
+  .row:hover { background:#2a2d2e; }
+  .heat { width:5px; height:22px; flex-shrink:0; }
+  .sha { color:#fbbf24; width:60px; flex-shrink:0; }
+  .author { color:#9d9d9d; width:140px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; }
+  .ago { color:#6a9955; width:70px; flex-shrink:0; }
+  .ln { color:#555; width:40px; text-align:right; flex-shrink:0; }
+  .src { flex:1; color:#d4d4d4; overflow:hidden; text-overflow:ellipsis; }
+</style></head><body>
+  <div class="toolbar"><h2>🔥 auth.py</h2><span class="meta">68 lines · 2 authors · Heatmap colors: 🔴 recent → 🔵 old</span></div>
+  <div class="legend"><div class="lg-item"><span class="dot" style="background:hsl(240,70%,55%)"></span>mr-r0b0t<span class="lg-n">46 (67%)</span></div><div class="lg-item"><span class="dot" style="background:hsl(85,70%,55%)"></span>Teknium<span class="lg-n">22 (32%)</span></div></div>
+  <div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">1</span>
+    <span class="src">"""ACP auth helpers — detect and advertise Hermes authentication methods."""</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">2</span>
+    <span class="src"></span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">3</span>
+    <span class="src">from __future__ import annotations</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">4</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">5</span>
+    <span class="src">from typing import Any, Optional</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">6</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">7</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">8</span>
+    <span class="src">TERMINAL_SETUP_AUTH_METHOD_ID = "hermes-setup"</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">9</span>
+    <span class="src"></span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">10</span>
+    <span class="src"></span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">11</span>
+    <span class="src">def detect_provider() -&gt; Optional[str]:</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">12</span>
+    <span class="src">    """Resolve the active Hermes runtime provider, or None if unavailable."""</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">13</span>
+    <span class="src">    try:</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">14</span>
+    <span class="src">        from hermes_cli.runtime_provider import resolve_runtime_provider</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">15</span>
+    <span class="src">        runtime = resolve_runtime_provider()</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">16</span>
+    <span class="src">        api_key = runtime.get("api_key")</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">17</span>
+    <span class="src">        provider = runtime.get("provider")</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">18</span>
+    <span class="src">        if isinstance(api_key, str) and api_key.strip() and isinstance(provider, str) and provider.strip():</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">19</span>
+    <span class="src">            return provider.strip().lower()</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">20</span>
+    <span class="src">    except Exception:</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">21</span>
+    <span class="src">        return None</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">22</span>
+    <span class="src">    return None</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">23</span>
+    <span class="src"></span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">24</span>
+    <span class="src"></span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">25</span>
+    <span class="src">def has_provider() -&gt; bool:</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">26</span>
+    <span class="src">    """Return True if Hermes can resolve any runtime provider credentials."""</span>
+  </div><div class="row" title="Teknium • 2mo ago • feat: restore ACP server implementation from PR #949 (#1254)">
+    <span class="heat" style="background:rgb(217,116,75)"></span>
+    <span class="dot" style="background:hsl(85,70%,55%)"></span>
+    <span class="sha">25481d4</span>
+    <span class="author">Teknium           </span>
+    <span class="ago">2mo ago</span>
+    <span class="ln">27</span>
+    <span class="src">    return detect_provider() is not None</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">28</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">29</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">30</span>
+    <span class="src">def build_auth_methods() -&gt; list[Any]:</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">31</span>
+    <span class="src">    """Return registry-compatible ACP auth methods for Hermes.</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">32</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">33</span>
+    <span class="src">    The official ACP registry validates that agents advertise at least one</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">34</span>
+    <span class="src">    usable auth method during the initial handshake. A fresh Zed install may</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">35</span>
+    <span class="src">    not have Hermes provider credentials configured yet, so Hermes always</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">36</span>
+    <span class="src">    advertises a terminal setup method. When credentials are already present,</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">37</span>
+    <span class="src">    it also advertises the resolved provider as the default agent-managed</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">38</span>
+    <span class="src">    runtime credential method.</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">39</span>
+    <span class="src">    """</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">40</span>
+    <span class="src">    from acp.schema import AuthMethodAgent, TerminalAuthMethod</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">41</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">42</span>
+    <span class="src">    methods: list[Any] = []</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">43</span>
+    <span class="src">    provider = detect_provider()</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">44</span>
+    <span class="src">    if provider:</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">45</span>
+    <span class="src">        methods.append(</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">46</span>
+    <span class="src">            AuthMethodAgent(</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">47</span>
+    <span class="src">                id=provider,</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">48</span>
+    <span class="src">                name=f"{provider} runtime credentials",</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">49</span>
+    <span class="src">                description=(</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">50</span>
+    <span class="src">                    "Authenticate Hermes using the currently configured "</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">51</span>
+    <span class="src">                    f"{provider} runtime credentials."</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">52</span>
+    <span class="src">                ),</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">53</span>
+    <span class="src">            )</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">54</span>
+    <span class="src">        )</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">55</span>
+    <span class="src"></span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">56</span>
+    <span class="src">    methods.append(</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">57</span>
+    <span class="src">        TerminalAuthMethod(</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">58</span>
+    <span class="src">            id=TERMINAL_SETUP_AUTH_METHOD_ID,</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">59</span>
+    <span class="src">            name="Configure Hermes provider",</span>
+  </div><div class="row" title="mr-r0b0t • 10d ago • feat: add ACP registry metadata for Zed">
+    <span class="heat" style="background:rgb(250,119,45)"></span>
+    <span class="dot" style="background:hsl(240,70%,55%)"></span>
+    <span class="sha">4c94396</span>
+    <span class="author">mr-r0b0t          </span>
+    <span class="ago">10d ago</span>
+    <span class="ln">60</span>
+    <span class="src">            description=(</span>
+  </div>
+</body></html>

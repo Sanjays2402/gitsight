@@ -12,9 +12,24 @@ Multi-lane graph webview with branch/tag/HEAD ref pills, per-author colors, live
 ![Commit Graph](screenshots/commit-graph-hero.png)
 
 ### Sidebar Views
-11 tree views — Repositories, Commits, Branches, Remotes, Tags, Stashes, Worktrees, Contributors, File History, Line History, Search.
+12 tree views — Repositories, Commits, Branches, Remotes, Tags, Stashes, Worktrees, Contributors, File History, Line History, Search, **Pull Requests**.
 
 ![Sidebar](screenshots/sidebar.png)
+
+### Blame Heatmap
+Visualize file history at a glance: red = recent commits, blue = ancient. Author dots and per-line attribution.
+
+![Blame Heatmap](screenshots/blame-heatmap.png)
+
+### Interactive Rebase
+Drag-to-reorder commits, set actions (pick/reword/squash/fixup/drop), edit messages inline. Applies via `git rebase -i` with no terminal needed.
+
+![Interactive Rebase](screenshots/interactive-rebase.png)
+
+### Pull Requests (GitHub)
+Native PR sidebar grouped by Open / Draft / Merged / Closed. Status check & review badges. One-click checkout via `gh pr checkout`.
+
+![Pull Requests](screenshots/pull-requests.png)
 
 
 ## Features
@@ -55,8 +70,20 @@ Top-100 contributors sorted by commit count.
 - Compare any two branches with a unified diff view.
 
 ### ✨ AI Commit Messages & Explanations
-- **Generate** — Conventional Commits message from your staged diff, written by GitHub Copilot's built-in Language Model API (no extra key) or Ollama (fully local).
-- **Explain** — plain-English summary of any commit's intent + risk.
+- **Generate commit message** from staged diff (Copilot via `vscode.lm`, no API keys)
+- **Explain commit** — natural-language summary of any commit
+
+### 🔥 Blame Heatmap (NEW)
+Full-file blame visualizer. Heat strip on the left fades from red (recent) to blue (ancient). Author dots, sha, time-ago, and a legend showing per-author contribution percentages.
+
+### 🌀 Interactive Rebase (NEW)
+GUI replacement for `git rebase -i`. Drag commits to reorder. Pick action per commit from a dropdown. Edit subject inline. Click Apply — GitSight drives `git rebase -i` with a temp sequencer editor. No more `:wq` in a terminal.
+
+### 📂 Historic File Filesystem (NEW)
+Custom `gitsight://` virtual filesystem. Open any file at any commit as a real read-only VS Code editor tab — language services, peek-definition, and diff-against-working all work natively. Powers the file-history → "open at this commit" command.
+
+### 🔄 GitHub Pull Requests (NEW)
+Native PR sidebar (requires `gh` CLI). Grouped by Open / Draft / Merged / Closed. Status check + review decision badges. Tooltip shows full PR metadata, author, branch, diff size, labels. Click to open a rich PR webview with body, files changed, and reviews. Right-click → Checkout PR.
 
 ### ⚙️ Quick Branch Ops
 Cherry-pick, revert, reset (soft/mixed/hard), checkout — right-click any commit.

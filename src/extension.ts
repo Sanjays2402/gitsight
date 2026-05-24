@@ -8,6 +8,10 @@ import {
   StashesView, WorktreesView, ContributorsView, FileHistoryView, LineHistoryView, SearchView,
 } from './views/treeViews';
 import { CommitGraphPanel } from './webviews/commitGraph';
+import { showBlameHeatmap } from './webviews/blameHeatmap';
+import { showInteractiveRebase } from './webviews/interactiveRebase';
+import { GitVirtualFs, openHistoricFile, diffRevisions } from './git/virtualFs';
+import { PullRequestProvider, openPrWebview } from './views/githubPrView';
 import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { StatusBar } from './views/statusBar';
 
@@ -32,6 +36,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   const fileHistory = new FileHistoryView(repos);
   const lineHistory = new LineHistoryView(repos);
   const search = new SearchView(repos);
+  const prs = new PullRequestProvider(repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()));
+
+  // Virtual filesystem for historic files (gitsight://)
+  ctx.subscriptions.push(
+    vscode.workspace.registerFileSystemProvider(GitVirtualFs.SCHEME, new GitVirtualFs(), { isReadonly: true, isCaseSensitive: true })
+  );
 
   ctx.subscriptions.push(
     vscode.window.registerTreeDataProvider('gitsight.repositories', repositoriesView),
@@ -45,6 +55,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('gitsight.fileHistory', fileHistory),
     vscode.window.registerTreeDataProvider('gitsight.lineHistory', lineHistory),
     vscode.window.registerTreeDataProvider('gitsight.search', search),
+    vscode.window.registerTreeDataProvider('gitsight.pullRequests', prs),
   );
 
   const refreshAll = () => {
@@ -347,6 +358,60 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
+
+  // ── Blame Heatmap (webview) ─────────────────────────────────────
+  reg('gitsight.showBlameHeatmap', () => errorWrap(async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return vscode.window.showInformationMessage('Open a file first.');
+    const f = editor.document.uri.fsPath;
+    const git = repos.forFile(f);
+    if (!git) return vscode.window.showWarningMessage('File not in a Git repo.');
+    await showBlameHeatmap(git, f);
+  }));
+
+  // ── Interactive Rebase ─────────────────────────────────────────
+  reg('gitsight.interactiveRebase', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await showInteractiveRebase(git);
+    refreshAll();
+  }));
+
+  // ── Open historic file via virtual fs ───────────────────────────
+  reg('gitsight.openHistoricFile', (n: any) => errorWrap(async () => {
+    const git: Git = n?.git ?? primary(); if (!git) return;
+    const sha: string = n?.commit?.sha ?? n?.sha;
+    const file: string = n?.file ?? vscode.window.activeTextEditor?.document.uri.fsPath ?? '';
+    if (!sha || !file) return;
+    const rel = path.relative(git.cwd, file);
+    await openHistoricFile(git.cwd, sha, rel);
+  }));
+
+  reg('gitsight.diffWithWorking', (n: any) => errorWrap(async () => {
+    const git: Git = n?.git ?? primary(); if (!git) return;
+    const sha: string = n?.commit?.sha ?? n?.sha;
+    const file = vscode.window.activeTextEditor?.document.uri.fsPath;
+    if (!sha || !file) return;
+    const rel = path.relative(git.cwd, file);
+    await diffRevisions(git.cwd, rel, sha, 'WORKING');
+  }));
+
+  // ── GitHub PRs ──────────────────────────────────────────────────
+  reg('gitsight.refreshPullRequests', () => prs.refresh());
+  reg('gitsight.openPr', (pr: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await openPrWebview(pr, git.cwd);
+  }));
+  reg('gitsight.checkoutPr', (n: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const pr = n?.pr ?? n;
+    if (!pr?.number) return;
+    await new Promise<void>((res, rej) =>
+      require('child_process').execFile('gh', ['pr', 'checkout', String(pr.number)], { cwd: git.cwd }, (e: any) => e ? rej(e) : res())
+    );
+    refreshAll();
+  }));
+  // Auto-load PRs on startup
+  setTimeout(() => prs.load(), 1500);
 }
 
 export function deactivate() {}
