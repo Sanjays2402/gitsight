@@ -55,6 +55,31 @@ GitHub-style year-long contribution grid with **current streak**, **longest stre
 
 ![Contribution Activity Heatmap](screenshots/activity-heatmap.png)
 
+### 🛡 Branch Protection Viewer
+Audit branch protection rules at a glance — required reviewers, status checks, signed commits, force-push policy. Works for both GitHub (`gh api`) and Azure DevOps (`az repos policy list`). Command: **GitSight: Branch Protection**.
+
+![Branch Protection Viewer](screenshots/branch-protection.png)
+
+### 👥 CODEOWNERS Overlay
+Status-bar pill showing required reviewers for the active file. Run **GitSight: CODEOWNERS — Check Staged Files** to instantly see who needs to review your in-flight PR. Parses `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`.
+
+![CODEOWNERS Overlay](screenshots/codeowners-overlay.png)
+
+### 🚀 CI Status Panel
+Live status bar + quick-pick of recent CI runs for GitHub Actions and Azure Pipelines. Color-coded, auto-refreshes every 60s, click-through to the run in your browser. Command: **GitSight: CI Runs**.
+
+![CI Status Panel](screenshots/ci-status-panel.png)
+
+### 📈 Commit Sparkline
+Tiny `▁▂▃▄▅▆▇█` sparkline in the status bar showing commits over the configurable window (1–90 days, all contributors or just you). Click to jump to the full heatmap.
+
+![Commit Sparkline](screenshots/commit-sparkline.png)
+
+### 🎨 Commit Graph Themes
+8 hand-tuned palettes for the commit graph webview — Default, Catppuccin Mocha, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Monochrome. Command: **GitSight: Pick Commit Graph Theme…** or set `gitsight.graph.theme`.
+
+![Commit Graph Themes](screenshots/graph-themes.png)
+
 
 ## Features
 
