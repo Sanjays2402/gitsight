@@ -83,11 +83,17 @@ Tiny `▁▂▃▄▅▆▇█` sparkline in the status bar showing commits over
 ### 🧱 Stacked PR Navigator
 Graphite/Sapling-style stacked-branch workflow inside VS Code. Auto-infers parent branches via `git merge-base`, lets you walk up/down the stack, rebase onto parent, restack the whole chain, and atomically push every branch in the stack. Overrides are persisted in `branch.<name>.gitsight-parent`. Command: **GitSight: Stacked PR Navigator** (`Cmd/Ctrl+Shift+K`).
 
+![Stacked PR Navigator](screenshots/stacked-pr-navigator.png)
+
 ### 🌲 Worktree Status-Bar Pill
 The current worktree name + branch live in the status bar — click to switch worktrees in a new window. Hidden when only one worktree exists.
 
+![Worktree Status-Bar Pill](screenshots/worktree-pill.png)
+
 ### 🔁 Diff Word-Wrap Toggle
 One-click button on the diff editor toolbar to flip word wrap. No more spelunking through global settings to read a long line in a diff.
+
+![Diff Word-Wrap Toggle](screenshots/diff-word-wrap.png)
 
 
 ## Features
