@@ -45,7 +45,7 @@ export interface FileChange { status: string; path: string; oldPath?: string; }
 export class Git {
   constructor(public readonly cwd: string) {}
 
-  private async run(args: string[]): Promise<string> {
+  async run(args: string[]): Promise<string> {
     return this._run(args);
   }
   /** Public escape hatch for advanced features (changelog, bisect, etc.). */

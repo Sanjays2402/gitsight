@@ -1,8 +1,8 @@
 {
   "name": "gitsight",
-  "displayName": "GitSight — Git Supercharged",
+  "displayName": "GitSight \u2014 Git Supercharged",
   "description": "Enterprise-grade Git visualization for VS Code. Commit Graph, inline blame, file/line history, worktrees, branch & tag explorer, remotes, stashes, search & compare, AI commit messages. A free, open alternative to GitLens.",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "publisher": "gitsight",
   "engines": {
     "vscode": "^1.85.0"
@@ -44,6 +44,12 @@
         "command": "gitsight.pickAIModel",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m"
+      },
+      {
+        "command": "gitsight.stackedPRNavigator",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k",
+        "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
       }
     ],
     "viewsContainers": {
@@ -188,7 +194,7 @@
       },
       {
         "command": "gitsight.filterPrsByAuthor",
-        "title": "GitSight: Filter Pull Requests by Author…",
+        "title": "GitSight: Filter Pull Requests by Author\u2026",
         "icon": "$(filter)"
       },
       {
@@ -265,7 +271,7 @@
       },
       {
         "command": "gitsight.resetToCommit",
-        "title": "GitSight: Reset Branch to Commit…"
+        "title": "GitSight: Reset Branch to Commit\u2026"
       },
       {
         "command": "gitsight.createBranch",
@@ -295,7 +301,7 @@
       },
       {
         "command": "gitsight.compareBranches",
-        "title": "GitSight: Compare Branches…"
+        "title": "GitSight: Compare Branches\u2026"
       },
       {
         "command": "gitsight.compareWithWorking",
@@ -370,7 +376,7 @@
       },
       {
         "command": "gitsight.searchCommits",
-        "title": "GitSight: Search Commits…",
+        "title": "GitSight: Search Commits\u2026",
         "icon": "$(search)"
       },
       {
@@ -397,35 +403,103 @@
       },
       {
         "command": "gitsight.worktreeSwitcher",
-        "title": "GitSight: Switch Worktree…",
+        "title": "GitSight: Switch Worktree\u2026",
         "icon": "$(versions)"
       },
       {
         "command": "gitsight.generateChangelog",
-        "title": "GitSight: Generate AI Changelog…",
+        "title": "GitSight: Generate AI Changelog\u2026",
         "icon": "$(book)"
       },
-      { "command": "gitsight.bisectStart", "title": "GitSight: Bisect — Start…", "icon": "$(beaker)" },
-      { "command": "gitsight.bisectGood",  "title": "GitSight: Bisect — Mark Good" },
-      { "command": "gitsight.bisectBad",   "title": "GitSight: Bisect — Mark Bad" },
-      { "command": "gitsight.bisectSkip",  "title": "GitSight: Bisect — Skip" },
-      { "command": "gitsight.bisectRun",   "title": "GitSight: Bisect — Run Automated…" },
-      { "command": "gitsight.bisectReset", "title": "GitSight: Bisect — Reset / Abort" },
-      { "command": "gitsight.bisectMenu",  "title": "GitSight: Bisect — Actions Menu" },
-      { "command": "gitsight.stashVisualizer", "title": "GitSight: Stash Visualizer (partial apply)", "icon": "$(archive)" },
-      { "command": "gitsight.aiReviewStaged", "title": "GitSight: AI Review (Staged / Working)", "icon": "$(comment-discussion)" },
-      { "command": "gitsight.aiReviewCommit", "title": "GitSight: AI Review Commit…" },
-      { "command": "gitsight.aiReviewRange",  "title": "GitSight: AI Review Range…" },
-      { "command": "gitsight.branchProtection", "title": "GitSight: Show Branch Protection Rules…", "icon": "$(shield)" },
-      { "command": "gitsight.codeownersExplain", "title": "GitSight: CODEOWNERS — Explain Current File" },
-      { "command": "gitsight.codeownersCheckStaged", "title": "GitSight: CODEOWNERS — Check Staged Files" },
-      { "command": "gitsight.ciShow", "title": "GitSight: Show CI Runs…", "icon": "$(rocket)" },
-      { "command": "gitsight.ciRefresh", "title": "GitSight: Refresh CI Status" },
-      { "command": "gitsight.pickGraphTheme", "title": "GitSight: Pick Commit Graph Theme…", "icon": "$(symbol-color)" },
+      {
+        "command": "gitsight.bisectStart",
+        "title": "GitSight: Bisect \u2014 Start\u2026",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "gitsight.bisectGood",
+        "title": "GitSight: Bisect \u2014 Mark Good"
+      },
+      {
+        "command": "gitsight.bisectBad",
+        "title": "GitSight: Bisect \u2014 Mark Bad"
+      },
+      {
+        "command": "gitsight.bisectSkip",
+        "title": "GitSight: Bisect \u2014 Skip"
+      },
+      {
+        "command": "gitsight.bisectRun",
+        "title": "GitSight: Bisect \u2014 Run Automated\u2026"
+      },
+      {
+        "command": "gitsight.bisectReset",
+        "title": "GitSight: Bisect \u2014 Reset / Abort"
+      },
+      {
+        "command": "gitsight.bisectMenu",
+        "title": "GitSight: Bisect \u2014 Actions Menu"
+      },
+      {
+        "command": "gitsight.stashVisualizer",
+        "title": "GitSight: Stash Visualizer (partial apply)",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "gitsight.aiReviewStaged",
+        "title": "GitSight: AI Review (Staged / Working)",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "gitsight.aiReviewCommit",
+        "title": "GitSight: AI Review Commit\u2026"
+      },
+      {
+        "command": "gitsight.aiReviewRange",
+        "title": "GitSight: AI Review Range\u2026"
+      },
+      {
+        "command": "gitsight.branchProtection",
+        "title": "GitSight: Show Branch Protection Rules\u2026",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "gitsight.codeownersExplain",
+        "title": "GitSight: CODEOWNERS \u2014 Explain Current File"
+      },
+      {
+        "command": "gitsight.codeownersCheckStaged",
+        "title": "GitSight: CODEOWNERS \u2014 Check Staged Files"
+      },
+      {
+        "command": "gitsight.ciShow",
+        "title": "GitSight: Show CI Runs\u2026",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "gitsight.ciRefresh",
+        "title": "GitSight: Refresh CI Status"
+      },
+      {
+        "command": "gitsight.pickGraphTheme",
+        "title": "GitSight: Pick Commit Graph Theme\u2026",
+        "icon": "$(symbol-color)"
+      },
       {
         "command": "gitsight.refresh",
         "title": "GitSight: Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.stackedPRNavigator",
+        "title": "GitSight: Stacked PR Navigator",
+        "category": "GitSight"
+      },
+      {
+        "command": "gitsight.toggleDiffWordWrap",
+        "title": "GitSight: Toggle Word Wrap (Diff)",
+        "category": "GitSight",
+        "icon": "$(word-wrap)"
       }
     ],
     "menus": {
@@ -634,6 +708,11 @@
           "command": "gitsight.showFileHistory",
           "when": "resourceScheme == file",
           "group": "navigation@99"
+        },
+        {
+          "command": "gitsight.toggleDiffWordWrap",
+          "when": "isInDiffEditor",
+          "group": "navigation@100"
         }
       ]
     },
@@ -642,7 +721,16 @@
       "properties": {
         "gitsight.graph.theme": {
           "type": "string",
-          "enum": ["default", "catppuccin", "tokyo-night", "dracula", "nord", "gruvbox", "solarized", "monochrome"],
+          "enum": [
+            "default",
+            "catppuccin",
+            "tokyo-night",
+            "dracula",
+            "nord",
+            "gruvbox",
+            "solarized",
+            "monochrome"
+          ],
           "enumDescriptions": [
             "GitSight default (vivid)",
             "Catppuccin Mocha",
@@ -665,7 +753,10 @@
         },
         "gitsight.sparkline.author": {
           "type": "string",
-          "enum": ["all", "me"],
+          "enum": [
+            "all",
+            "me"
+          ],
           "default": "all",
           "description": "Whose commits to count in the sparkline: 'all' contributors or just 'me' (config user.email)."
         },
@@ -676,7 +767,7 @@
         },
         "gitsight.blame.format": {
           "type": "string",
-          "default": "${author}, ${ago} • ${message}",
+          "default": "${author}, ${ago} \u2022 ${message}",
           "description": "Inline blame template. Tokens: ${author} ${ago} ${date} ${sha} ${message}"
         },
         "gitsight.blame.delay": {
@@ -726,6 +817,11 @@
           "type": "string",
           "default": "",
           "description": "Optional Copilot model family preference (e.g. 'gpt-4o', 'claude-3-5-sonnet'). Leave empty to use last-picked model or auto-select."
+        },
+        "gitsight.worktreePill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current worktree name in the status bar (hidden when only one worktree exists). Click to open the worktree switcher."
         }
       }
     },
