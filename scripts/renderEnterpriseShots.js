@@ -7,6 +7,16 @@ const { execFileSync } = require('child_process');
 const OUT = path.join(__dirname, '..', 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
+function sparkSVG(heights, color){
+  // heights: array of 0..1 floats; produces 14px tall x len*5 px wide bars
+  const w=5, h=14, gap=1;
+  const bars = heights.map((v,i)=>{
+    const bh = Math.max(2, Math.round(v*h));
+    return `<rect x="${i*w}" y="${h-bh}" width="${w-gap}" height="${bh}" fill="${color||'#fff'}" opacity="0.9"/>`;
+  }).join('');
+  return `<svg width="${heights.length*w}" height="${h}" style="vertical-align:middle;margin:0 4px;">${bars}</svg>`;
+}
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const baseStyle = `
@@ -91,7 +101,7 @@ const protection = shell(
    <span class="sb-item">↑0 ↓0</span>
    <span class="sb-item ok">✓ CI build #842 passed</span>
    <span class="sb-item">🛡 main protected</span>
-   <span class="sb-item" style="margin-left:auto">▁▂▃▄▆▇█▆▄▃▂▁▂▄ 47</span>`,
+   <span class="sb-item" style="margin-left:auto">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 47</span>`,
   `<div class="panel">
     <h1>🛡 Branch protection — <span class="code">main</span></h1>
     <p class="muted">Source: <span class="code">gh api repos/Sanjays2402/gitsight/branches/main/protection</span></p>
@@ -127,7 +137,7 @@ const codeowners = shell(
    <span class="sb-item">↑3 ↓0</span>
    <span class="sb-item warn">👤 @security-team +1</span>
    <span class="sb-item ok">✓ Actions passed</span>
-   <span class="sb-item" style="margin-left:auto">▂▃▅▆█▇▅▄▃ 23</span>`,
+   <span class="sb-item" style="margin-left:auto">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 23</span>`,
   `<div class="panel">
     <h1>👥 CODEOWNERS — <span class="code">src/auth/oauth.ts</span></h1>
     <p>Owners: <span class="tag purple">@security-team</span> <span class="tag purple">@auth-leads</span></p>
@@ -162,7 +172,7 @@ const ci = shell(
    <span class="sb-item">↑0 ↓0</span>
    <span class="sb-item ok">🚀 CI build #842</span>
    <span class="sb-item">👤 @sanjays2402</span>
-   <span class="sb-item" style="margin-left:auto">▃▄▅▆█▇▅▄▃▂▁▂▄▅ 47</span>`,
+   <span class="sb-item" style="margin-left:auto">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 47</span>`,
   `<div class="panel">
     <h1>🚀 CI runs <span class="muted" style="font-size:14px">— GitHub Actions, newest first</span></h1>
     <table>
@@ -189,25 +199,25 @@ const sparkline = shell(
   `<span class="sb-item">⎇ main</span>
    <span class="sb-item">↑0 ↓0</span>
    <span class="sb-item ok">✓ CI passed</span>
-   <span class="sb-item" style="background:#005a9e">📈 ▁▂▃▄▅▆▇█▆▅▄▃▂▁ 47</span>
+   <span class="sb-item" style="background:#005a9e">📈 ${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4],'#4ec9b0')} 47</span>
    <span class="sb-item" style="margin-left:auto">👤 @sanjays2402</span>`,
   `<div class="panel">
     <h1>📈 Commit sparkline</h1>
-    <p class="muted">Status-bar pill at a glance — <span class="code">▁▂▃▄▅▆▇█</span> bars + total count over the configured window.</p>
+    <p class="muted">Status-bar pill at a glance — <span class="code" style="background:#1f1f1f;padding:2px 6px;">${sparkSVG([0.2,0.4,0.6,0.8,1.0,0.7,0.5],'#dcdcaa')}</span> bars + total count over the configured window.</p>
     <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:24px;">
       <div style="background:#252526;padding:18px 22px;border-radius:6px;border:1px solid #333;min-width:260px;">
         <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Last 7 days · me</div>
-        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#4ec9b0;">▂▄▆█▇▅▃ 18</div>
+        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#4ec9b0;">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 18</div>
         <div class="muted">3 commits/day avg · current streak: 7 days 🔥</div>
       </div>
       <div style="background:#252526;padding:18px 22px;border-radius:6px;border:1px solid #333;min-width:260px;">
         <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Last 14 days · all contributors</div>
-        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#569cd6;">▁▂▃▄▅▆▇█▆▅▄▃▂▁ 47</div>
+        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#569cd6;">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 47</div>
         <div class="muted">3.4 commits/day · 5 contributors</div>
       </div>
       <div style="background:#252526;padding:18px 22px;border-radius:6px;border:1px solid #333;min-width:260px;">
         <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Last 30 days · me</div>
-        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#c586c0;">▁▁▂▃▃▄▅▆▆▇█▇▆▅▄▃▃▂▂▂▃▄▅▆▇█▇▆▅▄ 89</div>
+        <div style="font-family:monospace;font-size:32px;margin:8px 0;color:#c586c0;">${sparkSVG([0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,0.7,0.5,0.4,0.3,0.2,0.4])} 89</div>
         <div class="muted">2.97 commits/day · longest streak: 14 days</div>
       </div>
     </div>

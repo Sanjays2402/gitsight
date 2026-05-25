@@ -5,6 +5,16 @@ const { execFileSync } = require('child_process');
 
 const OUT = path.join(__dirname, '..', 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
+function sparkSVG(heights, color){
+  // heights: array of 0..1 floats; produces 14px tall x len*5 px wide bars
+  const w=5, h=14, gap=1;
+  const bars = heights.map((v,i)=>{
+    const bh = Math.max(2, Math.round(v*h));
+    return `<rect x="${i*w}" y="${h-bh}" width="${w-gap}" height="${bh}" fill="${color||'#fff'}" opacity="0.9"/>`;
+  }).join('');
+  return `<svg width="${heights.length*w}" height="${h}" style="vertical-align:middle;margin:0 4px;">${bars}</svg>`;
+}
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const baseStyle = `
