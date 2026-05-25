@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.16.0 — 2026-05-24
+### Added
+- **Stacked PR Navigator** — Graphite/Sapling-style stacked-branch workflow. Auto-infers parent branches via merge-base, lets you walk up/down the stack, rebase onto parent, restack the whole chain, and push all branches atomically. Stores explicit overrides in `branch.<name>.gitsight-parent`. Command: `GitSight: Stacked PR Navigator` (default keybinding `Cmd/Ctrl+Shift+K`).
+- **Worktree Status-Bar Pill** — current worktree name + branch in the status bar, click to switch. Hidden when only one worktree exists. Configurable via `gitsight.worktreePill.enabled`.
+- **Diff Word-Wrap Toggle** — one-click toolbar button on the diff editor to flip word wrap without diving into settings. Command: `GitSight: Toggle Word Wrap (Diff)`.
+
 ## 1.15.0 — 2026-05-24
 ### Added
 - **Commit Graph Themes** — 8 palettes for the commit graph: Default, Catppuccin Mocha, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Monochrome. Pick via `GitSight: Pick Commit Graph Theme…` or set `gitsight.graph.theme`.
