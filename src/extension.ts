@@ -27,6 +27,9 @@ import { showBranchProtection } from './views/branchProtection';
 import { CodeownersOverlay } from './views/codeownersOverlay';
 import { CiPanel } from './views/ciPanel';
 import { CommitSparkline } from './views/commitSparkline';
+import { showStackedPRNavigator } from './views/stackedPR';
+import { WorktreePill } from './views/worktreePill';
+import { toggleDiffWordWrap } from './views/diffWordWrap';
 import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
 
@@ -456,6 +459,18 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Commit sparkline ─────────────────────────────────────────────
   ctx.subscriptions.push(new CommitSparkline(() => primary()));
+
+  // ── Worktree-aware status bar pill ───────────────────────────────
+  ctx.subscriptions.push(new WorktreePill(() => primary()));
+
+  // ── Stacked PR Navigator ─────────────────────────────────────────
+  reg('gitsight.stackedPRNavigator', () => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    await showStackedPRNavigator(git);
+  }));
+
+  // ── Diff Word-Wrap Toggle ────────────────────────────────────────
+  reg('gitsight.toggleDiffWordWrap', () => errorWrap(async () => { await toggleDiffWordWrap(); }));
 
   // ── Commit graph theme picker ────────────────────────────────────
   reg('gitsight.pickGraphTheme', () => errorWrap(() => pickTheme()));
