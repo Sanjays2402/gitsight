@@ -415,6 +415,11 @@
         "icon": "$(git-merge)"
       },
       {
+        "command": "gitsight.tagQuickSwitcher",
+        "title": "GitSight: Switch to Tag\u2026",
+        "icon": "$(tag)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -677,6 +682,11 @@
           "command": "gitsight.createTag",
           "when": "view == gitsight.tags",
           "group": "navigation@1"
+        },
+        {
+          "command": "gitsight.tagQuickSwitcher",
+          "when": "view == gitsight.tags",
+          "group": "navigation@2"
         },
         {
           "command": "gitsight.stashSave",

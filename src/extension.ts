@@ -46,6 +46,7 @@ import { showBranchCleanup } from './views/branchCleanup';
 import { CommitLintController } from './views/commitLintController';
 import { showRestoreFromCommit } from './views/restoreFromCommit';
 import { RebaseCoach } from './views/rebaseCoach';
+import { showTagQuickSwitcher } from './views/tagSwitcher';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -597,6 +598,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(rebaseCoach);
   reg('gitsight.rebaseCoach', () => errorWrap(() => rebaseCoach.showMenu()));
   reg('gitsight.refreshRebaseCoach', () => rebaseCoach.refresh());
+
+  // ── Tag Quick-Switcher (F16) ─────────────────────────────────────
+  reg('gitsight.tagQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showTagQuickSwitcher(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
