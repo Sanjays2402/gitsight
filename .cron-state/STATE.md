@@ -16,6 +16,16 @@
 - Host detection in `git/hostDetect.ts`: GitHub / Azure DevOps / GitLab / Bitbucket.
 - `package.json` 866 lines, 70+ commands, three keybindings, configurable.
 
+## Pattern notes (learned shipping ticks 1-2)
+
+- Pure helpers belong in `src/git/<name>.ts`; UI/wiring goes in `src/views/`.
+- Add every new pure helper to `tsconfig.test.json` `include` so tests compile.
+- Tests live under `test/git/` with the same filename. Use `node:test`.
+- New CodeLens providers should skip files handled by other lenses (avoid clash).
+- `git check-ignore --stdin` is the only safe way to attribute huge `node_modules`.
+- VS Code status-bar pills hide themselves when their config is off OR when
+  there's nothing to show and `hideWhenClean`-style config is true.
+
 ## ROADMAP (chronological, ≥15 fat slices)
 
 ### Tick 1 (2026-06-19 23:17 PT) — SHIPPED
@@ -25,23 +35,31 @@
 - [x] **F4**: One-Click Sync + status-bar pill — `a62d979`
 - [x] **F5**: `node:test` harness + 20 tests for `format` & `hostDetect` — `3cda082`
 
-### Tick 2+
-- [ ] F6: Working-Tree status pill (`gitsight.workingTree.enabled`) with click → SCM view; staged/unstaged/untracked counts.
-- [ ] F7: Recent Files Touched view — sidebar of files modified in last N commits with click-to-open.
+### Tick 2 (2026-06-20 04:11 PT) — SHIPPED
+- [x] **F6**: Working-Tree status pill — `f59ee4b`
+- [x] **F7**: Recent Files Touched view — `43bf023`
+- [x] **F11**: Inline blame Hover provider — `82573ad`
+- [x] **F15**: Gitignore Insight CodeLens — `2f2171f`
+- [x] **F20**: Per-file commit count CodeLens — `8055e27`
+
+### Tick 3+
 - [ ] F8: "Show Authors of Range" — pick two refs, get a contributor leaderboard scoped to that range.
 - [ ] F9: Branch Cleanup — delete merged branches in batch with a multi-select quick-pick.
 - [ ] F10: Smart Rebase Conflict Coach — detects rebase-in-progress and offers a quick-pick of next action (continue/skip/abort) with conflict file list.
-- [ ] F11: Inline Hover for blame — `HoverProvider` showing commit subject + co-authors + a "View Commit" action.
 - [ ] F12: AI "Explain Diff" for the current selection (not just commits) — uses `vscode.lm`.
 - [ ] F13: Commit Detail Webview — open a commit in a rich webview with stats + per-file diff tabs.
 - [ ] F14: Pre-Push Lint Hook bridge — registers a SCM input box validation that warns when the commit message starts with WIP/fixup.
-- [ ] F15: Gitignore Insight CodeLens — at top of a `.gitignore`, show how many files in the workspace are currently ignored by that file.
 - [ ] F16: Tag Quick-Switcher / "Checkout Tag" with detached-HEAD safety prompt.
 - [ ] F17: Reset / Restore File from any commit — quick-pick of revs scoped to file.
 - [ ] F18: "Find Co-Authors" — analyzes Co-authored-by trailers across last N commits; suggests adding co-authors to the next commit.
 - [ ] F19: SSH Key sanity check — at activation, detect "git push" auth failures and surface a one-click "Open ~/.ssh/config" or "Use GH CLI" prompt.
-- [ ] F20: Per-file commit count CodeLens (top of file) — "**42** commits over **18mo**" with click-to-history.
+- [ ] F21: Commit-Message linter — warn on lines >72c, trailing whitespace, missing body when subject ends with ":".
+- [ ] F22: Per-author Sparkline status item — show commits-by-you over N days when `gitsight.sparkline.author` is `me`.
+- [ ] F23: "Reveal in History" CodeAction on any selection — opens line history scoped to that range.
+- [ ] F24: Worktree disk-usage report — pick a worktree, get a size breakdown (du under the worktree).
+- [ ] F25: Branch-age decoration in the Branches tree — colour-coded "stale" badges for branches older than N days.
 
 ## TICK LOG
 
 - 2026-06-19 23:17 PT — 5 features shipped: F1 `dccdb02`, F2 `dce7dfc`, F3 `b9ab869`, F4 `a62d979`, F5 `3cda082`. Gate: lint ok, compile ok, 20/20 tests green. Bootstrap commit: `c684b0b`.
+- 2026-06-20 04:11 PT — 5 features shipped: F6 `f59ee4b`, F7 `43bf023`, F11 `82573ad`, F15 `2f2171f`, F20 `8055e27`. Gate: lint ok, compile ok (56s), 50/50 tests green. 30 new tests added (workingTreeStatus, recentFiles, coAuthors, gitignoreInsight, fileStats — 6 each). New configs: 11. New files: 15.
