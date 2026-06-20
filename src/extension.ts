@@ -47,6 +47,7 @@ import { CommitLintController } from './views/commitLintController';
 import { showRestoreFromCommit } from './views/restoreFromCommit';
 import { RebaseCoach } from './views/rebaseCoach';
 import { showTagQuickSwitcher } from './views/tagSwitcher';
+import { showFindCoAuthors } from './views/findCoAuthors';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -603,6 +604,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.tagQuickSwitcher', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showTagQuickSwitcher(git);
+  }));
+
+  // ── Find Co-Authors (F18) ────────────────────────────────────────
+  reg('gitsight.findCoAuthors', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showFindCoAuthors(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

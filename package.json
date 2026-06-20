@@ -420,6 +420,11 @@
         "icon": "$(tag)"
       },
       {
+        "command": "gitsight.findCoAuthors",
+        "title": "GitSight: Find Co-Authors\u2026",
+        "icon": "$(organization)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1138,6 +1143,19 @@
           "type": "boolean",
           "default": true,
           "description": "Show the Rebase Coach status-bar pill when a rebase is in progress, and offer a quick-pick of next actions (continue/skip/abort/open conflict)."
+        },
+        "gitsight.coAuthors.scanCommits": {
+          "type": "number",
+          "default": 200,
+          "minimum": 20,
+          "maximum": 5000,
+          "description": "How many recent commits to scan when finding co-author suggestions."
+        },
+        "gitsight.coAuthors.selfEmails": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra email addresses (lowercase) the user considers their own; excluded from co-author suggestions in addition to git's user.email."
         }
       }
     },
