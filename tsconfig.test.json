@@ -18,7 +18,8 @@
     "src/git/fileStats.ts",
     "src/git/rangeAuthors.ts",
     "src/git/branchCleanup.ts",
-    "src/git/commitLint.ts"
+    "src/git/commitLint.ts",
+    "src/git/restorePick.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

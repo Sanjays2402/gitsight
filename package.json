@@ -405,6 +405,11 @@
         "title": "GitSight: Commit Linter \u2014 Show Problems"
       },
       {
+        "command": "gitsight.restoreFileFromCommit",
+        "title": "GitSight: Restore File from Commit\u2026",
+        "icon": "$(discard)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -839,6 +844,10 @@
         {
           "command": "gitsight.openFileOnRemote",
           "group": "gitsight@4"
+        },
+        {
+          "command": "gitsight.restoreFileFromCommit",
+          "group": "gitsight@5"
         }
       ],
       "editor/title": [

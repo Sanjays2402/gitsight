@@ -44,6 +44,7 @@ import { FileCommitLensProvider } from './views/fileCommitLens';
 import { showAuthorsOfRange } from './views/authorsOfRange';
 import { showBranchCleanup } from './views/branchCleanup';
 import { CommitLintController } from './views/commitLintController';
+import { showRestoreFromCommit } from './views/restoreFromCommit';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -582,6 +583,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   const commitLint = new CommitLintController();
   ctx.subscriptions.push(commitLint);
   ctx.subscriptions.push(...commitLint.registerCommands());
+
+  // ── Restore File from any commit (F17) ───────────────────────────
+  reg('gitsight.restoreFileFromCommit', () => errorWrap(async () => {
+    const git = gitForActive() ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRestoreFromCommit(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
