@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "out-test",
+    "rootDir": ".",
+    "sourceMap": true,
+    "noEmit": false,
+    "types": ["node"]
+  },
+  "include": [
+    "test/**/*",
+    "src/git/format.ts",
+    "src/git/hostDetect.ts"
+  ],
+  "exclude": ["node_modules", "out", "out-test"]
+}
