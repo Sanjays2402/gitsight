@@ -38,6 +38,7 @@ import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/op
 import { runSync, SyncStatusBar } from './views/sync';
 import { WorkingTreePill } from './views/workingTreePill';
 import { RecentFilesView } from './views/recentFilesView';
+import { BlameHoverProvider } from './blame/blameHover';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -546,6 +547,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     await vscode.window.showTextDocument(vscode.Uri.file(path.join(git.cwd, rel)));
     await vscode.commands.executeCommand('gitsight.showFileHistory');
   }));
+
+  // ── Blame Hover provider (F11) ───────────────────────────────────
+  const blameHover = new BlameHoverProvider(file => repos.forFile(file));
+  ctx.subscriptions.push(blameHover.register());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

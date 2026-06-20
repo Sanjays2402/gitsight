@@ -12,7 +12,8 @@
     "src/git/format.ts",
     "src/git/hostDetect.ts",
     "src/git/workingTreeStatus.ts",
-    "src/git/recentFiles.ts"
+    "src/git/recentFiles.ts",
+    "src/git/coAuthors.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

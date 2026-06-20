@@ -965,6 +965,21 @@
           "minimum": 5,
           "maximum": 200,
           "description": "Maximum number of files to show in the Recent Files view."
+        },
+        "gitsight.blameHover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a rich GitSight hover with commit subject, body, co-authors, and quick-action links."
+        },
+        "gitsight.blameHover.showBody": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include the commit body in the blame hover."
+        },
+        "gitsight.blameHover.showCoAuthors": {
+          "type": "boolean",
+          "default": true,
+          "description": "Surface Co-authored-by trailers in the blame hover."
         }
       }
     },
