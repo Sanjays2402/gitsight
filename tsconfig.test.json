@@ -23,7 +23,8 @@
     "src/git/branchAge.ts",
     "src/git/rebaseState.ts",
     "src/git/tagSort.ts",
-    "src/git/coAuthorSuggest.ts"
+    "src/git/coAuthorSuggest.ts",
+    "src/git/branchCompare.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -48,6 +48,7 @@ import { showRestoreFromCommit } from './views/restoreFromCommit';
 import { RebaseCoach } from './views/rebaseCoach';
 import { showTagQuickSwitcher } from './views/tagSwitcher';
 import { showFindCoAuthors } from './views/findCoAuthors';
+import { showBranchCompareSummary } from './views/branchCompareSummary';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -610,6 +611,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.findCoAuthors', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showFindCoAuthors(git);
+  }));
+
+  // ── Branch Compare Summary (F26) ─────────────────────────────────
+  reg('gitsight.branchCompareSummary', (n?: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const head = n?.branch?.name ?? n?.name;
+    await showBranchCompareSummary(git, head ? { head } : undefined);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

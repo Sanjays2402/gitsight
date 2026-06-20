@@ -425,6 +425,11 @@
         "icon": "$(organization)"
       },
       {
+        "command": "gitsight.branchCompareSummary",
+        "title": "GitSight: Branch Compare Summary\u2026",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
