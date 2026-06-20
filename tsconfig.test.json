@@ -25,7 +25,8 @@
     "src/git/tagSort.ts",
     "src/git/coAuthorSuggest.ts",
     "src/git/branchCompare.ts",
-    "src/git/conventionalCommit.ts"
+    "src/git/conventionalCommit.ts",
+    "src/git/stashSort.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

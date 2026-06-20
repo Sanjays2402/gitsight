@@ -56,6 +56,12 @@
         "key": "ctrl+shift+b",
         "mac": "cmd+shift+b",
         "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.stashQuickSwitcher",
+        "key": "ctrl+shift+j",
+        "mac": "cmd+shift+j",
+        "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
       }
     ],
     "viewsContainers": {
@@ -433,6 +439,11 @@
         "command": "gitsight.conventionalCommitInsert",
         "title": "GitSight: Conventional Commit \u2014 Quick Insert\u2026",
         "icon": "$(zap)"
+      },
+      {
+        "command": "gitsight.stashQuickSwitcher",
+        "title": "GitSight: Switch Stash\u2026",
+        "icon": "$(archive)"
       },
       {
         "command": "gitsight.generateCommitMessage",

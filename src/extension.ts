@@ -50,6 +50,7 @@ import { showTagQuickSwitcher } from './views/tagSwitcher';
 import { showFindCoAuthors } from './views/findCoAuthors';
 import { showBranchCompareSummary } from './views/branchCompareSummary';
 import { showConventionalCommitInsert } from './views/conventionalCommit';
+import { showStashQuickSwitcher } from './views/stashSwitcher';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -625,6 +626,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.conventionalCommitInsert', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showConventionalCommitInsert(git);
+  }));
+
+  // ── Stash Quick-Switcher (F31) ───────────────────────────────────
+  reg('gitsight.stashQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showStashQuickSwitcher(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
