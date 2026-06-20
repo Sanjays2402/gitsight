@@ -396,6 +396,11 @@
         "icon": "$(organization)"
       },
       {
+        "command": "gitsight.branchCleanup",
+        "title": "GitSight: Cleanup Merged Branches\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -648,6 +653,11 @@
           "command": "gitsight.branchQuickSwitcher",
           "when": "view == gitsight.branches",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.branchCleanup",
+          "when": "view == gitsight.branches",
+          "group": "navigation@3"
         },
         {
           "command": "gitsight.createTag",

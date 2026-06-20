@@ -42,6 +42,7 @@ import { BlameHoverProvider } from './blame/blameHover';
 import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreLens';
 import { FileCommitLensProvider } from './views/fileCommitLens';
 import { showAuthorsOfRange } from './views/authorsOfRange';
+import { showBranchCleanup } from './views/branchCleanup';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -568,6 +569,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.authorsOfRange', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showAuthorsOfRange(ctx, git);
+  }));
+
+  // ── Branch Cleanup (F9) ──────────────────────────────────────────
+  reg('gitsight.branchCleanup', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBranchCleanup(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
