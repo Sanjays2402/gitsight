@@ -14,7 +14,8 @@
     "src/git/workingTreeStatus.ts",
     "src/git/recentFiles.ts",
     "src/git/coAuthors.ts",
-    "src/git/gitignoreInsight.ts"
+    "src/git/gitignoreInsight.ts",
+    "src/git/fileStats.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

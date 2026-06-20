@@ -998,6 +998,18 @@
           "minimum": 100,
           "maximum": 100000,
           "description": "Cap on the number of ignored files scanned to attribute back to a .gitignore. Very large workspaces with huge node_modules trees should keep this conservative."
+        },
+        "gitsight.fileCommitLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens at the top of every tracked file with its commit count, age span, and contributor count."
+        },
+        "gitsight.fileCommitLens.maxCommits": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "Maximum commits to inspect per file when computing the per-file CodeLens. Larger values give better contributor counts on long-lived files but cost more git CPU."
         }
       }
     },

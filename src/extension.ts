@@ -40,6 +40,7 @@ import { WorkingTreePill } from './views/workingTreePill';
 import { RecentFilesView } from './views/recentFilesView';
 import { BlameHoverProvider } from './blame/blameHover';
 import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreLens';
+import { FileCommitLensProvider } from './views/fileCommitLens';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -557,6 +558,10 @@ export function activate(ctx: vscode.ExtensionContext) {
   const ignoreLens = new GitignoreInsightLens(repos);
   ctx.subscriptions.push(ignoreLens.register());
   reg('gitsight.showIgnoredFiles', (arg: any) => errorWrap(() => showIgnoredFilesPicker(arg)));
+
+  // ── Per-File Commit CodeLens (F20) ───────────────────────────────
+  const fileLens = new FileCommitLensProvider(repos);
+  ctx.subscriptions.push(fileLens.register());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
