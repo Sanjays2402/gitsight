@@ -33,6 +33,12 @@ export interface Branch {
   behind: number;
   remote: boolean;
   sha: string;
+  /** Last commit author name (best-effort, may be empty if for-each-ref omitted it). */
+  lastAuthor?: string;
+  /** Last commit subject. */
+  lastSubject?: string;
+  /** Last commit committerdate (ISO-strict). */
+  lastDate?: Date;
 }
 
 export interface Tag { name: string; sha: string; subject: string; date?: Date; }
@@ -70,11 +76,11 @@ export class Git {
     const refs = includeRemote ? ['refs/heads', 'refs/remotes'] : ['refs/heads'];
     const out = await this.run([
       'for-each-ref',
-      '--format=%(refname:short)\t%(HEAD)\t%(upstream:short)\t%(upstream:track)\t%(objectname)\t%(refname)',
+      '--format=%(refname:short)\t%(HEAD)\t%(upstream:short)\t%(upstream:track)\t%(objectname)\t%(refname)\t%(authorname)\t%(contents:subject)\t%(committerdate:iso-strict)',
       ...refs,
     ]);
     return out.split('\n').filter(Boolean).map(line => {
-      const [name, head, upstream, track, sha, fullRef] = line.split('\t');
+      const [name, head, upstream, track, sha, fullRef, lastAuthor, lastSubject, lastDate] = line.split('\t');
       if (/HEAD$/.test(name)) return null;
       const aheadMatch = /ahead (\d+)/.exec(track || '');
       const behindMatch = /behind (\d+)/.exec(track || '');
@@ -86,6 +92,9 @@ export class Git {
         behind: behindMatch ? +behindMatch[1] : 0,
         remote: fullRef.startsWith('refs/remotes/'),
         sha,
+        lastAuthor: lastAuthor || undefined,
+        lastSubject: lastSubject || undefined,
+        lastDate: lastDate ? new Date(lastDate) : undefined,
       } as Branch;
     }).filter((b): b is Branch => !!b);
   }

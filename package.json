@@ -50,6 +50,12 @@
         "key": "ctrl+shift+k",
         "mac": "cmd+shift+k",
         "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.branchQuickSwitcher",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
       }
     ],
     "viewsContainers": {
@@ -500,6 +506,12 @@
         "title": "GitSight: Toggle Word Wrap (Diff)",
         "category": "GitSight",
         "icon": "$(word-wrap)"
+      },
+      {
+        "command": "gitsight.branchQuickSwitcher",
+        "title": "GitSight: Switch Branch\u2026",
+        "category": "GitSight",
+        "icon": "$(git-branch)"
       }
     ],
     "menus": {
@@ -548,6 +560,11 @@
           "command": "gitsight.createBranch",
           "when": "view == gitsight.branches",
           "group": "navigation@1"
+        },
+        {
+          "command": "gitsight.branchQuickSwitcher",
+          "when": "view == gitsight.branches",
+          "group": "navigation@2"
         },
         {
           "command": "gitsight.createTag",

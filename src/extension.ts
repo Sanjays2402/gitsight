@@ -32,6 +32,7 @@ import { WorktreePill } from './views/worktreePill';
 import { toggleDiffWordWrap } from './views/diffWordWrap';
 import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
+import { showBranchQuickSwitcher } from './views/branchSwitcher';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -474,6 +475,12 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Commit graph theme picker ────────────────────────────────────
   reg('gitsight.pickGraphTheme', () => errorWrap(() => pickTheme()));
+
+  // ── Branch Quick-Switcher (Cmd+Shift+B) ──────────────────────────
+  reg('gitsight.branchQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBranchQuickSwitcher(ctx, git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
