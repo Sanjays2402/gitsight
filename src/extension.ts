@@ -49,6 +49,7 @@ import { RebaseCoach } from './views/rebaseCoach';
 import { showTagQuickSwitcher } from './views/tagSwitcher';
 import { showFindCoAuthors } from './views/findCoAuthors';
 import { showBranchCompareSummary } from './views/branchCompareSummary';
+import { showConventionalCommitInsert } from './views/conventionalCommit';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -618,6 +619,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     const head = n?.branch?.name ?? n?.name;
     await showBranchCompareSummary(git, head ? { head } : undefined);
+  }));
+
+  // ── Conventional Commit Quick-Insert (F29) ───────────────────────
+  reg('gitsight.conventionalCommitInsert', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showConventionalCommitInsert(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
