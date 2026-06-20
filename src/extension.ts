@@ -39,6 +39,7 @@ import { runSync, SyncStatusBar } from './views/sync';
 import { WorkingTreePill } from './views/workingTreePill';
 import { RecentFilesView } from './views/recentFilesView';
 import { BlameHoverProvider } from './blame/blameHover';
+import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreLens';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -551,6 +552,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Blame Hover provider (F11) ───────────────────────────────────
   const blameHover = new BlameHoverProvider(file => repos.forFile(file));
   ctx.subscriptions.push(blameHover.register());
+
+  // ── Gitignore Insight CodeLens (F15) ─────────────────────────────
+  const ignoreLens = new GitignoreInsightLens(repos);
+  ctx.subscriptions.push(ignoreLens.register());
+  reg('gitsight.showIgnoredFiles', (arg: any) => errorWrap(() => showIgnoredFilesPicker(arg)));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

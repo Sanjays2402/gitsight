@@ -15,7 +15,7 @@ export interface CoAuthor {
   email: string;
 }
 
-const TRAILER_RE = /^\s*Co-authored-by:\s*([^<]+?)\s*<([^>]+)>\s*$/i;
+const TRAILER_RE = /^\s*Co-authored-by:\s*([^<\s][^<]*?)\s*<([^>]+)>\s*$/i;
 
 export function parseCoAuthors(message: string): CoAuthor[] {
   if (!message) return [];

@@ -569,6 +569,12 @@
         "title": "GitSight: Show History for Recent File",
         "category": "GitSight",
         "icon": "$(history)"
+      },
+      {
+        "command": "gitsight.showIgnoredFiles",
+        "title": "GitSight: Show Files Ignored by This .gitignore",
+        "category": "GitSight",
+        "icon": "$(eye-closed)"
       }
     ],
     "menus": {
@@ -980,6 +986,18 @@
           "type": "boolean",
           "default": true,
           "description": "Surface Co-authored-by trailers in the blame hover."
+        },
+        "gitsight.gitignoreInsight.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens at the top of every .gitignore reporting how many files it is currently ignoring."
+        },
+        "gitsight.gitignoreInsight.maxFiles": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 100000,
+          "description": "Cap on the number of ignored files scanned to attribute back to a .gitignore. Very large workspaces with huge node_modules trees should keep this conservative."
         }
       }
     },
