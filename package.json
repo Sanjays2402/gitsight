@@ -541,6 +541,12 @@
         "title": "GitSight: Sync (fetch + pull + push)",
         "category": "GitSight",
         "icon": "$(sync)"
+      },
+      {
+        "command": "gitsight.refreshWorkingTree",
+        "title": "GitSight: Refresh Working-Tree Pill",
+        "category": "GitSight",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -903,6 +909,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show the Sync status-bar pill with ahead/behind counts. Click to run GitSight: Sync."
+        },
+        "gitsight.workingTree.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill summarizing the working tree (staged / modified / untracked / conflicted counts). Click to open the Source Control view."
+        },
+        "gitsight.workingTree.hideWhenClean": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide the Working-Tree pill when there is nothing staged, modified, untracked, or conflicted."
         }
       }
     },

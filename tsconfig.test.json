@@ -10,7 +10,8 @@
   "include": [
     "test/**/*",
     "src/git/format.ts",
-    "src/git/hostDetect.ts"
+    "src/git/hostDetect.ts",
+    "src/git/workingTreeStatus.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

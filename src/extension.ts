@@ -36,6 +36,7 @@ import { StatusBar } from './views/statusBar';
 import { showBranchQuickSwitcher } from './views/branchSwitcher';
 import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/openOnRemote';
 import { runSync, SyncStatusBar } from './views/sync';
+import { WorkingTreePill } from './views/workingTreePill';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -519,6 +520,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     syncPill.refresh();
     refreshAll();
   }));
+
+  // ── Working-Tree status pill (F6) ────────────────────────────────
+  const workingTreePill = new WorkingTreePill(repos);
+  ctx.subscriptions.push(workingTreePill);
+  reg('gitsight.refreshWorkingTree', () => workingTreePill.refresh());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
