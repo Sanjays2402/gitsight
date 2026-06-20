@@ -35,6 +35,7 @@ import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
 import { showBranchQuickSwitcher } from './views/branchSwitcher';
 import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/openOnRemote';
+import { runSync, SyncStatusBar } from './views/sync';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -505,6 +506,18 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = gitForActive() ?? primary();
     if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await openFileOnRemote(git);
+  }));
+
+  // ── One-Click Sync ───────────────────────────────────────────────
+  const syncPill = new SyncStatusBar(repos);
+  ctx.subscriptions.push(syncPill);
+  reg('gitsight.sync', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const res = await runSync(git);
+    if (res.ok) vscode.window.setStatusBarMessage(`GitSight sync: ${res.message}`, 4000);
+    else vscode.window.showErrorMessage(`GitSight sync failed: ${res.message}`);
+    syncPill.refresh();
+    refreshAll();
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

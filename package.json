@@ -535,6 +535,12 @@
         "title": "GitSight: Open File on Remote (HEAD, with selection)",
         "category": "GitSight",
         "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.sync",
+        "title": "GitSight: Sync (fetch + pull + push)",
+        "category": "GitSight",
+        "icon": "$(sync)"
       }
     ],
     "menus": {
@@ -628,6 +634,11 @@
           "command": "gitsight.fetch",
           "when": "view =~ /^gitsight\\./",
           "group": "navigation@90"
+        },
+        {
+          "command": "gitsight.sync",
+          "when": "view == gitsight.repositories",
+          "group": "navigation@91"
         }
       ],
       "view/item/context": [
@@ -881,6 +892,17 @@
           "type": "boolean",
           "default": true,
           "description": "Show the current worktree name in the status bar (hidden when only one worktree exists). Click to open the worktree switcher."
+        },
+        "gitsight.sync.pullMode": {
+          "type": "string",
+          "enum": ["ff-only", "rebase"],
+          "default": "ff-only",
+          "description": "Strategy used by GitSight: Sync when pulling. 'rebase' uses --rebase --autostash so unpushed local commits stay on top."
+        },
+        "gitsight.sync.pill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Sync status-bar pill with ahead/behind counts. Click to run GitSight: Sync."
         }
       }
     },
