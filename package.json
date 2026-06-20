@@ -517,6 +517,24 @@
         "title": "GitSight: Switch Branch\u2026",
         "category": "GitSight",
         "icon": "$(git-branch)"
+      },
+      {
+        "command": "gitsight.openRepoOnRemote",
+        "title": "GitSight: Open Repository on Remote",
+        "category": "GitSight",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.openBranchOnRemote",
+        "title": "GitSight: Open Branch on Remote",
+        "category": "GitSight",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.openFileOnRemote",
+        "title": "GitSight: Open File on Remote (HEAD, with selection)",
+        "category": "GitSight",
+        "icon": "$(globe)"
       }
     ],
     "menus": {
@@ -602,6 +620,11 @@
           "group": "navigation@1"
         },
         {
+          "command": "gitsight.openRepoOnRemote",
+          "when": "view == gitsight.remotes || view == gitsight.repositories",
+          "group": "navigation@2"
+        },
+        {
           "command": "gitsight.fetch",
           "when": "view =~ /^gitsight\\./",
           "group": "navigation@90"
@@ -632,6 +655,11 @@
           "command": "gitsight.compareWithWorking",
           "when": "viewItem == branch",
           "group": "2_compare@1"
+        },
+        {
+          "command": "gitsight.openBranchOnRemote",
+          "when": "viewItem == branch",
+          "group": "2_compare@2"
         },
         {
           "command": "gitsight.deleteBranch",
@@ -728,6 +756,10 @@
         {
           "command": "gitsight.showFileHistory",
           "group": "gitsight@3"
+        },
+        {
+          "command": "gitsight.openFileOnRemote",
+          "group": "gitsight@4"
         }
       ],
       "editor/title": [

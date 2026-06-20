@@ -34,6 +34,7 @@ import { toggleDiffWordWrap } from './views/diffWordWrap';
 import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
 import { showBranchQuickSwitcher } from './views/branchSwitcher';
+import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/openOnRemote';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -487,6 +488,23 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.branchQuickSwitcher', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showBranchQuickSwitcher(ctx, git);
+  }));
+
+  // ── Open on Remote suite ─────────────────────────────────────────
+  reg('gitsight.openRepoOnRemote', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openRepoOnRemote(git);
+  }));
+  reg('gitsight.openBranchOnRemote', (n: any) => errorWrap(async () => {
+    const git: Git = n?.git ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const branch = n?.branch?.name ?? n?.name;
+    await openBranchOnRemote(git, branch);
+  }));
+  reg('gitsight.openFileOnRemote', () => errorWrap(async () => {
+    const git = gitForActive() ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openFileOnRemote(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
