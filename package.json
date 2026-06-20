@@ -401,6 +401,10 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitsight.commitLintShowProblems",
+        "title": "GitSight: Commit Linter \u2014 Show Problems"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1030,6 +1034,60 @@
           "minimum": 10,
           "maximum": 5000,
           "description": "Maximum commits to inspect per file when computing the per-file CodeLens. Larger values give better contributor counts on long-lived files but cost more git CPU."
+        },
+        "gitsight.commitLint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Lint commit messages — surfaces problems as diagnostics in COMMIT_EDITMSG and as a status-bar pill summary of the SCM input box."
+        },
+        "gitsight.commitLint.showPill": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the commit-linter status-bar pill summarising the current SCM input message."
+        },
+        "gitsight.commitLint.maxSubjectLength": {
+          "type": "number",
+          "default": 72,
+          "minimum": 20,
+          "maximum": 200,
+          "description": "Maximum allowed length of the commit subject line (the first line)."
+        },
+        "gitsight.commitLint.maxBodyLength": {
+          "type": "number",
+          "default": 100,
+          "minimum": 40,
+          "maximum": 240,
+          "description": "Recommended wrap width for commit body lines. Lines longer than this raise a warning."
+        },
+        "gitsight.commitLint.requireBlankLineAfterSubject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the second line of the message is non-empty (Conventional Commits requires a blank line between subject and body)."
+        },
+        "gitsight.commitLint.warnTrailingWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn on lines with trailing whitespace."
+        },
+        "gitsight.commitLint.warnLowercaseSubject": {
+          "type": "boolean",
+          "default": false,
+          "description": "Warn when the subject starts with a lowercase letter (excluding Conventional Commits prefixes like 'feat:')."
+        },
+        "gitsight.commitLint.warnSubjectPeriod": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the subject ends with sentence-ending punctuation ('.', '!', '?')."
+        },
+        "gitsight.commitLint.warnWipPrefix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block commits whose subject starts with WIP, fixup!, squash!, or amend!."
+        },
+        "gitsight.commitLint.warnMissingBody": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the subject ends with ':' but no body is provided."
         }
       }
     },

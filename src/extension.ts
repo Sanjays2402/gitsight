@@ -43,6 +43,7 @@ import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreL
 import { FileCommitLensProvider } from './views/fileCommitLens';
 import { showAuthorsOfRange } from './views/authorsOfRange';
 import { showBranchCleanup } from './views/branchCleanup';
+import { CommitLintController } from './views/commitLintController';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -576,6 +577,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showBranchCleanup(git);
   }));
+
+  // ── Commit-Message Linter (F21) ──────────────────────────────────
+  const commitLint = new CommitLintController();
+  ctx.subscriptions.push(commitLint);
+  ctx.subscriptions.push(...commitLint.registerCommands());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

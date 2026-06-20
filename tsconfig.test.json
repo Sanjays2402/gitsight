@@ -17,7 +17,8 @@
     "src/git/gitignoreInsight.ts",
     "src/git/fileStats.ts",
     "src/git/rangeAuthors.ts",
-    "src/git/branchCleanup.ts"
+    "src/git/branchCleanup.ts",
+    "src/git/commitLint.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
