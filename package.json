@@ -418,6 +418,11 @@
         "icon": "$(book)"
       },
       {
+        "command": "gitsight.generatePullRequestDescription",
+        "title": "GitSight: Draft AI Pull Request Description\u2026",
+        "icon": "$(git-pull-request)"
+      },
+      {
         "command": "gitsight.bisectStart",
         "title": "GitSight: Bisect \u2014 Start\u2026",
         "icon": "$(beaker)"
@@ -535,6 +540,11 @@
           "command": "gitsight.clearPrAuthorFilter",
           "when": "view == gitsight.pullRequests && gitsight.prFilterActive",
           "group": "navigation@3"
+        },
+        {
+          "command": "gitsight.generatePullRequestDescription",
+          "when": "view == gitsight.pullRequests",
+          "group": "navigation@4"
         },
         {
           "command": "gitsight.refreshIssues",

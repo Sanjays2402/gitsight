@@ -20,6 +20,7 @@ import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
 import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { generateChangelog } from './ai/changelog';
+import { generatePullRequestDescription } from './ai/prDescription';
 import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
@@ -406,6 +407,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.generateChangelog', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await generateChangelog(ctx, git);
+  }));
+
+  // ── AI PR description generator ─────────────────────────────────
+  reg('gitsight.generatePullRequestDescription', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await generatePullRequestDescription(ctx, git);
   }));
 
   // ── Bisect wizard ───────────────────────────────────────────────
