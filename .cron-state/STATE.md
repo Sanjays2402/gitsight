@@ -18,12 +18,12 @@
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
-### Tick 1 (this) — picked
-- [ ] **F1**: Branch Quick-Switcher (`Cmd+Shift+B`) — keyboard-first switcher with ahead/behind, last commit, fuzzy, recents (Memento), and inline create.
-- [ ] **F2**: AI-Generated PR Description — `gitsight.generatePullRequestDescription` produces a markdown PR body from commits between current branch and the merge-base with default branch (auto-detected).
-- [ ] **F3**: Open-on-Remote suite — `openRepoOnRemote`, `openBranchOnRemote`, `openFileOnRemote` (active file at HEAD, line-range anchored). Editor/title + editor/context menus.
-- [ ] **F4**: One-Click Sync (`gitsight.sync`) — fetch + pull (ff-only or rebase) + push, with a dedicated status-bar pill showing unpushed↑/unpulled↓ + click-to-sync. Progress notification with per-step reporting.
-- [ ] **F5**: Test Harness + Unit Tests — `node:test` (built-in, zero deps), `tsconfig.test.json`, `npm test` script, tests for `git/format.ts` and `git/hostDetect.ts`.
+### Tick 1 (2026-06-19 23:17 PT) — SHIPPED
+- [x] **F1**: Branch Quick-Switcher (`Cmd+Shift+B`) — `dccdb02`
+- [x] **F2**: AI-Generated PR Description — `dce7dfc`
+- [x] **F3**: Open-on-Remote suite (repo/branch/file, multi-host) — `b9ab869`
+- [x] **F4**: One-Click Sync + status-bar pill — `a62d979`
+- [x] **F5**: `node:test` harness + 20 tests for `format` & `hostDetect` — `3cda082`
 
 ### Tick 2+
 - [ ] F6: Working-Tree status pill (`gitsight.workingTree.enabled`) with click → SCM view; staged/unstaged/untracked counts.
@@ -44,4 +44,4 @@
 
 ## TICK LOG
 
-(empty — first tick in progress)
+- 2026-06-19 23:17 PT — 5 features shipped: F1 `dccdb02`, F2 `dce7dfc`, F3 `b9ab869`, F4 `a62d979`, F5 `3cda082`. Gate: lint ok, compile ok, 20/20 tests green. Bootstrap commit: `c684b0b`.
