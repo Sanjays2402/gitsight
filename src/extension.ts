@@ -51,6 +51,7 @@ import { showFindCoAuthors } from './views/findCoAuthors';
 import { showBranchCompareSummary } from './views/branchCompareSummary';
 import { showConventionalCommitInsert } from './views/conventionalCommit';
 import { showStashQuickSwitcher } from './views/stashSwitcher';
+import { ConflictMarkerController } from './views/conflictMarkerController';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -633,6 +634,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showStashQuickSwitcher(git);
   }));
+
+  // ── Conflict Marker Linter (F34) ─────────────────────────────────
+  const conflictLinter = new ConflictMarkerController();
+  ctx.subscriptions.push(conflictLinter);
+  ctx.subscriptions.push(...conflictLinter.registerCommands());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

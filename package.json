@@ -62,6 +62,18 @@
         "key": "ctrl+shift+j",
         "mac": "cmd+shift+j",
         "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpNext",
+        "key": "ctrl+alt+]",
+        "mac": "cmd+alt+]",
+        "when": "editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpPrev",
+        "key": "ctrl+alt+[",
+        "mac": "cmd+alt+[",
+        "when": "editorTextFocus && !suggestWidgetVisible"
       }
     ],
     "viewsContainers": {
@@ -444,6 +456,20 @@
         "command": "gitsight.stashQuickSwitcher",
         "title": "GitSight: Switch Stash\u2026",
         "icon": "$(archive)"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpNext",
+        "title": "GitSight: Jump to Next Conflict Marker",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpPrev",
+        "title": "GitSight: Jump to Previous Conflict Marker",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "gitsight.conflictMarker.rescan",
+        "title": "GitSight: Rescan Open Files for Conflict Markers"
       },
       {
         "command": "gitsight.generateCommitMessage",
@@ -1177,6 +1203,16 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Extra email addresses (lowercase) the user considers their own; excluded from co-author suggestions in addition to git's user.email."
+        },
+        "gitsight.conflictMarker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Surface unresolved Git conflict markers (<<<<<<<, =======, >>>>>>>) as Error diagnostics in open files."
+        },
+        "gitsight.conflictMarker.showPill": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill with the conflict count when the active editor has unresolved markers."
         }
       }
     },
