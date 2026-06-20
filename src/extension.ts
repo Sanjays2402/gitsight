@@ -37,6 +37,7 @@ import { showBranchQuickSwitcher } from './views/branchSwitcher';
 import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/openOnRemote';
 import { runSync, SyncStatusBar } from './views/sync';
 import { WorkingTreePill } from './views/workingTreePill';
+import { RecentFilesView } from './views/recentFilesView';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -61,6 +62,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const search = new SearchView(repos);
   const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()), ctx);
   const issues = new IssuesProvider(() => repos.primary());
+  const recentFiles = new RecentFilesView(repos);
 
   // Virtual filesystem for historic files (gitsight://)
   ctx.subscriptions.push(
@@ -81,12 +83,14 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('gitsight.search', search),
     vscode.window.registerTreeDataProvider('gitsight.pullRequests', prs),
     vscode.window.registerTreeDataProvider('gitsight.issues', issues),
+    vscode.window.registerTreeDataProvider('gitsight.recentFiles', recentFiles),
   );
 
   const refreshAll = () => {
     repositoriesView.refresh(); commits.refresh(); branches.refresh(); tags.refresh();
     remotes.refresh(); stashes.refresh(); worktrees.refresh(); contributors.refresh();
     fileHistory.refresh(); lineHistory.refresh();
+    recentFiles.refresh();
     vscode.window.visibleTextEditors.forEach(e => blame.renderGutter(e));
   };
 
@@ -525,6 +529,23 @@ export function activate(ctx: vscode.ExtensionContext) {
   const workingTreePill = new WorkingTreePill(repos);
   ctx.subscriptions.push(workingTreePill);
   reg('gitsight.refreshWorkingTree', () => workingTreePill.refresh());
+
+  // ── Recent Files Touched view (F7) ───────────────────────────────
+  reg('gitsight.refreshRecentFiles', () => recentFiles.refresh());
+  reg('gitsight.openRecentFile', (entry: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const rel = entry?.entry?.path ?? entry?.path;
+    if (!rel) return;
+    const uri = vscode.Uri.file(path.join(git.cwd, rel));
+    await vscode.commands.executeCommand('vscode.open', uri);
+  }));
+  reg('gitsight.openHistoryForRecentFile', (entry: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const rel = entry?.entry?.path ?? entry?.path;
+    if (!rel) return;
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(git.cwd, rel)));
+    await vscode.commands.executeCommand('gitsight.showFileHistory');
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

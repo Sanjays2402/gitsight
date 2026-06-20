@@ -133,6 +133,11 @@
           "id": "gitsight.issues",
           "name": "Issues",
           "icon": "$(issues)"
+        },
+        {
+          "id": "gitsight.recentFiles",
+          "name": "Recent Files",
+          "icon": "$(history)"
         }
       ]
     },
@@ -547,6 +552,23 @@
         "title": "GitSight: Refresh Working-Tree Pill",
         "category": "GitSight",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.refreshRecentFiles",
+        "title": "GitSight: Refresh Recent Files",
+        "category": "GitSight",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.openRecentFile",
+        "title": "GitSight: Open Recent File",
+        "category": "GitSight"
+      },
+      {
+        "command": "gitsight.openHistoryForRecentFile",
+        "title": "GitSight: Show History for Recent File",
+        "category": "GitSight",
+        "icon": "$(history)"
       }
     ],
     "menus": {
@@ -585,6 +607,11 @@
           "command": "gitsight.createIssue",
           "when": "view == gitsight.issues",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.refreshRecentFiles",
+          "when": "view == gitsight.recentFiles",
+          "group": "navigation@1"
         },
         {
           "command": "gitsight.showCommitGraph",
@@ -648,6 +675,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "gitsight.openHistoryForRecentFile",
+          "when": "viewItem == recentFile",
+          "group": "1_actions@1"
+        },
         {
           "command": "gitsight.checkoutBranch",
           "when": "viewItem == branch",
@@ -919,6 +951,20 @@
           "type": "boolean",
           "default": true,
           "description": "Hide the Working-Tree pill when there is nothing staged, modified, untracked, or conflicted."
+        },
+        "gitsight.recentFiles.commits": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "How many recent commits the Recent Files view scans to build its list."
+        },
+        "gitsight.recentFiles.max": {
+          "type": "number",
+          "default": 50,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Maximum number of files to show in the Recent Files view."
         }
       }
     },

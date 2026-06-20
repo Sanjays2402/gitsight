@@ -11,7 +11,8 @@
     "test/**/*",
     "src/git/format.ts",
     "src/git/hostDetect.ts",
-    "src/git/workingTreeStatus.ts"
+    "src/git/workingTreeStatus.ts",
+    "src/git/recentFiles.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
