@@ -2,6 +2,14 @@ import * as vscode from 'vscode';
 import { Git, Commit, Branch, Tag, Remote, Stash, Worktree, Contributor } from '../git/git';
 import { RepoManager } from '../git/repoManager';
 import { timeAgo } from '../git/format';
+import {
+  classifyAge,
+  ageDays,
+  ageLabel,
+  colorIdFor,
+  AgeThresholds,
+  DEFAULT_THRESHOLDS,
+} from '../git/branchAge';
 import * as path from 'path';
 
 abstract class BaseTree<T> implements vscode.TreeDataProvider<T> {
@@ -113,12 +121,28 @@ export class BranchesView extends BaseTree<BranchesItem> {
     }
     const b = n.branch;
     const item = new vscode.TreeItem(b.name);
-    item.iconPath = new vscode.ThemeIcon(b.current ? 'star-full' : 'git-branch');
+    const thresholds = readAgeThresholds();
+    const now = new Date();
+    const status = classifyAge(b.lastDate, now, thresholds);
+    const colorId = colorIdFor(status);
+    const icon = b.current ? 'star-full' : 'git-branch';
+    item.iconPath = colorId
+      ? new vscode.ThemeIcon(icon, new vscode.ThemeColor(colorId))
+      : new vscode.ThemeIcon(icon);
     const bits: string[] = [];
     if (b.upstream) bits.push(b.upstream);
     if (b.ahead) bits.push(`↑${b.ahead}`);
     if (b.behind) bits.push(`↓${b.behind}`);
-    item.description = bits.join(' ');
+    const label = ageLabel({ branch: b, status, ageDays: ageDays(b.lastDate, now) });
+    if (label) bits.push(label);
+    item.description = bits.join(' · ');
+    if (status !== 'fresh') {
+      const tip = new vscode.MarkdownString(undefined, true);
+      tip.appendMarkdown(`**${b.name}**  \n`);
+      tip.appendMarkdown(`Last commit: ${b.lastDate ? b.lastDate.toISOString().slice(0, 10) : 'unknown'}  \n`);
+      tip.appendMarkdown(`Status: \`${status}\` (${ageDays(b.lastDate, now)} days)`);
+      item.tooltip = tip;
+    }
     item.contextValue = 'branch';
     item.command = { command: 'gitsight.checkoutBranch', title: 'Checkout', arguments: [n.git, b.name] };
     return item;
@@ -139,6 +163,15 @@ export class BranchesView extends BaseTree<BranchesItem> {
     if (el.kind === 'group') return el.branches.map(b => ({ kind: 'branch', branch: b, git: el.git }));
     return [];
   }
+}
+
+function readAgeThresholds(): AgeThresholds {
+  const cfg = vscode.workspace.getConfiguration('gitsight.branchAge');
+  return {
+    agingDays: cfg.get<number>('agingDays', DEFAULT_THRESHOLDS.agingDays),
+    staleDays: cfg.get<number>('staleDays', DEFAULT_THRESHOLDS.staleDays),
+    ancientDays: cfg.get<number>('ancientDays', DEFAULT_THRESHOLDS.ancientDays),
+  };
 }
 
 export class TagsView extends BaseTree<{ tag: Tag; git: Git }> {

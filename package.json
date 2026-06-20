@@ -1097,6 +1097,27 @@
           "type": "boolean",
           "default": true,
           "description": "Warn when the subject ends with ':' but no body is provided."
+        },
+        "gitsight.branchAge.agingDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days at which a branch starts to be tagged 'aging' (yellow) in the Branches tree."
+        },
+        "gitsight.branchAge.staleDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days at which a branch is tagged 'stale' (orange) in the Branches tree."
+        },
+        "gitsight.branchAge.ancientDays": {
+          "type": "number",
+          "default": 365,
+          "minimum": 1,
+          "maximum": 7300,
+          "description": "Days at which a branch is tagged 'ancient' (red) in the Branches tree. Use Branch Cleanup to delete merged ones in bulk."
         }
       }
     },

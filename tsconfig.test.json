@@ -19,7 +19,8 @@
     "src/git/rangeAuthors.ts",
     "src/git/branchCleanup.ts",
     "src/git/commitLint.ts",
-    "src/git/restorePick.ts"
+    "src/git/restorePick.ts",
+    "src/git/branchAge.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
