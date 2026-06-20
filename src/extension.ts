@@ -45,6 +45,7 @@ import { showAuthorsOfRange } from './views/authorsOfRange';
 import { showBranchCleanup } from './views/branchCleanup';
 import { CommitLintController } from './views/commitLintController';
 import { showRestoreFromCommit } from './views/restoreFromCommit';
+import { RebaseCoach } from './views/rebaseCoach';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -590,6 +591,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showRestoreFromCommit(git);
   }));
+
+  // ── Smart Rebase Conflict Coach (F10) ────────────────────────────
+  const rebaseCoach = new RebaseCoach(repos);
+  ctx.subscriptions.push(rebaseCoach);
+  reg('gitsight.rebaseCoach', () => errorWrap(() => rebaseCoach.showMenu()));
+  reg('gitsight.refreshRebaseCoach', () => rebaseCoach.refresh());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

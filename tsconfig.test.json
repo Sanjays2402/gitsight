@@ -20,7 +20,8 @@
     "src/git/branchCleanup.ts",
     "src/git/commitLint.ts",
     "src/git/restorePick.ts",
-    "src/git/branchAge.ts"
+    "src/git/branchAge.ts",
+    "src/git/rebaseState.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
