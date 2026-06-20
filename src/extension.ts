@@ -41,6 +41,7 @@ import { RecentFilesView } from './views/recentFilesView';
 import { BlameHoverProvider } from './blame/blameHover';
 import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreLens';
 import { FileCommitLensProvider } from './views/fileCommitLens';
+import { showAuthorsOfRange } from './views/authorsOfRange';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -562,6 +563,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Per-File Commit CodeLens (F20) ───────────────────────────────
   const fileLens = new FileCommitLensProvider(repos);
   ctx.subscriptions.push(fileLens.register());
+
+  // ── Show Authors of Range (F8) ───────────────────────────────────
+  reg('gitsight.authorsOfRange', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showAuthorsOfRange(ctx, git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

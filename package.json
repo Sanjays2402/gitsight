@@ -391,6 +391,11 @@
         "icon": "$(search)"
       },
       {
+        "command": "gitsight.authorsOfRange",
+        "title": "GitSight: Show Authors of Range\u2026",
+        "icon": "$(organization)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -628,6 +633,11 @@
           "command": "gitsight.searchCommits",
           "when": "view == gitsight.commits",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.authorsOfRange",
+          "when": "view == gitsight.contributors",
+          "group": "navigation@1"
         },
         {
           "command": "gitsight.createBranch",
