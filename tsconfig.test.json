@@ -60,7 +60,8 @@
     "src/git/commitScaffold.ts",
     "src/git/rerereCache.ts",
     "src/git/worktreePruner.ts",
-    "src/git/cherryPickScout.ts"
+    "src/git/cherryPickScout.ts",
+    "src/git/stashTrash.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

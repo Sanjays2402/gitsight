@@ -84,6 +84,7 @@ import { CommitScaffoldController } from './views/commitScaffold';
 import { showRerereCacheVisualizer } from './views/rerereCache';
 import { showWorktreePruner } from './views/worktreePruner';
 import { scoutAndCherryPick } from './views/cherryPickScout';
+import { showStashTrashBin } from './views/stashTrashBin';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -972,6 +973,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.worktreePruner', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showWorktreePruner(git);
+  }));
+
+  // ── Stash Trash Bin (F67) ───────────────────────────────────────
+  reg('gitsight.stashTrashBin', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showStashTrashBin(git);
   }));
 }
 

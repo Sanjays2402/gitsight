@@ -622,6 +622,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitsight.stashTrashBin",
+        "title": "GitSight: Stash Trash Bin\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -899,6 +904,11 @@
           "command": "gitsight.stashVisualizer",
           "when": "view == gitsight.stashes",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.stashTrashBin",
+          "when": "view == gitsight.stashes",
+          "group": "navigation@3"
         },
         {
           "command": "gitsight.createWorktree",
@@ -1745,6 +1755,24 @@
           "type": "string",
           "default": "180.days",
           "description": "`git log --since` value for the scout scan (e.g. `30.days`, `1.year`). Limits how far back we look for an existing pick of the same subject."
+        },
+        "gitsight.stashTrash.staleAfterDays": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "description": "Stashes older than this many days are flagged as stale in the Trash Bin. Stale stashes whose source branch is also gone are pre-ticked for deletion."
+        },
+        "gitsight.stashTrash.ancientAfterDays": {
+          "type": "number",
+          "default": 180,
+          "minimum": 1,
+          "description": "Stashes older than this many days are considered ancient and pre-ticked for deletion regardless of whether the source branch still exists."
+        },
+        "gitsight.stashTrash.extraLiveBranches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra branch names treated as still-alive when classifying stashes (use this when a stash's source branch only exists on a remote)."
         }
       }
     },
