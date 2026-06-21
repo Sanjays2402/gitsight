@@ -1418,6 +1418,17 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Extra email addresses to treat as 'me' when matching CODEOWNERS rules and the shortlog, in addition to git config user.email."
+        },
+        "gitsight.autoStash.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a branch checkout is rejected because tracked files would be overwritten, offer to stash with a smart name, retry the switch, then re-apply."
+        },
+        "gitsight.autoStash.autoApply": {
+          "type": "string",
+          "enum": ["always", "never", "prompt"],
+          "default": "prompt",
+          "description": "After an auto-stash + checkout, how to handle the stash: 'always' pop, 'never' keep, 'prompt' ask."
         }
       }
     },

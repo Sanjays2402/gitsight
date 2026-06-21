@@ -67,6 +67,7 @@ import { registerStashNamingCommands } from './views/stashNaming';
 import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 import { runPrePushLint } from './views/prePushLintGate';
 import { showFilesIOwnPicker } from './views/filesIOwn';
+import { checkoutWithAutoStash } from './views/autoStashCheckout';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -259,7 +260,9 @@ export function activate(ctx: vscode.ExtensionContext) {
     const g: Git = git instanceof Git ? git : git?.git ?? primary();
     const target = name ?? git?.branch?.name;
     if (!g || !target) return;
-    await g.checkout(target.replace(/^origin\//, ''));
+    // F48: auto-stash when the worktree has local changes that would be
+    // overwritten by the switch.
+    await checkoutWithAutoStash(g, target.replace(/^origin\//, ''));
     refreshAll();
   }));
   reg('gitsight.createBranch', () => errorWrap(async () => {
