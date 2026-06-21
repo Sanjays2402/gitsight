@@ -602,6 +602,11 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "gitsight.defaultReviewersPicker",
+        "title": "GitSight: Suggest Reviewers from CODEOWNERS\u2026",
+        "icon": "$(organization)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1642,6 +1647,22 @@
           "default": 50,
           "minimum": 1,
           "description": "Cap on the number of commits the runner will iterate without an explicit confirmation. Going above this triggers a modal warning."
+        },
+        "gitsight.defaultReviewers.fallbackBase": {
+          "type": "string",
+          "default": "main",
+          "description": "Base ref to diff against when no open PR is found for the current branch. Used to compute the changed-files set for `gitsight.defaultReviewersPicker`."
+        },
+        "gitsight.defaultReviewers.includeTeams": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, team handles from CODEOWNERS (e.g. `@myorg/core`) are offered alongside individual users. Turn OFF if you only want to assign individual reviewers."
+        },
+        "gitsight.defaultReviewers.exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "GitHub handles to permanently exclude from `gitsight.defaultReviewersPicker` suggestions (e.g. bots, paused teammates). Accepts `@handle` or `@org/team`."
         }
       }
     },

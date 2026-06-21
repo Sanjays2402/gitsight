@@ -55,7 +55,8 @@
     "src/git/codespaces.ts",
     "src/git/stashDiff.ts",
     "src/git/submodules.ts",
-    "src/git/commitWalk.ts"
+    "src/git/commitWalk.ts",
+    "src/git/defaultReviewers.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

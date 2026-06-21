@@ -79,6 +79,7 @@ import { openInCodespaces } from './views/codespaces';
 import { showStashDiffBrowser } from './views/stashDiffBrowser';
 import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
 import { showCommitByCommitTestRunner } from './views/commitTestRunner';
+import { showDefaultReviewersPicker } from './views/defaultReviewers';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -932,6 +933,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.commitTestRunner', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showCommitByCommitTestRunner(git);
+  }));
+
+  // ── Default-Reviewers Picker (F57) ──────────────────────────────
+  reg('gitsight.defaultReviewersPicker', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showDefaultReviewersPicker(git);
   }));
 }
 
