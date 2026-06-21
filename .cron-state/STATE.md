@@ -119,12 +119,57 @@
   Promise.all on directory contents — it explodes parallelism on a
   monorepo and the OS just round-robins anyway. One file/dir at a
   time, sequentially, hits the same throughput with bounded RAM.
-- For "Files I own" CODEOWNERS matching, team handles (`@org/team`)
-  CANNOT be expanded locally — we don't have the org membership
-  graph. Reject them at the matcher unless the user explicitly opts
-  the handle in via `gitsight.filesIOwn.handles`. Same for the
-  noreply-email handle derivation: only the `<num>+<handle>@users.noreply.github.com`
-  shape, no aliasing — guess wrong and you'll inject false ownership.
+- For CODEOWNERS-based reviewer suggestions, normalise owner tokens
+  into user|team|email|invalid first — `gh pr edit --add-reviewer` only
+  accepts handles and team slugs (`org/team`), not email addresses, so
+  emails get silently dropped. Team handles are kept in the picker
+  because GitHub expands them server-side; the user can untick if they
+  prefer individual notifications.
+- For SCM scaffold features, write the header verbatim into the input
+  box and REMEMBER the exact string. Only rescaffold when staging
+  changes AND the input still equals that remembered string — the
+  moment the user types past the prefix, leave the box alone forever.
+  This matches how lint-staged etc. avoid stomping the user.
+- For "redundant scope" detection in conventional-commit headers,
+  collapse `docs(docs): ` and `ci(ci): ` to the short form when scope
+  equals type case-insensitively. The auto-detector returns scope='docs'
+  for docs-only changes, but the scope tag is just noise when it
+  duplicates the type already.
+- For rerere cache walking, resolve the cache dir via
+  `git rev-parse --git-path rr-cache` rather than hardcoding
+  `.git/rr-cache` — linked worktrees have a detached gitdir and
+  `.git/` may be a file pointing elsewhere. Same trick as `rebaseState`.
+- For rerere safety, gate all filesystem deletions on
+  `/^[0-9a-f]{40}$/.test(name)` — a malformed entry name slipping
+  through the picker would otherwise let an attacker target
+  `.git/rr-cache/../` paths via crafted listings. Cheap defence,
+  rules out an entire class of mishaps.
+- For worktree upstream-gone detection, intersect with
+  `refs/remotes/<remote>/<name>` refs rather than the local
+  `branch.upstream` config. A fresh clone has the remote ref but no
+  tracking config yet — relying on config alone would mark every
+  branch as upstream-gone after a clone.
+- For worktree age, prefer `.git/index` mtime over the working dir
+  mtime. The index is bumped on every `git add`/checkout so it tracks
+  actual git activity; the workdir gets touched by editors, builds,
+  and OS metadata reads which all create false "recent activity".
+- For dirty-worktree detection ahead of a batch prune, instantiate
+  a `Git(worktreePath)` per worktree and run `status --porcelain` in
+  its own cwd. The top-level git wrapper would otherwise report the
+  parent worktree's state for every entry.
+- For cherry-pick double-pick detection, the strongest cross-team
+  signal is subject collision after a tight normaliser. The
+  `(cherry picked from commit X)` trailer is only present when
+  someone passed `-x`, which most workflows don't. The normaliser
+  must strip Conventional-Commit headers + `(#PR)` suffix + leading
+  `[backport]` tags + trailing period + lowercase — anything less
+  misses the "reword on merge" case that GitHub's squash-merge UI
+  creates on every PR.
+- For pre-action scout warnings, ALWAYS gate "exact subject match"
+  on a truthy source subject. `'' === ''` is a useless verdict that
+  fires on every commit with an empty header (rare but happens with
+  amend-no-edit + empty title). Same trap as the empty-string
+  rangeAuthors bug from tick 6.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -232,15 +277,22 @@
 - [x] **F59**: Submodule status pill (status-bar pill + init/update menu) — `1326570`
 - [x] **F55**: Commit-by-Commit Test Runner (detached-HEAD walker with save+restore + bisect candidate report) — `2412c1c`
 
-### Tick 11 candidates (drafted now so future ticks don't restart cold)
-- [ ] F53: Commit-Detail Webview (F13 carry-over) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
-- [ ] F57: GitHub Default-Reviewers Picker (F35) — when opening a PR, parse `.github/CODEOWNERS` and pre-fill reviewers from the changed files (leverages F47's owner-fusion ranker).
-- [ ] F60: SCM Pre-commit-message scaffold — when the SCM input box is empty AND the staged diff has a single conventional-commit-shaped path (`src/git/x.ts` etc), pre-fill `feat(x):` so the user only has to type the verb. Configurable scope-from-path map.
-- [ ] F61: Branch-graph PNG export — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).
+### Tick 11 (2026-06-21 13:08 PT) — SHIPPED
+- [x] **F57**: Default-Reviewers Picker (CODEOWNERS → ranked suggestions → gh pr edit --add-reviewer) — `60e34b5`
+- [x] **F60**: SCM Commit-Message Scaffold (passive controller writes conventional header to empty input box from staged paths) — `a3d0056`
+- [x] **F63**: rerere Cache Visualizer (status classifier + per-entry forget + clear-all w/ modal confirm) — `0ee2d1b`
+- [x] **F64**: Worktree Pruner (missing-on-disk + upstream-gone classifier, dirty detection, batched remove/prune) — `c58f9de`
+- [x] **F65**: Cherry-Pick Scout (trailer/subject/normalised match scanner, wraps cherryPick with modal warning) — `9b2c5ab`
+
+### Tick 12 candidates (drafted now so future ticks don't restart cold)
+- [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
+- [ ] F61: Branch-graph PNG export (F61 carry-over) — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).
 - [ ] F62: GitHub Actions run watcher — for repos with a github.com remote + .github/workflows, surface a status-bar pill showing the latest run state for the current branch (`gh run list -L 1 --branch <branch>`), click to open the run page.
-- [ ] F63: `git rerere` cache visualizer — when `.git/rr-cache` has entries, surface a picker listing each cached resolution with the conflict signature, original hunk, and chosen resolution; one-click "forget this resolution" for stale entries.
-- [ ] F64: Worktree pruner — for repos with multiple worktrees, find ones whose branch has been deleted upstream + whose `index` mtime is > N days old, offer to `git worktree remove` them in a multi-select picker (mirrors the F52 branch staleness pruner).
-- [ ] F65: Cherry-pick scout — when looking at a commit on a different branch, scan recent commits on the current branch for a same-subject-shape commit (`git log --grep="^${escaped subject}$"`) and warn if it's already cherry-picked, preventing the double-pick mistake.
+- [ ] F66: Recent-File CodeAction `Open at last touched commit` — for files in `gitsight.recentFiles` view, a CodeAction in the editor that opens the file at its last-touch sha so you can diff-vs-now in two clicks.
+- [ ] F67: Stash Trash Bin — long-lived stashes (>90d) listed in a picker w/ "drop selected" multi-pick, mirrors the F52/F64 staleness shape.
+- [ ] F68: Reflog Explorer — a flat scrollable picker of the last N reflog entries with shortcuts to checkout / show diff / cherry-pick. The existing recentBranches scope only surfaces checkout events; this one covers the full reflog including resets and rebases.
+- [ ] F69: Pre-push commit-message gate — run the existing commit-message linter against the to-push range and refuse the push when any commit violates (configurable severity).
+- [ ] F70: Submodule auto-pull — when the parent repo's pull lands a gitlink change, prompt `git submodule update --init` for the changed submodules. Mirrors the F28 lockfile-change watcher shape.
 
 ## TICK LOG
 
@@ -254,6 +306,9 @@
 - 2026-06-21 03:55 PT — 5 features shipped: F46 `ab89b4a`, F14 `fccaf03`, F47 `bb4e228`, F48 `899a1e5`, F24 `e0b216b`. Gate: lint ok, compile ok, 395/395 tests green (320 → 395, +75 new). New configs: 16 (blameHover.authorTint*, prePushLint.*, filesIOwn.*, autoStash.*, worktreeDu.*). New commands: 3 (filesIOwn, worktreeDiskUsage; F14 + F48 hook into existing commands gitsight.push and gitsight.checkoutBranch rather than register new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). NOTE: F14 changes the user-visible behaviour of `gitsight.push` (added pre-push lint gate); F48 changes `gitsight.checkoutBranch` (auto-stash recovery). Both gracefully no-op when their `.enabled` config is false. New Tick-9 candidates drafted: F45 pre-commit bridge (carried over), F49 rebase plan preview, F50 fixture-author CodeLens, F51 commit search webview, F52 branch-age batch pruner.
 - 2026-06-21 06:49 PT — 5 features shipped: F45 `67f48ff`, F49 `7c371c7`, F50 `b3adf03`, F51 `ade84c9`, F52 `40b385d`. Gate: lint ok, compile ok, 538/538 tests green (395 → 538, +143 new). New configs: 9 (preCommitBridge.enabled, fixtureLens.{enabled,maxCommits,topAuthors}, commitSearch.defaultMaxCount, branchPruner.{defaultBase,minAgeDays,includeUnmerged,protectedBranches}). New commands: 5 (preCommitBridge, rebasePlanPreview, searchCommitsAdvanced, branchStalenessPruner; F50 registers no command — it's a CodeLens provider). New providers: 1 CodeLens (FixtureLensProvider scoped to fixture/snapshot paths only). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Quality stat for the tick: largest test deltas were preCommitBridge (27) and fixtureLens (38) — both pure-classifier-heavy slices. Drafted Tick-10 candidates: F53 commit-detail webview (F13 carry-over), F54 SSH key sanity check (F19), F55 commit-by-commit test runner (F41), F56 Codespaces opener (F27), F57 default-reviewers picker (F35), F58 stash diff browser, F59 submodule status pill.
 - 2026-06-21 09:54 PT — 5 features shipped: F54 `bfa7a08`, F56 `539d1ce`, F58 `83bdbf7`, F59 `1326570`, F55 `2412c1c`. Gate: lint ok, compile ok (warm cache), 629/629 tests green (538 → 629, +91 new). New configs: 12 (sshKeyCheck.{enabled,autoCheckOnActivate}, codespaces.{machine,location,devcontainerPath}, submodules.{enabled,hideWhenNone,recursive}, commitTestRunner.{command,timeoutMs,stopOnFirstFail,maxCommits}). New commands: 7 (checkSshKey, openInCodespaces, stashDiffBrowser, submoduleMenu, refreshSubmodules, commitTestRunner; F54 also wraps the existing push/fetch/pull commands with auth-failure recovery). New menus: 3 (branches.openInCodespaces, stashes.stashDiffBrowser, branch-context Codespaces action). New status-bar pills: 1 (SubmodulePill, position 92 between the working-tree pill at 94 and the worktree pill). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
+- 2026-06-21 13:08 PT — 5 features shipped: F57 `60e34b5`, F60 `a3d0056`, F63 `0ee2d1b`, F64 `c58f9de`, F65 `9b2c5ab`. Gate: lint ok, compile ok, 716/716 tests green (629 → 716, +87 new). New configs: 16 (defaultReviewers.{fallbackBase,includeTeams,exclude}, commitScaffold.{enabled,maxPaths,minConfidence,scaffoldWithoutScope}, rerereCache.{staleAfterDays,maxEntries}, worktreePruner.{minAgeDays,includeStaleOnly,forceDirty}, cherryPickScout.{enabled,scanCommits,scanSince}). New commands: 5 (defaultReviewersPicker, commitScaffold.apply, rerereCacheVisualizer, worktreePruner; F65 wraps the existing cherryPick rather than registering new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) auto-degradation when `gh` CLI isn't on PATH (F57 falls back to clipboard); (2) git-internal-dir resolution via `git rev-parse --git-path rr-cache` so the rerere visualizer works in linked worktrees too; (3) refs/remotes intersection for branchesWithUpstream (more reliable than local branch.upstream config on fresh clones); (4) subject normalisation that handles conventional-commit prefix + PR-merge suffix + backport tag in one pass.
+
+CAUGHT MID-TICK: 4 tests failed on first gate run (cherryPickScout: subject-exact matched empty='' vs empty=''; commitScaffold: composeScaffoldHeader returned `docs(docs): ` instead of `docs: ` when type==scope; same for `ci(ci): `; worktreePruner test expected upstreamGone=1 but classifier correctly counts both reasons when one entry has missing-on-disk AND upstream-gone). Fixed via 2 source fixes (subject-exact gated on truthy source.subject; composeScaffoldHeader drops redundant scope when scope==type) + 1 test expectation correction. All three landed as `--fixup` commits and were autosquashed into their parents before push, so each feature commit stays self-passing.
 
 POLICY UPDATE this tick: stopped using `feature/autoship` — commits on that branch never showed on Sanjay's GitHub contribution graph. The wrapper now gates on `main` directly and trusts the end-of-tick lint+compile gate to keep the line green. The 5 features above were committed straight to main, gated together, then pushed once.
 
