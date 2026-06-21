@@ -183,6 +183,13 @@
 - [x] **F48**: Auto-Stash Before Checkout (classify error, smart-name stash, retry, offer re-apply) — `899a1e5`
 - [x] **F24**: Worktree Disk-Usage Report (iterative DFS walk, top-level + largest-files breakdown) — `e0b216b`
 
+### Tick 9 (2026-06-21 06:49 PT) — SHIPPED
+- [x] **F45**: Pre-Commit Hook Bridge (run `.git/hooks/pre-commit`, classify output by runner, picker w/ open-at-line + bypass + disable) — `67f48ff`
+- [x] **F49**: Rebase Plan Preview (autosquash plan builder w/ peel-chained fixups, orphan demotion, side-by-side MD preview, confirm-before-run) — `7c371c7`
+- [x] **F50**: Fixture-Author CodeLens (path classifier for __snapshots__/__fixtures__/testdata/cassettes + .snap/.golden/.expected, last-3-authors lens at line 1) — `b3adf03`
+- [x] **F51**: Advanced Commit Search (live QuickPick w/ author:/path:/since:/re:/case:/max: query syntax, debounced + abortable, per-row buttons) — `ade84c9`
+- [x] **F52**: Branch Staleness Pruner (multi-select picker for merged stale branches, hard-protected names, includeUnmerged toggle, `-d`/`-D` swap) — `40b385d`
+
 ### Tick 8+
 - [ ] F12: AI "Explain Diff" for the current selection (not just commits) — uses `vscode.lm`.
 - [ ] F13: Commit Detail Webview — open a commit in a rich webview with stats + per-file diff tabs.
@@ -201,12 +208,21 @@
 - [x] F47: "Files I own" picker — DONE tick 8.
 - [x] F48: Auto-stash before checkout — DONE tick 8.
 
-### Tick 9 candidates (drafted now so future ticks don't restart cold)
-- [ ] F45: Pre-commit hook bridge — detect `.git/hooks/pre-commit` failures and surface a friendly diff of which rule fired, with a "skip with --no-verify" escape hatch.
-- [ ] F49: Rebase plan preview — before running `git rebase -i <upstream>`, render the to-rebase commits with their grouping (fixup pairs, squash candidates) and let the user confirm or back out.
-- [ ] F50: "Who touched this fixture?" CodeLens — at the top of test/fixture/snapshot files, show the last 3 authors and time-ago, so the user knows who to ping when a snapshot looks wrong.
-- [ ] F51: Commit search webview — full-text search across commit subjects/bodies/file lists with regex + author/range filters, replacing the current single-input `searchCommits` picker.
-- [ ] F52: Branch staleness pruner — extends F25 branch-age decoration with a quick-pick that batches "delete branches older than N days that are fully merged into <base>".
+### Tick 9 candidates (drafted now so future ticks don't restart cold) — RESOLVED
+- [x] F45: Pre-commit hook bridge — DONE tick 9 — see above.
+- [x] F49: Rebase plan preview — DONE tick 9 — see above.
+- [x] F50: "Who touched this fixture?" CodeLens — DONE tick 9 — see above.
+- [x] F51: Commit search webview — DONE tick 9 (shipped as QuickPick rather than full webview; richer search needed an interactive input, picker matches existing GitSight design language).
+- [x] F52: Branch staleness pruner — DONE tick 9 — see above.
+
+### Tick 10 candidates (drafted now so future ticks don't restart cold)
+- [ ] F53: Commit-Detail Webview (F13 carry-over) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this would match the polish of CommitGraph + StashVisualizer.
+- [ ] F54: SSH Key Sanity Check (F19 carry-over) — at first failing push, detect "Permission denied (publickey)" or "could not read from remote", surface a one-click "Open ~/.ssh/config" / "Use GH CLI" / "Add deploy key" prompt with copy-to-clipboard for ssh-keygen.
+- [ ] F55: Commit-by-Commit Test Runner (F41 carry-over) — for `<upstream>..HEAD`, optionally checkout each commit and run `npm test` (or configured cmd), report which commit broke things in a sticky panel.
+- [ ] F56: Open in GitHub Codespaces (F27) — for repos with a github.com remote, command + branch-tree action that crafts the `https://github.com/codespaces/new?repo=…&ref=<branch>` URL and opens it.
+- [ ] F57: GitHub Default-Reviewers Picker (F35) — when opening a PR, parse `.github/CODEOWNERS` and pre-fill reviewers from the changed files (leverages the F47 owner-fusion ranker).
+- [ ] F58: Stash Diff Browser — drill into any stash with per-file diff entries + a "compare to working tree" toggle (the existing stashVisualizer is patch-focused; this is a tree).
+- [ ] F59: Submodule status pill — when the workspace has submodules, surface "N submodules · M out-of-sync" with a one-click `git submodule update --remote`.
 
 ### Tick 6 candidates (drafted now so future ticks don't restart cold)
 - [x] F36: Branch divergence visualiser — when a checkout lands you behind a remote, surface a compact "you're N commits behind, top contributor is X" toast with a one-click rebase.
@@ -233,4 +249,5 @@
 - 2026-06-20 21:47 PT — 5 features shipped: F37 `342c685`, F40 `5522362`, F38 `7aea8ff`, F28 `8d3a834`, F23 `1e96978`. Gate: lint ok, compile ok (0.9s), 251/251 tests green. 60 new tests added (wipCommits 15, repoSize 10, lastPushedBranch 11, lockfileWatch 11, selectionHistory 13). New configs: 1 (lockfileWatch.enabled). New commands: 5 (wipHunter, repoSizeReport, openLastPushedBranch, showSelectionHistory; LockfileWatcher registers no commands — it's a passive watcher). New providers: 1 CodeActionProvider (Refactor-kind on every file in a git repo). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Also pruned F22 from roadmap (already covered by existing sparkline.author=me config) and drafted 4 fresh Tick-7 candidates so we never restart cold.
 - 2026-06-21 00:25 PT — 5 features shipped: F36 `ea02d89`, F39 `117f269`, F44 `fe41818`, F43 `270e61e`, F42 `a1c0416`. Gate: lint ok, compile ok, 320/320 tests green (251 → 320, +69 new). New configs: 4 (branchDivergence.enabled, forgottenFiles.enabled, forgottenFiles.days, forgottenFiles.includeClean). New commands: 6 (compareWorkingTreeToCommit, stashSaveSmart, stashSuggestNames, forgottenFiles.show, forgottenFiles.rescan, gitattributesDiagnostics). New providers: 0 (BranchDivergenceWatcher + ForgottenFilesController are passive watchers). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Also drafted Tick-8 candidates (F45 pre-commit hook bridge, F46 hover-author-age tint, F47 "files I own" picker, F48 auto-stash before checkout) and absorbed F41 forward as the only Tick-7 carry-over.
 - 2026-06-21 03:55 PT — 5 features shipped: F46 `ab89b4a`, F14 `fccaf03`, F47 `bb4e228`, F48 `899a1e5`, F24 `e0b216b`. Gate: lint ok, compile ok, 395/395 tests green (320 → 395, +75 new). New configs: 16 (blameHover.authorTint*, prePushLint.*, filesIOwn.*, autoStash.*, worktreeDu.*). New commands: 3 (filesIOwn, worktreeDiskUsage; F14 + F48 hook into existing commands gitsight.push and gitsight.checkoutBranch rather than register new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). NOTE: F14 changes the user-visible behaviour of `gitsight.push` (added pre-push lint gate); F48 changes `gitsight.checkoutBranch` (auto-stash recovery). Both gracefully no-op when their `.enabled` config is false. New Tick-9 candidates drafted: F45 pre-commit bridge (carried over), F49 rebase plan preview, F50 fixture-author CodeLens, F51 commit search webview, F52 branch-age batch pruner.
+- 2026-06-21 06:49 PT — 5 features shipped: F45 `67f48ff`, F49 `7c371c7`, F50 `b3adf03`, F51 `ade84c9`, F52 `40b385d`. Gate: lint ok, compile ok, 538/538 tests green (395 → 538, +143 new). New configs: 9 (preCommitBridge.enabled, fixtureLens.{enabled,maxCommits,topAuthors}, commitSearch.defaultMaxCount, branchPruner.{defaultBase,minAgeDays,includeUnmerged,protectedBranches}). New commands: 5 (preCommitBridge, rebasePlanPreview, searchCommitsAdvanced, branchStalenessPruner; F50 registers no command — it's a CodeLens provider). New providers: 1 CodeLens (FixtureLensProvider scoped to fixture/snapshot paths only). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Quality stat for the tick: largest test deltas were preCommitBridge (27) and fixtureLens (38) — both pure-classifier-heavy slices. Drafted Tick-10 candidates: F53 commit-detail webview (F13 carry-over), F54 SSH key sanity check (F19), F55 commit-by-commit test runner (F41), F56 Codespaces opener (F27), F57 default-reviewers picker (F35), F58 stash diff browser, F59 submodule status pill.
 
