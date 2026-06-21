@@ -83,6 +83,7 @@ import { showDefaultReviewersPicker } from './views/defaultReviewers';
 import { CommitScaffoldController } from './views/commitScaffold';
 import { showRerereCacheVisualizer } from './views/rerereCache';
 import { showWorktreePruner } from './views/worktreePruner';
+import { scoutAndCherryPick } from './views/cherryPickScout';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -236,8 +237,20 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.window.setStatusBarMessage('Message copied', 1500);
   });
   reg('gitsight.cherryPick', (n: any) => errorWrap(async () => {
-    const git: Git = n.git; await git.cherryPick(n.commit.sha);
-    vscode.window.showInformationMessage(`Cherry-picked ${n.commit.shortSha}`);
+    const git: Git = n.git;
+    // F65: pre-scout the current branch for a same-subject commit before
+    // actually running cherry-pick — surface a modal warning so the user
+    // can abort the double-pick mistake. Falls through to plain
+    // git.cherryPick when the scout finds nothing OR the user opts in.
+    await scoutAndCherryPick({
+      git,
+      commit: {
+        sha: n.commit.sha,
+        shortSha: n.commit.shortSha,
+        subject: n.commit.subject ?? '',
+        author: n.commit.author ?? undefined,
+      },
+    });
     refreshAll();
   }));
   reg('gitsight.revertCommit', (n: any) => errorWrap(async () => {

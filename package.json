@@ -1729,6 +1729,22 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, dirty worktrees in the prune selection get `--force` without an extra confirm modal. Use with care \u2014 it discards uncommitted changes."
+        },
+        "gitsight.cherryPickScout.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, `gitsight.cherryPick` scans recent commits on the current branch for a same-subject-shape commit and surfaces a modal warning before re-applying. Turn OFF to skip the scout entirely."
+        },
+        "gitsight.cherryPickScout.scanCommits": {
+          "type": "number",
+          "default": 200,
+          "minimum": 10,
+          "description": "Maximum number of commits to scan on the current branch when looking for a prior cherry-pick. Larger numbers cover deeper release-branch history at the cost of one slow log call."
+        },
+        "gitsight.cherryPickScout.scanSince": {
+          "type": "string",
+          "default": "180.days",
+          "description": "`git log --since` value for the scout scan (e.g. `30.days`, `1.year`). Limits how far back we look for an existing pick of the same subject."
         }
       }
     },
