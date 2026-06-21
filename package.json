@@ -547,6 +547,11 @@
         "icon": "$(person)"
       },
       {
+        "command": "gitsight.worktreeDiskUsage",
+        "title": "GitSight: Worktree Disk-Usage Report\u2026",
+        "icon": "$(graph-line)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1429,6 +1434,38 @@
           "enum": ["always", "never", "prompt"],
           "default": "prompt",
           "description": "After an auto-stash + checkout, how to handle the stash: 'always' pop, 'never' keep, 'prompt' ask."
+        },
+        "gitsight.worktreeDu.skip": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [".git"],
+          "description": "Top-level directory / file names to skip when measuring a worktree. node_modules is counted by default because it's usually the surprise users are chasing."
+        },
+        "gitsight.worktreeDu.maxEntries": {
+          "type": "number",
+          "default": 250000,
+          "minimum": 1000,
+          "maximum": 5000000,
+          "description": "Hard cap on filesystem entries to walk for the worktree disk-usage report. The report flags 'truncated' when this cap is hit."
+        },
+        "gitsight.worktreeDu.topLevelLimit": {
+          "type": "number",
+          "default": 25,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "How many top-level entries to show in the worktree disk-usage table."
+        },
+        "gitsight.worktreeDu.largestLimit": {
+          "type": "number",
+          "default": 10,
+          "minimum": 3,
+          "maximum": 100,
+          "description": "How many of the largest individual files to list in the worktree disk-usage report."
+        },
+        "gitsight.worktreeDu.followSymlinks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Follow symlinks when measuring a worktree. Off by default (matches `du -P`); turning it on can produce infinite-loop walks if the worktree contains circular symlinks."
         }
       }
     },

@@ -68,6 +68,7 @@ import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 import { runPrePushLint } from './views/prePushLintGate';
 import { showFilesIOwnPicker } from './views/filesIOwn';
 import { checkoutWithAutoStash } from './views/autoStashCheckout';
+import { showWorktreeDiskUsage } from './views/worktreeDiskUsage';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -739,6 +740,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.filesIOwn', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showFilesIOwnPicker(git);
+  }));
+
+  // ── Worktree Disk-Usage Report (F24) ────────────────────────────
+  reg('gitsight.worktreeDiskUsage', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWorktreeDiskUsage(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

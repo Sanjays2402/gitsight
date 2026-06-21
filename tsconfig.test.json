@@ -44,7 +44,8 @@
     "src/git/hoverAgeTint.ts",
     "src/git/prePushLint.ts",
     "src/git/filesIOwn.ts",
-    "src/git/autoStash.ts"
+    "src/git/autoStash.ts",
+    "src/git/worktreeDu.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
