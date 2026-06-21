@@ -1157,6 +1157,37 @@
           "default": true,
           "description": "Surface Co-authored-by trailers in the blame hover."
         },
+        "gitsight.blameHover.authorTint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Tint the author name in the blame hover by commit age (yellow / orange / red as the commit gets older), so you can glance and tell whether you're looking at fresh code or a 6-year fossil."
+        },
+        "gitsight.blameHover.authorTintFresh": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also tint authors of recent commits (green). Off by default to keep the hover from looking like a Christmas tree on healthy code."
+        },
+        "gitsight.blameHover.authorTintAgingDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days before an author name is tinted 'aging' (yellow) in the blame hover."
+        },
+        "gitsight.blameHover.authorTintStaleDays": {
+          "type": "number",
+          "default": 180,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days before an author name is tinted 'stale' (orange) in the blame hover."
+        },
+        "gitsight.blameHover.authorTintAncientDays": {
+          "type": "number",
+          "default": 720,
+          "minimum": 1,
+          "maximum": 36500,
+          "description": "Days before an author name is tinted 'ancient' (red) in the blame hover."
+        },
         "gitsight.gitignoreInsight.enabled": {
           "type": "boolean",
           "default": true,

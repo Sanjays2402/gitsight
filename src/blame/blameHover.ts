@@ -16,6 +16,7 @@ import * as path from 'path';
 import { Git, BlameLine } from '../git/git';
 import { timeAgo } from '../git/format';
 import { parseCoAuthors, formatCoAuthors } from '../git/coAuthors';
+import { classifyHoverAge, tintSpan, hoverAgeLabel, resolveThresholds } from '../git/hoverAgeTint';
 
 interface CacheEntry { mtime: number; lines: BlameLine[]; }
 
@@ -98,11 +99,39 @@ export class BlameHoverProvider implements vscode.HoverProvider, vscode.Disposab
   ): Promise<vscode.MarkdownString> {
     const md = new vscode.MarkdownString(undefined, true);
     md.isTrusted = true;
-    md.supportHtml = false;
+    // Author-age tint relies on inline `<span style="color:…">` which needs
+    // supportHtml. Escapes are applied to the author string before insertion
+    // (see `tintSpan`), and `isTrusted = true` is unaffected — we only
+    // permit colour styling, no scripts or arbitrary tags.
+    md.supportHtml = true;
 
     const short = info.sha.slice(0, 7);
     md.appendMarkdown(`**${escapeMd(info.summary)}**\n\n`);
-    md.appendMarkdown(`\`${short}\` · ${escapeMd(info.author)} · ${timeAgo(info.date)}\n\n`);
+
+    // Author-age tint (F46): classify the commit date and colour the author
+    // name accordingly. Users glance at the hover and instantly see whether
+    // they're staring at fresh-from-yesterday code or a six-year fossil.
+    const tintCfg = vscode.workspace.getConfiguration('gitsight.blameHover');
+    const tintEnabled = tintCfg.get<boolean>('authorTint', true);
+    let authorMd = escapeMd(info.author);
+    let ageSuffix = timeAgo(info.date);
+    if (tintEnabled) {
+      const thresholds = resolveThresholds({
+        agingDays: tintCfg.get<number>('authorTintAgingDays'),
+        staleDays: tintCfg.get<number>('authorTintStaleDays'),
+        ancientDays: tintCfg.get<number>('authorTintAncientDays'),
+      });
+      const bucket = classifyHoverAge(info.date, new Date(), thresholds);
+      const tintFresh = tintCfg.get<boolean>('authorTintFresh', false);
+      if (bucket !== 'fresh' || tintFresh) {
+        // Use the un-Markdown-escaped raw author here — `tintSpan` does the
+        // HTML escape, which is what MarkdownString's supportHtml renderer
+        // expects.
+        authorMd = tintSpan(bucket, info.author);
+        ageSuffix = hoverAgeLabel(bucket, info.date, new Date());
+      }
+    }
+    md.appendMarkdown(`\`${short}\` · ${authorMd} · ${ageSuffix}\n\n`);
 
     if (cfg.get<boolean>('showBody', true) && body) {
       // Strip the subject (first line) from the body, plus any trailing trailer block.
