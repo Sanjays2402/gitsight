@@ -632,6 +632,11 @@
         "icon": "$(history)"
       },
       {
+        "command": "gitsight.refreshActionsPill",
+        "title": "GitSight: Refresh GitHub Actions Pill",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1820,6 +1825,22 @@
           "default": 5,
           "minimum": 1,
           "description": "Don't re-surface the same submodule change toast within this many minutes. Prevents a multi-step rebase from spamming notifications."
+        },
+        "gitsight.actionsPill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, surface the latest GitHub Actions run for the current branch as a status-bar pill (requires `gh` CLI + a github.com remote + at least one workflow file in `.github/workflows/`)."
+        },
+        "gitsight.actionsPill.refreshSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 10,
+          "description": "How often to poll `gh run list` for the latest run. Lower values catch state changes sooner at the cost of more API calls."
+        },
+        "gitsight.actionsPill.hideOnSuccess": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, hide the pill entirely after a successful run. Quieter status bar; you only see the pill when something needs your attention."
         }
       }
     },

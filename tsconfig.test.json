@@ -64,7 +64,8 @@
     "src/git/stashTrash.ts",
     "src/git/reflog.ts",
     "src/git/prePushMessageGate.ts",
-    "src/git/submoduleAutoPull.ts"
+    "src/git/submoduleAutoPull.ts",
+    "src/git/ghActions.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
