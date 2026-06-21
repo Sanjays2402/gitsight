@@ -40,6 +40,12 @@
   collides. Prefer the explicit form when the user picked a tag.
 - For "write to commit message" features, gracefully degrade to clipboard when
   the built-in git extension isn't loaded/active.
+- `git reflog` output is newest-first; when writing test fixtures for reflog
+  parsers, put the newest timestamp FIRST or your tests will assert the
+  reverse order and waste 10 minutes debugging.
+- For "open on remote" features, host detection via `remoteWebUrl(url)` returns
+  the bare repo base; layer host-specific paths on top (`/releases/tag/X`,
+  `/compare/A...B`, `/-/tags/X`) using `base.includes('github.com')` checks.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -71,7 +77,14 @@
 - [x] **F26**: Branch Compare Summary (one-line ahead/behind/files/contrib) — `ef7fb6c`
 - [x] **F29**: Conventional Commit Quick-Insert (type + auto-scope + breaking) — `d31638b`
 
-### Tick 5+
+### Tick 5 (2026-06-20 18:53 PT) — SHIPPED
+- [x] **F31**: Stash Quick-Switcher (Cmd+Shift+J + pop/apply/show/drop) — `ac2a166`
+- [x] **F34**: Conflict Marker Linter (diagnostics + jump-next/prev) — `e54387a`
+- [x] **F32**: Recent Branches MRU (reflog mining + previous-branch jump) — `5771cfc`
+- [x] **F30**: Last-Shown-Tag pill (status bar + tag action menu) — `d93c3b6`
+- [x] **F33**: What Will Push? (pending-range picker with copy/compare/changelog) — `2c3b2ad`
+
+### Tick 6+
 - [ ] F12: AI "Explain Diff" for the current selection (not just commits) — uses `vscode.lm`.
 - [ ] F13: Commit Detail Webview — open a commit in a rich webview with stats + per-file diff tabs.
 - [ ] F14: Pre-Push Lint Hook bridge — a `git push`-time prompt that warns about WIP commits in the to-push range.
@@ -81,14 +94,14 @@
 - [ ] F24: Worktree disk-usage report — pick a worktree, get a size breakdown (du under the worktree).
 - [ ] F27: "Open in GitHub Codespaces" — for repos with a github.com remote, command + branch-tree action that crafts the Codespaces URL and launches it.
 - [ ] F28: Lock-file change watcher — when `package-lock.json` / `pnpm-lock.yaml` / `Cargo.lock` lands in the working tree via pull, surface a notification with "Run install" actions per ecosystem.
-- [ ] F30: Last-shown-tag pill — status-bar item showing the most recent tag and its age; click to open release notes or copy.
-
-### Tick 5 candidates (drafted now so future ticks don't restart cold)
-- [ ] F31: Stash Quick-Switcher — `Cmd+Shift+J` to pop or apply any stash by message preview, ahead of the tree view.
-- [ ] F32: Recent Branches MRU command — `git checkout -` superpowers: list the last N branches you were on, with the most recent at the top.
-- [ ] F33: "What Changed in This Push" — after `git push`, surface a notification with the commit count + top files that landed on the remote.
-- [ ] F34: Conflict Marker Linter — diagnostics for `<<<<<<<` / `=======` / `>>>>>>>` markers left in saved files; one-click "jump to next conflict".
 - [ ] F35: GitHub Default-Reviewers picker — when opening a PR, parse `.github/CODEOWNERS` and pre-fill reviewers from the changed files.
+
+### Tick 6 candidates (drafted now so future ticks don't restart cold)
+- [ ] F36: Branch divergence visualiser — when a checkout lands you behind a remote, surface a compact "you're N commits behind, top contributor is X" toast with a one-click rebase.
+- [ ] F37: WIP commit hunter — scan the active branch for commits whose subject matches `^(WIP|wip|fixup!|squash!)` and offer a one-click interactive rebase that drops/fixes-up them.
+- [ ] F38: "Open last pushed PR" — read `origin/HEAD` + the most recent push event from the reflog, craft the host-aware PR URL, open it.
+- [ ] F39: Forgotten-file diagnostic — when committing, flag any file that's been edited in the last 7 days but is staged-clean now (likely an oversight).
+- [ ] F40: Repo size + biggest-files report — `git rev-list --objects --all | git cat-file --batch-check` distillation into a Top-20 picker.
 
 ## TICK LOG
 
@@ -96,3 +109,4 @@
 - 2026-06-20 04:11 PT — 5 features shipped: F6 `f59ee4b`, F7 `43bf023`, F11 `82573ad`, F15 `2f2171f`, F20 `8055e27`. Gate: lint ok, compile ok (56s), 50/50 tests green. 30 new tests added (workingTreeStatus, recentFiles, coAuthors, gitignoreInsight, fileStats — 6 each). New configs: 11. New files: 15.
 - 2026-06-20 07:45 PT — 5 features shipped: F8 `b6efb5b`, F9 `2862c74`, F21 `3a97b28`, F17 `f693121`, F25 `48e6362`. Gate: lint ok, compile ok (<1s, warm cache), 85/85 tests green. 35 new tests added (rangeAuthors 6, branchCleanup 6, commitLint 9, restorePick 6, branchAge 8). New configs: 13 (commitLint 10, branchAge 3). New files: 14.
 - 2026-06-20 12:04 PT — 5 features shipped: F10 `17a4436`, F16 `1f7212a`, F18 `777fe9c`, F26 `ef7fb6c`, F29 `d31638b`. Gate: lint ok, compile ok (<1s, warm cache), 140/140 tests green. 55 new tests added (rebaseState 10, tagSort 9, coAuthorSuggest 9, branchCompare 9, conventionalCommit 18). New configs: 3 (rebaseCoach.enabled, coAuthors.scanCommits, coAuthors.selfEmails). New commands: 5 (rebaseCoach + refreshRebaseCoach, tagQuickSwitcher, findCoAuthors, branchCompareSummary, conventionalCommitInsert). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
+- 2026-06-20 18:53 PT — 5 features shipped: F31 `ac2a166`, F34 `e54387a`, F32 `5771cfc`, F30 `d93c3b6`, F33 `2c3b2ad`. Gate: lint ok, compile ok (1.1s), 191/191 tests green. 51 new tests added (stashSort 10, conflictMarkers 12, recentBranches 8, latestTag 11, pendingPush 10). New configs: 6 (conflictMarker.enabled, conflictMarker.showPill, recentBranches.reflogWindow, recentBranches.showLimit, lastTagPill.enabled, lastTagPill.preferStable). New commands: 8 (stashQuickSwitcher, conflictMarker.jumpNext/Prev/rescan, recentBranches, checkoutPreviousBranch, refreshLastTagPill, whatWillPush). New keybindings: 3 (Cmd+Shift+J for stash, Cmd+Alt+[/] for conflict jump). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). NOTE: F31 + F34 were committed mid-afternoon by a tick that crashed before the gate; this tick rescued them, ran the gate, and shipped 3 more on top to fill the batch.
