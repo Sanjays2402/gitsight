@@ -16,13 +16,17 @@
 - Host detection in `git/hostDetect.ts`: GitHub / Azure DevOps / GitLab / Bitbucket.
 - `package.json` 866 lines, 70+ commands, three keybindings, configurable.
 
-## Pattern notes (learned shipping ticks 1-4)
+## Pattern notes (learned shipping ticks 1-7)
 
 - Pure helpers belong in `src/git/<name>.ts`; UI/wiring goes in `src/views/`.
 - Add every new pure helper to `tsconfig.test.json` `include` so tests compile.
 - Tests live under `test/git/` with the same filename. Use `node:test`.
 - New CodeLens providers should skip files handled by other lenses (avoid clash).
 - `git check-ignore --stdin` is the only safe way to attribute huge `node_modules`.
+- `git check-attr --stdin -z --all` is the equivalent for attribute lookups —
+  feed a NUL-separated path list, parse a NUL-separated `path attr value`
+  triple stream. Drop entries whose every attr is `unspecified` to skip the
+  big "no opinion" middle.
 - VS Code status-bar pills hide themselves when their config is off OR when
   there's nothing to show and `hideWhenClean`-style config is true.
 - For diff-against-historic, use the existing `diffRevisions` helper from
@@ -65,6 +69,32 @@
   callback should be cheap (it runs on every selection change) — only
   decide *whether* to offer the action, defer the actual work to the
   command the action invokes.
+- For "branch divergence" checks on checkout, use
+  `git rev-list --left-right --count <upstream>...<head>` with upstream on
+  the LEFT — that way left=behind, right=ahead. The picker order
+  `<base>...<head>` is the project convention; don't transpose. Pair it
+  with `git shortlog -sne --no-merges <branch>..<upstream>` to surface
+  who's been pushing to the diverged side (useful for "ping X for
+  conflict context" before rebasing).
+- For "files the user edited recently" detection, restrict the
+  `git log --since=Nd --name-only` to `--author=<self-email>` — shared
+  worktrees and bot commits otherwise create false positives.
+- For "things I forgot to stage" UX, gate the surface on the SCM input
+  box having text. Outside of commit-composing, the pill is just noise.
+  2s polling matches the existing commitLint cadence.
+- For attribute-vs-content checks, an 8 KB head sniff is enough for the
+  text/binary/eol heuristics — bigger reads are wasted I/O and risk
+  triggering the OS file-cache eviction on monorepos.
+- For "smart stash name" derivation, the right shape is
+  `<branch-fragment>-<common-dir>-wip` for 3+ files, fallback to single-
+  file basename for 1-2 files, and bare branch-only when paths span the
+  repo. Always end in `-wip` so the names are trivially greppable later
+  in the reflog.
+- For "compare working tree to <sha>" picker UX, sit the global actions
+  (Open full diff, Open report) above a `Files` separator with per-file
+  rows below. Users want either "show me everything" or "let me drill
+  into the one file I care about" — separating them with a label removes
+  the "what do these top items mean?" pause.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -110,6 +140,13 @@
 - [x] **F28**: Lockfile Change Watcher (HEAD@{1}..HEAD diff → install-command toast, 12 ecosystems) — `8d3a834`
 - [x] **F23**: Show History for Selection (CodeAction + `git log -L<a>,<b>:<file>` markdown report) — `1e96978`
 
+### Tick 7 (2026-06-21 00:25 PT) — SHIPPED
+- [x] **F36**: Branch Divergence Visualiser (on-checkout toast w/ top contributors + Rebase/Merge) — `ea02d89`
+- [x] **F39**: Forgotten-File Diagnostic (status-bar pill + Stage-all picker while composing commit) — `117f269`
+- [x] **F44**: Compare Working Tree to Any Commit (commit picker → per-file diff editor) — `fe41818`
+- [x] **F43**: Smart Stash Save (branch + dirty-paths → suggested kebab name w/ picker) — `270e61e`
+- [x] **F42**: .gitattributes Diagnostics (check-attr × content sniff for text/binary/eol mismatches) — `a1c0416`
+
 ### Tick 7+
 - [ ] F12: AI "Explain Diff" for the current selection (not just commits) — uses `vscode.lm`.
 - [ ] F13: Commit Detail Webview — open a commit in a rich webview with stats + per-file diff tabs.
@@ -119,6 +156,13 @@
 - [ ] F24: Worktree disk-usage report — pick a worktree, get a size breakdown (du under the worktree).
 - [ ] F27: "Open in GitHub Codespaces" — for repos with a github.com remote, command + branch-tree action that crafts the Codespaces URL and launches it.
 - [ ] F35: GitHub Default-Reviewers picker — when opening a PR, parse `.github/CODEOWNERS` and pre-fill reviewers from the changed files.
+- [ ] F41: Commit-by-commit Test Runner — for `<upstream>..HEAD`, optionally checkout each, run `npm test` (or configured cmd), report which commit broke things.
+
+### Tick 8 candidates (drafted now so future ticks don't restart cold)
+- [ ] F45: Pre-commit hook bridge — detect `.git/hooks/pre-commit` failures and surface a friendly diff of which rule fired, with a "skip with --no-verify" escape hatch.
+- [ ] F46: Blame Hover author age tint — colour the author name in the blame hover by commit age (fresh = green, old = grey) so users glance at history hotness without opening the heatmap.
+- [ ] F47: "Files I own" picker — combine CODEOWNERS + last-author shortlog to list files the active user is the primary owner of, with a quick-pick that opens them.
+- [ ] F48: Auto-stash before checkout — when checkout would fail due to dirty worktree, offer "Stash & switch" (uses the F43 Smart Stash picker for the name) instead of bouncing the user back to the terminal.
 
 ### Tick 6 candidates (drafted now so future ticks don't restart cold)
 - [x] F36: Branch divergence visualiser — when a checkout lands you behind a remote, surface a compact "you're N commits behind, top contributor is X" toast with a one-click rebase.
@@ -127,13 +171,13 @@
 - [x] F39: Forgotten-file diagnostic — when committing, flag any file that's been edited in the last 7 days but is staged-clean now (likely an oversight).
 - [x] F40: Repo size + biggest-files report — DONE tick 6 — see above.
 
-### Tick 7 candidates (drafted now so future ticks don't restart cold)
-- [ ] F36 (carry-over): Branch divergence visualiser on checkout — toast with "N commits behind, top contributor is X, [Rebase]".
-- [ ] F39 (carry-over): Forgotten-file diagnostic — flag files edited in the last 7d but not staged when committing.
-- [ ] F41: Commit-by-commit Test Runner — for `<upstream>..HEAD`, optionally checkout each, run `npm test` (or configured cmd), report which commit broke things.
-- [ ] F42: `.gitattributes` Diagnostics — surface attributes that conflict with detected file content (e.g. `text` for a binary, missing `eol=lf` for LF-only repos).
-- [ ] F43: Stash Naming Helper — when running `git stash`, suggest a name from the WIP area's filenames/branch (`auth-refactor-WIP`), exposed via the existing Stash Quick-Switcher's stashSave action.
-- [ ] F44: "Compare working tree to any commit" — quick-pick commit, get a multi-file diff against the working tree (uses the existing diffRevisions helper).
+### Tick 7 candidates (drafted now so future ticks don't restart cold) — RESOLVED
+- [x] F36 (carry-over): Branch divergence visualiser — DONE tick 7.
+- [x] F39 (carry-over): Forgotten-file diagnostic — DONE tick 7.
+- [ ] F41: Commit-by-commit Test Runner — for `<upstream>..HEAD`, optionally checkout each, run `npm test` (or configured cmd), report which commit broke things. CARRIED TO TICK 8.
+- [x] F42: `.gitattributes` Diagnostics — DONE tick 7.
+- [x] F43: Stash Naming Helper — DONE tick 7 (as gitsight.stashSaveSmart with branch+folder+filename suggestions).
+- [x] F44: "Compare working tree to any commit" — DONE tick 7.
 
 ## TICK LOG
 
@@ -143,4 +187,5 @@
 - 2026-06-20 12:04 PT — 5 features shipped: F10 `17a4436`, F16 `1f7212a`, F18 `777fe9c`, F26 `ef7fb6c`, F29 `d31638b`. Gate: lint ok, compile ok (<1s, warm cache), 140/140 tests green. 55 new tests added (rebaseState 10, tagSort 9, coAuthorSuggest 9, branchCompare 9, conventionalCommit 18). New configs: 3 (rebaseCoach.enabled, coAuthors.scanCommits, coAuthors.selfEmails). New commands: 5 (rebaseCoach + refreshRebaseCoach, tagQuickSwitcher, findCoAuthors, branchCompareSummary, conventionalCommitInsert). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
 - 2026-06-20 18:53 PT — 5 features shipped: F31 `ac2a166`, F34 `e54387a`, F32 `5771cfc`, F30 `d93c3b6`, F33 `2c3b2ad`. Gate: lint ok, compile ok (1.1s), 191/191 tests green. 51 new tests added (stashSort 10, conflictMarkers 12, recentBranches 8, latestTag 11, pendingPush 10). New configs: 6 (conflictMarker.enabled, conflictMarker.showPill, recentBranches.reflogWindow, recentBranches.showLimit, lastTagPill.enabled, lastTagPill.preferStable). New commands: 8 (stashQuickSwitcher, conflictMarker.jumpNext/Prev/rescan, recentBranches, checkoutPreviousBranch, refreshLastTagPill, whatWillPush). New keybindings: 3 (Cmd+Shift+J for stash, Cmd+Alt+[/] for conflict jump). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). NOTE: F31 + F34 were committed mid-afternoon by a tick that crashed before the gate; this tick rescued them, ran the gate, and shipped 3 more on top to fill the batch.
 - 2026-06-20 21:47 PT — 5 features shipped: F37 `342c685`, F40 `5522362`, F38 `7aea8ff`, F28 `8d3a834`, F23 `1e96978`. Gate: lint ok, compile ok (0.9s), 251/251 tests green. 60 new tests added (wipCommits 15, repoSize 10, lastPushedBranch 11, lockfileWatch 11, selectionHistory 13). New configs: 1 (lockfileWatch.enabled). New commands: 5 (wipHunter, repoSizeReport, openLastPushedBranch, showSelectionHistory; LockfileWatcher registers no commands — it's a passive watcher). New providers: 1 CodeActionProvider (Refactor-kind on every file in a git repo). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Also pruned F22 from roadmap (already covered by existing sparkline.author=me config) and drafted 4 fresh Tick-7 candidates so we never restart cold.
+- 2026-06-21 00:25 PT — 5 features shipped: F36 `ea02d89`, F39 `117f269`, F44 `fe41818`, F43 `270e61e`, F42 `a1c0416`. Gate: lint ok, compile ok, 320/320 tests green (251 → 320, +69 new). New configs: 4 (branchDivergence.enabled, forgottenFiles.enabled, forgottenFiles.days, forgottenFiles.includeClean). New commands: 6 (compareWorkingTreeToCommit, stashSaveSmart, stashSuggestNames, forgottenFiles.show, forgottenFiles.rescan, gitattributesDiagnostics). New providers: 0 (BranchDivergenceWatcher + ForgottenFilesController are passive watchers). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Also drafted Tick-8 candidates (F45 pre-commit hook bridge, F46 hover-author-age tint, F47 "files I own" picker, F48 auto-stash before checkout) and absorbed F41 forward as the only Tick-7 carry-over.
 
