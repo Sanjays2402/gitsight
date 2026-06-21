@@ -55,6 +55,7 @@ import { ConflictMarkerController } from './views/conflictMarkerController';
 import { showRecentBranches, checkoutPreviousBranch } from './views/recentBranches';
 import { LastTagPill } from './views/lastTagPill';
 import { showWhatWillPush } from './views/whatWillPush';
+import { showWipHunter } from './views/wipHunter';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -662,6 +663,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.whatWillPush', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showWhatWillPush(git);
+  }));
+
+  // ── WIP Commit Hunter (F37) ──────────────────────────────────────
+  reg('gitsight.wipHunter', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWipHunter(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

@@ -492,6 +492,11 @@
         "icon": "$(rocket)"
       },
       {
+        "command": "gitsight.wipHunter",
+        "title": "GitSight: WIP Hunter (find & autosquash)\u2026",
+        "icon": "$(combine)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
