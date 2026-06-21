@@ -607,6 +607,11 @@
         "icon": "$(organization)"
       },
       {
+        "command": "gitsight.commitScaffold.apply",
+        "title": "GitSight: Scaffold Commit Message from Staging",
+        "icon": "$(edit)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1663,6 +1668,29 @@
           "items": { "type": "string" },
           "default": [],
           "description": "GitHub handles to permanently exclude from `gitsight.defaultReviewersPicker` suggestions (e.g. bots, paused teammates). Accepts `@handle` or `@org/team`."
+        },
+        "gitsight.commitScaffold.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, prefill the SCM input box with a conventional-commit header (e.g. `feat(git): `) derived from the staged paths. Skipped when the input already has text or the staging is too noisy to classify confidently."
+        },
+        "gitsight.commitScaffold.maxPaths": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "description": "Maximum number of staged paths the scaffold will consider. Stagings larger than this are treated as too multi-concern to autoclassify."
+        },
+        "gitsight.commitScaffold.minConfidence": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence (0\u20131) required from the type classifier before a scaffold is written. The default `feat` fallback sits at 0.4 and is gated out."
+        },
+        "gitsight.commitScaffold.scaffoldWithoutScope": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, scaffold even when no scope can be derived (e.g. write `feat: ` instead of skipping). Off by default because scope-less scaffolds are usually noise."
         }
       }
     },

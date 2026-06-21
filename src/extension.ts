@@ -80,6 +80,7 @@ import { showStashDiffBrowser } from './views/stashDiffBrowser';
 import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
 import { showCommitByCommitTestRunner } from './views/commitTestRunner';
 import { showDefaultReviewersPicker } from './views/defaultReviewers';
+import { CommitScaffoldController } from './views/commitScaffold';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -940,6 +941,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showDefaultReviewersPicker(git);
   }));
+
+  // ── Commit-Message Scaffold (F60) ───────────────────────────────
+  const commitScaffold = new CommitScaffoldController(repos);
+  ctx.subscriptions.push(commitScaffold);
+  ctx.subscriptions.push(...commitScaffold.registerCommands());
 }
 
 export function deactivate() {}
