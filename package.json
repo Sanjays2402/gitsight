@@ -502,6 +502,11 @@
         "icon": "$(file-binary)"
       },
       {
+        "command": "gitsight.openLastPushedBranch",
+        "title": "GitSight: Open Last Pushed Branch on Remote\u2026",
+        "icon": "$(globe)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

@@ -57,6 +57,7 @@ import { LastTagPill } from './views/lastTagPill';
 import { showWhatWillPush } from './views/whatWillPush';
 import { showWipHunter } from './views/wipHunter';
 import { showRepoSizeReport } from './views/repoSize';
+import { showOpenLastPushedBranch } from './views/openLastPushed';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -676,6 +677,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.repoSizeReport', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showRepoSizeReport(git);
+  }));
+
+  // ── Open Last Pushed Branch (F38) ────────────────────────────────
+  reg('gitsight.openLastPushedBranch', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showOpenLastPushedBranch(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
