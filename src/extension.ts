@@ -53,6 +53,7 @@ import { showConventionalCommitInsert } from './views/conventionalCommit';
 import { showStashQuickSwitcher } from './views/stashSwitcher';
 import { ConflictMarkerController } from './views/conflictMarkerController';
 import { showRecentBranches, checkoutPreviousBranch } from './views/recentBranches';
+import { LastTagPill } from './views/lastTagPill';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -650,6 +651,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await checkoutPreviousBranch(git);
   }));
+
+  // ── Last-Tag Pill (F30) ──────────────────────────────────────────
+  const lastTagPill = new LastTagPill(repos);
+  ctx.subscriptions.push(lastTagPill);
+  reg('gitsight.refreshLastTagPill', () => lastTagPill.refresh());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

@@ -482,6 +482,11 @@
         "icon": "$(arrow-left)"
       },
       {
+        "command": "gitsight.refreshLastTagPill",
+        "title": "GitSight: Refresh Last-Tag Pill",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1237,6 +1242,16 @@
           "minimum": 3,
           "maximum": 30,
           "description": "Maximum number of recent branches to show in the picker."
+        },
+        "gitsight.lastTagPill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill with the most recent tag and the number of commits since it. Click for tag actions (copy, open on remote, show shortlog, checkout)."
+        },
+        "gitsight.lastTagPill.preferStable": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, prefer the newest stable semver tag over a pre-release (rc/beta/alpha) when both are present, so the pill shows the version users actually have."
         }
       }
     },
