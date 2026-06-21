@@ -33,7 +33,8 @@
     "src/git/pendingPush.ts",
     "src/git/wipCommits.ts",
     "src/git/repoSize.ts",
-    "src/git/lastPushedBranch.ts"
+    "src/git/lastPushedBranch.ts",
+    "src/git/lockfileWatch.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

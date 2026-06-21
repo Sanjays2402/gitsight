@@ -58,6 +58,7 @@ import { showWhatWillPush } from './views/whatWillPush';
 import { showWipHunter } from './views/wipHunter';
 import { showRepoSizeReport } from './views/repoSize';
 import { showOpenLastPushedBranch } from './views/openLastPushed';
+import { LockfileWatcher } from './views/lockfileWatcher';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -684,6 +685,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showOpenLastPushedBranch(git);
   }));
+
+  // ── Lockfile Change Watcher (F28) ────────────────────────────────
+  const lockfileWatcher = new LockfileWatcher(repos);
+  ctx.subscriptions.push(lockfileWatcher);
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

@@ -1272,6 +1272,11 @@
           "type": "boolean",
           "default": true,
           "description": "When enabled, prefer the newest stable semver tag over a pre-release (rc/beta/alpha) when both are present, so the pill shows the version users actually have."
+        },
+        "gitsight.lockfileWatch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a one-click notification when a known lockfile (package-lock.json, pnpm-lock.yaml, yarn.lock, Cargo.lock, go.sum, Gemfile.lock, poetry.lock, composer.lock, mix.lock, Pipfile.lock, bun.lockb, uv.lock) changes via pull/merge/rebase/checkout, offering to run the ecosystem's install command."
         }
       }
     },
