@@ -577,6 +577,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.openInCodespaces",
+        "title": "GitSight: Open in GitHub Codespaces\u2026",
+        "icon": "$(cloud)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -916,6 +921,11 @@
           "command": "gitsight.openBranchOnRemote",
           "when": "viewItem == branch",
           "group": "2_compare@2"
+        },
+        {
+          "command": "gitsight.openInCodespaces",
+          "when": "viewItem == branch",
+          "group": "2_compare@3"
         },
         {
           "command": "gitsight.deleteBranch",
@@ -1555,6 +1565,21 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, run `git ls-remote --heads origin` ~3s after activation and surface the recovery picker if auth fails. Catches stale keys before you try to push."
+        },
+        "gitsight.codespaces.machine": {
+          "type": "string",
+          "default": "",
+          "description": "Pinned machine SKU for `gitsight.openInCodespaces` (e.g. `basicLinux32gb`, `standardLinux32gb`, `premiumLinux`). Leave empty to use your account default. Pinning any of machine/location/devcontainerPath switches the URL to GitHub's advanced-create form so the overrides are honoured."
+        },
+        "gitsight.codespaces.location": {
+          "type": "string",
+          "default": "",
+          "description": "Pinned region for `gitsight.openInCodespaces` (e.g. `UsEast`, `UsWest`, `EuropeWest`, `SoutheastAsia`). Leave empty for auto."
+        },
+        "gitsight.codespaces.devcontainerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Pinned devcontainer.json path (relative to repo root) for `gitsight.openInCodespaces`. Leave empty to auto-detect; when 2+ devcontainers are found the picker will ask."
         }
       }
     },

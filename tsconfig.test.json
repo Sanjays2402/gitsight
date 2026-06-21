@@ -51,7 +51,8 @@
     "src/git/fixtureLens.ts",
     "src/git/commitSearch.ts",
     "src/git/branchPruner.ts",
-    "src/git/sshKeyCheck.ts"
+    "src/git/sshKeyCheck.ts",
+    "src/git/codespaces.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

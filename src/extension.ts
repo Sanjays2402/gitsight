@@ -75,6 +75,7 @@ import { FixtureLensProvider } from './views/fixtureLens';
 import { showAdvancedCommitSearch } from './views/commitSearchAdvanced';
 import { showBranchStalenessPruner } from './views/branchStalenessPruner';
 import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
+import { openInCodespaces } from './views/codespaces';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -899,6 +900,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   // Run the silent startup probe if the user opted in.
   setTimeout(() => { const g = primary(); if (g) void runStartupAuthProbe(g); }, 3000);
+
+  // ── Open in GitHub Codespaces (F56) ─────────────────────────────
+  reg('gitsight.openInCodespaces', (n?: any) => errorWrap(async () => {
+    const git: Git = (n?.git instanceof Git ? n.git : undefined) ?? primary()!;
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openInCodespaces(git, n);
+  }));
 }
 
 export function deactivate() {}
