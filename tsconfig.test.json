@@ -38,7 +38,8 @@
     "src/git/selectionHistory.ts",
     "src/git/branchDivergence.ts",
     "src/git/forgottenFiles.ts",
-    "src/git/workingTreeCompare.ts"
+    "src/git/workingTreeCompare.ts",
+    "src/git/stashNaming.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

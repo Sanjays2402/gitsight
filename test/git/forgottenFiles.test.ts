@@ -48,7 +48,7 @@ test('parseRecentTouches: keeps newest timestamp per path', () => {
     'src/a.ts',
     'src/b.ts',
     '',
-    'efgh|2026-06-18T12:00:00Z',
+    'ef01|2026-06-18T12:00:00Z',
     'src/a.ts',
     'src/c.ts',
   ].join('\n'));

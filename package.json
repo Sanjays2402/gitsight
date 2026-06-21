@@ -527,6 +527,16 @@
         "icon": "$(diff)"
       },
       {
+        "command": "gitsight.stashSaveSmart",
+        "title": "GitSight: Smart Stash \u2014 Save with Suggested Name\u2026",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "gitsight.stashSuggestNames",
+        "title": "GitSight: Stash Naming \u2014 Copy a Suggested Name",
+        "icon": "$(bookmark)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

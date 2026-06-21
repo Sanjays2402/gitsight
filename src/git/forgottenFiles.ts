@@ -89,7 +89,7 @@ export function parseRecentTouches(raw: string): RecentTouch[] {
   let currentIso: string | undefined;
   for (const line of (raw ?? '').split('\n')) {
     if (!line) { currentIso = undefined; continue; }
-    if (line.includes('|') && /^[0-9a-f]{6,40}\|/.test(line)) {
+    if (line.includes('|') && /^[0-9a-f]+\|/.test(line)) {
       const pipe = line.indexOf('|');
       currentIso = line.slice(pipe + 1).trim();
       continue;
