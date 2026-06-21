@@ -36,7 +36,8 @@
     "src/git/lastPushedBranch.ts",
     "src/git/lockfileWatch.ts",
     "src/git/selectionHistory.ts",
-    "src/git/branchDivergence.ts"
+    "src/git/branchDivergence.ts",
+    "src/git/forgottenFiles.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

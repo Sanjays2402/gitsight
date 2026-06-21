@@ -61,6 +61,7 @@ import { showOpenLastPushedBranch } from './views/openLastPushed';
 import { LockfileWatcher } from './views/lockfileWatcher';
 import { registerSelectionHistory } from './views/selectionHistory';
 import { BranchDivergenceWatcher } from './views/branchDivergence';
+import { ForgottenFilesController } from './views/forgottenFiles';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -698,6 +699,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Branch Divergence Visualiser (F36) ───────────────────────────
   const branchDivergence = new BranchDivergenceWatcher(repos);
   ctx.subscriptions.push(branchDivergence);
+
+  // ── Forgotten Files Diagnostic (F39) ─────────────────────────────
+  const forgotten = new ForgottenFilesController(repos);
+  ctx.subscriptions.push(forgotten);
+  ctx.subscriptions.push(...forgotten.registerCommands());
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

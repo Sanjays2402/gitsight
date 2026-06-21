@@ -512,6 +512,16 @@
         "icon": "$(history)"
       },
       {
+        "command": "gitsight.forgottenFiles.show",
+        "title": "GitSight: Forgotten Files \u2014 Show Picker\u2026",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "gitsight.forgottenFiles.rescan",
+        "title": "GitSight: Forgotten Files \u2014 Rescan",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1287,6 +1297,23 @@
           "type": "boolean",
           "default": true,
           "description": "Show a one-click notification when the branch you just checked out is behind its tracked upstream, naming the top contributors on the diverged side, with Rebase / Merge / Show diff actions."
+        },
+        "gitsight.forgottenFiles.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "While a commit is being composed, show a status-bar pill if any file you edited in the last N days has worktree changes but isn't staged (the classic 'I forgot the test fixture' miss)."
+        },
+        "gitsight.forgottenFiles.days": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 90,
+          "description": "How far back (in days) to consider a file 'recently edited' for the Forgotten Files diagnostic."
+        },
+        "gitsight.forgottenFiles.includeClean": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also flag recently-edited files that are currently clean (no worktree changes). Off by default to keep the signal high."
         }
       }
     },
