@@ -85,6 +85,7 @@ import { showRerereCacheVisualizer } from './views/rerereCache';
 import { showWorktreePruner } from './views/worktreePruner';
 import { scoutAndCherryPick } from './views/cherryPickScout';
 import { showStashTrashBin } from './views/stashTrashBin';
+import { showReflogExplorer } from './views/reflogExplorer';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -979,6 +980,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.stashTrashBin', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showStashTrashBin(git);
+  }));
+
+  // ── Reflog Explorer (F68) ───────────────────────────────────────
+  reg('gitsight.reflogExplorer', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showReflogExplorer(git);
   }));
 }
 

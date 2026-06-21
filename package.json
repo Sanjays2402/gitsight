@@ -627,6 +627,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitsight.reflogExplorer",
+        "title": "GitSight: Reflog Explorer\u2026",
+        "icon": "$(history)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1773,6 +1778,21 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Extra branch names treated as still-alive when classifying stashes (use this when a stash's source branch only exists on a remote)."
+        },
+        "gitsight.reflogExplorer.windowSize": {
+          "type": "number",
+          "default": 200,
+          "minimum": 20,
+          "description": "Number of reflog entries to load into the explorer picker. Larger windows surface deeper history at the cost of one slower reflog call."
+        },
+        "gitsight.reflogExplorer.defaultFilter": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["reset", "rebase", "merge", "amend", "cherry-pick", "revert", "commit", "pull", "checkout", "clone", "other"]
+          },
+          "default": [],
+          "description": "Kinds to pre-tick in the filter chip. Empty array = show everything. Useful when you mostly use the explorer for undo (set to [\"reset\", \"rebase\", \"merge\"])."
         }
       }
     },
