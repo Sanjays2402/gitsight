@@ -31,7 +31,8 @@
     "src/git/recentBranches.ts",
     "src/git/latestTag.ts",
     "src/git/pendingPush.ts",
-    "src/git/wipCommits.ts"
+    "src/git/wipCommits.ts",
+    "src/git/repoSize.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

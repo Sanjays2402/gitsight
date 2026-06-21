@@ -497,6 +497,11 @@
         "icon": "$(combine)"
       },
       {
+        "command": "gitsight.repoSizeReport",
+        "title": "GitSight: Repo Size \u2014 Biggest Files Report\u2026",
+        "icon": "$(file-binary)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
