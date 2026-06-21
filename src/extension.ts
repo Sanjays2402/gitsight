@@ -60,6 +60,7 @@ import { showRepoSizeReport } from './views/repoSize';
 import { showOpenLastPushedBranch } from './views/openLastPushed';
 import { LockfileWatcher } from './views/lockfileWatcher';
 import { registerSelectionHistory } from './views/selectionHistory';
+import { BranchDivergenceWatcher } from './views/branchDivergence';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -693,6 +694,10 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Selection History / Reveal in History CodeAction (F23) ───────
   ctx.subscriptions.push(...registerSelectionHistory(ctx, repos));
+
+  // ── Branch Divergence Visualiser (F36) ───────────────────────────
+  const branchDivergence = new BranchDivergenceWatcher(repos);
+  ctx.subscriptions.push(branchDivergence);
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
