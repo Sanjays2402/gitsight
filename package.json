@@ -557,6 +557,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.rebasePlanPreview",
+        "title": "GitSight: Rebase \u2014 Preview Autosquash Plan\u2026",
+        "icon": "$(list-tree)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

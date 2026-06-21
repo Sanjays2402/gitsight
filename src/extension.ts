@@ -70,6 +70,7 @@ import { showFilesIOwnPicker } from './views/filesIOwn';
 import { checkoutWithAutoStash } from './views/autoStashCheckout';
 import { showWorktreeDiskUsage } from './views/worktreeDiskUsage';
 import { runPreCommitBridge } from './views/preCommitBridge';
+import { showRebasePlanPreview } from './views/rebasePlanPreview';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -753,6 +754,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.preCommitBridge', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await runPreCommitBridge(git);
+  }));
+
+  // ── Rebase Plan Preview (F49) ───────────────────────────────────
+  reg('gitsight.rebasePlanPreview', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRebasePlanPreview(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
