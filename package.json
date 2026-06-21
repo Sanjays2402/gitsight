@@ -1481,6 +1481,25 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, gitsight.preCommitBridge runs `.git/hooks/pre-commit` and presents a friendly picker for any failures (open file at line, copy --no-verify, disable hook). When OFF the command no-ops."
+        },
+        "gitsight.fixtureLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, fixture/snapshot/golden files (under __snapshots__/, fixtures/, testdata/, cassettes/, or with .snap/.golden/.expected extensions) get a CodeLens at line 1 naming the last few authors so you know who to ping when output looks wrong."
+        },
+        "gitsight.fixtureLens.maxCommits": {
+          "type": "number",
+          "default": 50,
+          "minimum": 3,
+          "maximum": 500,
+          "description": "How many recent commits to scan for fixture-author summarisation. Higher = more accurate author list, slower lens."
+        },
+        "gitsight.fixtureLens.topAuthors": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "How many distinct authors to name inline in the fixture CodeLens before collapsing the rest into '+N more'."
         }
       }
     },
