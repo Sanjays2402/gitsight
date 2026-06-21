@@ -522,6 +522,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.compareWorkingTreeToCommit",
+        "title": "GitSight: Compare Working Tree to Any Commit\u2026",
+        "icon": "$(diff)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

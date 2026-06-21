@@ -62,6 +62,7 @@ import { LockfileWatcher } from './views/lockfileWatcher';
 import { registerSelectionHistory } from './views/selectionHistory';
 import { BranchDivergenceWatcher } from './views/branchDivergence';
 import { ForgottenFilesController } from './views/forgottenFiles';
+import { showWorkingTreeCompare } from './views/workingTreeCompare';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -704,6 +705,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   const forgotten = new ForgottenFilesController(repos);
   ctx.subscriptions.push(forgotten);
   ctx.subscriptions.push(...forgotten.registerCommands());
+
+  // ── Compare Working Tree to Any Commit (F44) ─────────────────────
+  reg('gitsight.compareWorkingTreeToCommit', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWorkingTreeCompare(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
