@@ -567,6 +567,11 @@
         "icon": "$(search-view-icon)"
       },
       {
+        "command": "gitsight.branchStalenessPruner",
+        "title": "GitSight: Prune Stale Merged Branches\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1512,6 +1517,29 @@
           "minimum": 1,
           "maximum": 5000,
           "description": "Default cap on results for gitsight.searchCommitsAdvanced. Users can override per-query with `max:N` in the query text (hard cap 5000)."
+        },
+        "gitsight.branchPruner.defaultBase": {
+          "type": "string",
+          "default": "main",
+          "description": "Default base branch to compare against when pruning. Falls back to `master`, `trunk`, `develop`, or a picker if this branch doesn't exist."
+        },
+        "gitsight.branchPruner.minAgeDays": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Minimum age (days since last commit) for a branch to be eligible for pruning. Branches younger than this are listed but never pre-ticked."
+        },
+        "gitsight.branchPruner.includeUnmerged": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, branches that are NOT merged into the base but are past the age threshold are also pre-ticked (deletes use `git branch -D` — destructive). When OFF (default) only fully-merged stale branches get deleted with `git branch -d`."
+        },
+        "gitsight.branchPruner.protectedBranches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra local branch names you never want the pruner to suggest deleting. (`main`, `master`, `trunk`, `develop`, `dev`, `release`, `production`, `staging` are always protected.)"
         }
       }
     },

@@ -73,6 +73,7 @@ import { runPreCommitBridge } from './views/preCommitBridge';
 import { showRebasePlanPreview } from './views/rebasePlanPreview';
 import { FixtureLensProvider } from './views/fixtureLens';
 import { showAdvancedCommitSearch } from './views/commitSearchAdvanced';
+import { showBranchStalenessPruner } from './views/branchStalenessPruner';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -772,6 +773,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.searchCommitsAdvanced', (initial?: string) => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showAdvancedCommitSearch(git, ctx, initial);
+  }));
+
+  // ── Branch Staleness Pruner (F52) ───────────────────────────────
+  reg('gitsight.branchStalenessPruner', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBranchStalenessPruner(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

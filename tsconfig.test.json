@@ -49,7 +49,8 @@
     "src/git/preCommitBridge.ts",
     "src/git/rebasePlan.ts",
     "src/git/fixtureLens.ts",
-    "src/git/commitSearch.ts"
+    "src/git/commitSearch.ts",
+    "src/git/branchPruner.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
