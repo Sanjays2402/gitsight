@@ -74,6 +74,7 @@ import { showRebasePlanPreview } from './views/rebasePlanPreview';
 import { FixtureLensProvider } from './views/fixtureLens';
 import { showAdvancedCommitSearch } from './views/commitSearchAdvanced';
 import { showBranchStalenessPruner } from './views/branchStalenessPruner';
+import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -337,12 +338,15 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Remotes ─────────────────────────────────────────────────────
   reg('gitsight.fetch', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
-    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'GitSight: fetching…' }, () => git.fetch());
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'GitSight: fetching\u2026' }, () =>
+      withAuthSanityCheck(git, 'origin', () => git.fetch()),
+    );
     refreshAll();
   }));
   reg('gitsight.pull', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
-    await git.pull(); refreshAll();
+    await withAuthSanityCheck(git, 'origin', () => git.pull());
+    refreshAll();
   }));
   reg('gitsight.push', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
@@ -354,7 +358,8 @@ export function activate(ctx: vscode.ExtensionContext) {
       vscode.window.setStatusBarMessage('GitSight: push cancelled by pre-push lint.', 3000);
       return;
     }
-    await git.push('origin', branch); refreshAll();
+    await withAuthSanityCheck(git, 'origin', () => git.push('origin', branch));
+    refreshAll();
   }));
   reg('gitsight.addRemote', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
@@ -883,6 +888,17 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showActivityHeatmap(git, ctx);
   }));
+
+  // ── SSH Key Sanity Check (F54) ──────────────────────────────────
+  reg('gitsight.checkSshKey', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'GitSight: probing origin\u2026' },
+      () => runStartupAuthProbe(git),
+    );
+  }));
+  // Run the silent startup probe if the user opted in.
+  setTimeout(() => { const g = primary(); if (g) void runStartupAuthProbe(g); }, 3000);
 }
 
 export function deactivate() {}

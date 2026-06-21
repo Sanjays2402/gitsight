@@ -572,6 +572,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitsight.checkSshKey",
+        "title": "GitSight: Check SSH/Auth to origin",
+        "icon": "$(shield)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1540,6 +1545,16 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Extra local branch names you never want the pruner to suggest deleting. (`main`, `master`, `trunk`, `develop`, `dev`, `release`, `production`, `staging` are always protected.)"
+        },
+        "gitsight.sshKeyCheck.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight watches push/fetch/pull failures for known auth signatures (publickey, host-key, repo-not-found, dropped SSH, HTTPS credential prompt) and surfaces a one-click recovery picker. Turn OFF to get the raw git error back."
+        },
+        "gitsight.sshKeyCheck.autoCheckOnActivate": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, run `git ls-remote --heads origin` ~3s after activation and surface the recovery picker if auth fails. Catches stale keys before you try to push."
         }
       }
     },
