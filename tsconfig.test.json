@@ -29,7 +29,8 @@
     "src/git/stashSort.ts",
     "src/git/conflictMarkers.ts",
     "src/git/recentBranches.ts",
-    "src/git/latestTag.ts"
+    "src/git/latestTag.ts",
+    "src/git/pendingPush.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

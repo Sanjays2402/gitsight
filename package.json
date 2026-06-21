@@ -487,6 +487,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.whatWillPush",
+        "title": "GitSight: What Will Push?\u2026",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
