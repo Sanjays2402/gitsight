@@ -59,6 +59,7 @@ import { showWipHunter } from './views/wipHunter';
 import { showRepoSizeReport } from './views/repoSize';
 import { showOpenLastPushedBranch } from './views/openLastPushed';
 import { LockfileWatcher } from './views/lockfileWatcher';
+import { registerSelectionHistory } from './views/selectionHistory';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -689,6 +690,9 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Lockfile Change Watcher (F28) ────────────────────────────────
   const lockfileWatcher = new LockfileWatcher(repos);
   ctx.subscriptions.push(lockfileWatcher);
+
+  // ── Selection History / Reveal in History CodeAction (F23) ───────
+  ctx.subscriptions.push(...registerSelectionHistory(ctx, repos));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

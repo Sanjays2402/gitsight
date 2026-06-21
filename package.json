@@ -507,6 +507,11 @@
         "icon": "$(globe)"
       },
       {
+        "command": "gitsight.showSelectionHistory",
+        "title": "GitSight: Show History for Selection\u2026",
+        "icon": "$(history)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

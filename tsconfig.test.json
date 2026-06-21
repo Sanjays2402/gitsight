@@ -34,7 +34,8 @@
     "src/git/wipCommits.ts",
     "src/git/repoSize.ts",
     "src/git/lastPushedBranch.ts",
-    "src/git/lockfileWatch.ts"
+    "src/git/lockfileWatch.ts",
+    "src/git/selectionHistory.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
