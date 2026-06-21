@@ -57,7 +57,8 @@
     "src/git/submodules.ts",
     "src/git/commitWalk.ts",
     "src/git/defaultReviewers.ts",
-    "src/git/commitScaffold.ts"
+    "src/git/commitScaffold.ts",
+    "src/git/rerereCache.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

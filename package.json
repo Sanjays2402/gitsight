@@ -612,6 +612,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "gitsight.rerereCacheVisualizer",
+        "title": "GitSight: rerere Cache Visualizer\u2026",
+        "icon": "$(history)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1691,6 +1696,18 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, scaffold even when no scope can be derived (e.g. write `feat: ` instead of skipping). Off by default because scope-less scaffolds are usually noise."
+        },
+        "gitsight.rerereCache.staleAfterDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "description": "Resolved rerere entries older than this many days are flagged as stale in the visualizer. Stale resolutions can silently auto-apply old code; review them periodically."
+        },
+        "gitsight.rerereCache.maxEntries": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "description": "Maximum number of rerere cache entries the visualizer will list per invocation. Huge caches are truncated to keep the picker responsive."
         }
       }
     },

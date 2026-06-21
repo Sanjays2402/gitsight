@@ -81,6 +81,7 @@ import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
 import { showCommitByCommitTestRunner } from './views/commitTestRunner';
 import { showDefaultReviewersPicker } from './views/defaultReviewers';
 import { CommitScaffoldController } from './views/commitScaffold';
+import { showRerereCacheVisualizer } from './views/rerereCache';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -946,6 +947,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   const commitScaffold = new CommitScaffoldController(repos);
   ctx.subscriptions.push(commitScaffold);
   ctx.subscriptions.push(...commitScaffold.registerCommands());
+
+  // ── rerere Cache Visualizer (F63) ───────────────────────────────
+  reg('gitsight.rerereCacheVisualizer', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRerereCacheVisualizer(git);
+  }));
 }
 
 export function deactivate() {}
