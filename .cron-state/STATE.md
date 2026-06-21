@@ -165,11 +165,38 @@
   `[backport]` tags + trailing period + lowercase — anything less
   misses the "reword on merge" case that GitHub's squash-merge UI
   creates on every PR.
-- For pre-action scout warnings, ALWAYS gate "exact subject match"
-  on a truthy source subject. `'' === ''` is a useless verdict that
-  fires on every commit with an empty header (rare but happens with
-  amend-no-edit + empty title). Same trap as the empty-string
-  rangeAuthors bug from tick 6.
+- For passive watchers that compare HEAD@{prev}..HEAD@{now} (lockfile,
+  submodule auto-pull), use `git diff --raw -z` rather than `--name-only`
+  when you need the mode bits. The raw format includes `<src-mode>
+  <dst-mode>` per record, which is the only way to distinguish a
+  gitlink (`160000`) change from a normal file edit. NUL-separated
+  output also avoids the "path with newlines" parsing failure that
+  bites name-only.
+- For rename rows in `--raw -z`, advance the tokeniser past BOTH path
+  tokens (src AND dst), not one. Same trap as parseNameStatusZ from
+  tick 10 — if you only consume one, the next record's header gets
+  treated as the rename's dest path and the row after gets shifted.
+- For status-bar pills that depend on an external CLI (`gh`, `ssh`),
+  silently hide when the CLI isn't on PATH rather than surfacing an
+  error toast every poll cycle. Hostile UX otherwise — the user
+  knows they don't have `gh` installed; the pill just being invisible
+  is a fine signal.
+- For full-reflog parsers vs the checkout-only F32 parser, classify
+  amend commits BEFORE plain commits — `commit (amend):` would
+  otherwise match `^commit:?` and lose its kind. Same shape lesson
+  as cherryPickScout's trailer-before-subject ordering.
+- For the reflog reset summary, the raw action is `reset: moving to
+  HEAD~3` — the obvious format string `reset to ${m[1]}` yields
+  "reset to moving to HEAD~3" (redundant "to"). Strip the optional
+  `moving to ` prefix inside the regex so the summary reads
+  naturally regardless of what git's wording was.
+- For pure-helper unit tests that fall back to a field via `??`, make
+  sure the fallback handles falsy strings too: `s.branch ?? undefined`
+  preserves empty strings, but `(s.branch || undefined)` collapses
+  them. The detached-HEAD stash subject parses to `sourceBranch =
+  undefined`, but `s.branch` defaults to `''` in the porcelain output
+  — the test caught the wrong fallback. Always normalise to undefined
+  for the "absent" semantic.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -284,15 +311,30 @@
 - [x] **F64**: Worktree Pruner (missing-on-disk + upstream-gone classifier, dirty detection, batched remove/prune) — `c58f9de`
 - [x] **F65**: Cherry-Pick Scout (trailer/subject/normalised match scanner, wraps cherryPick with modal warning) — `9b2c5ab`
 
-### Tick 12 candidates (drafted now so future ticks don't restart cold)
+### Tick 12 (2026-06-21 16:41 PT) — SHIPPED
+- [x] **F67**: Stash Trash Bin (age + branch-survival classifier, multi-pick + drop-from-highest-index-down) — `0771104`
+- [x] **F68**: Reflog Explorer (full reflog picker w/ kind classifier + filter chips + reset/diff/copy menu) — `faa805f`
+- [x] **F69**: Pre-Push Commit-Message Gate (runs `lintCommitMessage` against `<upstream>..HEAD` range, configurable severity floor) — `770e3ea`
+- [x] **F70**: Submodule Auto-Pull Watcher (passive watcher on ref moves, parses `git diff --raw -z` for mode-160000 gitlink changes) — `fafd5b2`
+- [x] **F62**: GitHub Actions Run Pill (status-bar pill, gh CLI + workflow file pre-filter, click → rerun/logs/cancel/open) — `658706d`
+
+### Tick 12 candidates (RESOLVED above)
+- [x] F62: GitHub Actions run watcher — DONE tick 12.
+- [x] F67: Stash Trash Bin — DONE tick 12.
+- [x] F68: Reflog Explorer — DONE tick 12.
+- [x] F69: Pre-push commit-message gate — DONE tick 12.
+- [x] F70: Submodule auto-pull — DONE tick 12.
+
+### Tick 13 candidates (drafted now so future ticks don't restart cold)
 - [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
 - [ ] F61: Branch-graph PNG export (F61 carry-over) — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).
-- [ ] F62: GitHub Actions run watcher — for repos with a github.com remote + .github/workflows, surface a status-bar pill showing the latest run state for the current branch (`gh run list -L 1 --branch <branch>`), click to open the run page.
 - [ ] F66: Recent-File CodeAction `Open at last touched commit` — for files in `gitsight.recentFiles` view, a CodeAction in the editor that opens the file at its last-touch sha so you can diff-vs-now in two clicks.
-- [ ] F67: Stash Trash Bin — long-lived stashes (>90d) listed in a picker w/ "drop selected" multi-pick, mirrors the F52/F64 staleness shape.
-- [ ] F68: Reflog Explorer — a flat scrollable picker of the last N reflog entries with shortcuts to checkout / show diff / cherry-pick. The existing recentBranches scope only surfaces checkout events; this one covers the full reflog including resets and rebases.
-- [ ] F69: Pre-push commit-message gate — run the existing commit-message linter against the to-push range and refuse the push when any commit violates (configurable severity).
-- [ ] F70: Submodule auto-pull — when the parent repo's pull lands a gitlink change, prompt `git submodule update --init` for the changed submodules. Mirrors the F28 lockfile-change watcher shape.
+- [ ] F71: Branch protection guard for force-push — wraps `git push --force` / `--force-with-lease` to check `gh api repos/:owner/:repo/branches/:branch/protection` and refuse when the current branch is protected. Mirrors F14/F69 gate shape.
+- [ ] F72: Worktree-graph webview — visualise all worktrees as a tree with their HEAD shas, branch attachments, and dirty status. Single-pane "where is everything" view that the F64 pruner picker hints at but doesn't quite deliver.
+- [ ] F73: Conventional Commit footer composer — picker of well-known trailers (Co-authored-by, BREAKING CHANGE, Closes #N, Reviewed-by) that append to the SCM input box. Pairs with F29 (header) and F60 (scaffold).
+- [ ] F74: `gh release` companion — list recent GitHub releases for the repo with notes preview, copy-tag, and "create release from latest tag" action. Mirrors F38 last-pushed-branch shape for the release surface.
+- [ ] F75: PR review-request inbox — `gh pr list --search "is:open review-requested:@me"` rendered into a sidebar view with hover preview + "open in browser" + "checkout PR locally". Complements existing pullRequests view.
+- [ ] F76: Bisect script runner from a failed CI step — given a `gh run view` output that locates a failing job/step, generate a `git bisect run` wrapper that re-runs just that step locally for each candidate commit. Extends F55 commit-by-commit test runner.
 
 ## TICK LOG
 
@@ -307,6 +349,7 @@
 - 2026-06-21 06:49 PT — 5 features shipped: F45 `67f48ff`, F49 `7c371c7`, F50 `b3adf03`, F51 `ade84c9`, F52 `40b385d`. Gate: lint ok, compile ok, 538/538 tests green (395 → 538, +143 new). New configs: 9 (preCommitBridge.enabled, fixtureLens.{enabled,maxCommits,topAuthors}, commitSearch.defaultMaxCount, branchPruner.{defaultBase,minAgeDays,includeUnmerged,protectedBranches}). New commands: 5 (preCommitBridge, rebasePlanPreview, searchCommitsAdvanced, branchStalenessPruner; F50 registers no command — it's a CodeLens provider). New providers: 1 CodeLens (FixtureLensProvider scoped to fixture/snapshot paths only). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Quality stat for the tick: largest test deltas were preCommitBridge (27) and fixtureLens (38) — both pure-classifier-heavy slices. Drafted Tick-10 candidates: F53 commit-detail webview (F13 carry-over), F54 SSH key sanity check (F19), F55 commit-by-commit test runner (F41), F56 Codespaces opener (F27), F57 default-reviewers picker (F35), F58 stash diff browser, F59 submodule status pill.
 - 2026-06-21 09:54 PT — 5 features shipped: F54 `bfa7a08`, F56 `539d1ce`, F58 `83bdbf7`, F59 `1326570`, F55 `2412c1c`. Gate: lint ok, compile ok (warm cache), 629/629 tests green (538 → 629, +91 new). New configs: 12 (sshKeyCheck.{enabled,autoCheckOnActivate}, codespaces.{machine,location,devcontainerPath}, submodules.{enabled,hideWhenNone,recursive}, commitTestRunner.{command,timeoutMs,stopOnFirstFail,maxCommits}). New commands: 7 (checkSshKey, openInCodespaces, stashDiffBrowser, submoduleMenu, refreshSubmodules, commitTestRunner; F54 also wraps the existing push/fetch/pull commands with auth-failure recovery). New menus: 3 (branches.openInCodespaces, stashes.stashDiffBrowser, branch-context Codespaces action). New status-bar pills: 1 (SubmodulePill, position 92 between the working-tree pill at 94 and the worktree pill). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
 - 2026-06-21 13:08 PT — 5 features shipped: F57 `60e34b5`, F60 `a3d0056`, F63 `0ee2d1b`, F64 `c58f9de`, F65 `9b2c5ab`. Gate: lint ok, compile ok, 716/716 tests green (629 → 716, +87 new). New configs: 16 (defaultReviewers.{fallbackBase,includeTeams,exclude}, commitScaffold.{enabled,maxPaths,minConfidence,scaffoldWithoutScope}, rerereCache.{staleAfterDays,maxEntries}, worktreePruner.{minAgeDays,includeStaleOnly,forceDirty}, cherryPickScout.{enabled,scanCommits,scanSince}). New commands: 5 (defaultReviewersPicker, commitScaffold.apply, rerereCacheVisualizer, worktreePruner; F65 wraps the existing cherryPick rather than registering new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) auto-degradation when `gh` CLI isn't on PATH (F57 falls back to clipboard); (2) git-internal-dir resolution via `git rev-parse --git-path rr-cache` so the rerere visualizer works in linked worktrees too; (3) refs/remotes intersection for branchesWithUpstream (more reliable than local branch.upstream config on fresh clones); (4) subject normalisation that handles conventional-commit prefix + PR-merge suffix + backport tag in one pass.
+- 2026-06-21 16:41 PT — 5 features shipped: F67 `0771104`, F68 `faa805f`, F69 `770e3ea`, F70 `fafd5b2`, F62 `658706d`. Gate: lint ok, compile ok, 795/795 tests green (716 → 795, +79 new). New configs: 13 (stashTrash.{staleAfterDays,ancientAfterDays,extraLiveBranches}, reflogExplorer.{windowSize,defaultFilter}, prePushMessageGate.{enabled,blockAt,options}, submoduleAutoPull.{enabled,cooldownMinutes}, actionsPill.{enabled,refreshSeconds,hideOnSuccess}). New commands: 4 (stashTrashBin, reflogExplorer, refreshActionsPill; F69 hooks into existing gitsight.push, F70 is a passive watcher). New menus: 1 (stashes.stashTrashBin). New status-bar pills: 1 (ActionsPill at priority 90 — sits just left of the F59 SubmodulePill at 92). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
 
 CAUGHT MID-TICK: 4 tests failed on first gate run (cherryPickScout: subject-exact matched empty='' vs empty=''; commitScaffold: composeScaffoldHeader returned `docs(docs): ` instead of `docs: ` when type==scope; same for `ci(ci): `; worktreePruner test expected upstreamGone=1 but classifier correctly counts both reasons when one entry has missing-on-disk AND upstream-gone). Fixed via 2 source fixes (subject-exact gated on truthy source.subject; composeScaffoldHeader drops redundant scope when scope==type) + 1 test expectation correction. All three landed as `--fixup` commits and were autosquashed into their parents before push, so each feature commit stays self-passing.
 
