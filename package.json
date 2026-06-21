@@ -617,6 +617,11 @@
         "icon": "$(history)"
       },
       {
+        "command": "gitsight.worktreePruner",
+        "title": "GitSight: Prune Worktrees\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1708,6 +1713,22 @@
           "default": 200,
           "minimum": 1,
           "description": "Maximum number of rerere cache entries the visualizer will list per invocation. Huge caches are truncated to keep the picker responsive."
+        },
+        "gitsight.worktreePruner.minAgeDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "description": "Minimum age (in days, by index mtime) before a worktree is considered for `gitsight.worktreePruner` removal. Missing-on-disk entries bypass this guard."
+        },
+        "gitsight.worktreePruner.includeStaleOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, surface stale-but-alive worktrees (have upstream + exist on disk + older than minAgeDays) as pruneSafe. Off by default \u2014 only missing-on-disk and upstream-gone entries are pruned automatically."
+        },
+        "gitsight.worktreePruner.forceDirty": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, dirty worktrees in the prune selection get `--force` without an extra confirm modal. Use with care \u2014 it discards uncommitted changes."
         }
       }
     },

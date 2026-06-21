@@ -82,6 +82,7 @@ import { showCommitByCommitTestRunner } from './views/commitTestRunner';
 import { showDefaultReviewersPicker } from './views/defaultReviewers';
 import { CommitScaffoldController } from './views/commitScaffold';
 import { showRerereCacheVisualizer } from './views/rerereCache';
+import { showWorktreePruner } from './views/worktreePruner';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -952,6 +953,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.rerereCacheVisualizer', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showRerereCacheVisualizer(git);
+  }));
+
+  // ── Worktree Pruner (F64) ───────────────────────────────────────
+  reg('gitsight.worktreePruner', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWorktreePruner(git);
   }));
 }
 
