@@ -537,6 +537,11 @@
         "icon": "$(bookmark)"
       },
       {
+        "command": "gitsight.gitattributesDiagnostics",
+        "title": "GitSight: .gitattributes \u2014 Find Conflicts with File Content\u2026",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

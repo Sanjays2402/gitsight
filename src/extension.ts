@@ -64,6 +64,7 @@ import { BranchDivergenceWatcher } from './views/branchDivergence';
 import { ForgottenFilesController } from './views/forgottenFiles';
 import { showWorkingTreeCompare } from './views/workingTreeCompare';
 import { registerStashNamingCommands } from './views/stashNaming';
+import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -715,6 +716,12 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Smart Stash Save (F43) ───────────────────────────────────────
   ctx.subscriptions.push(...registerStashNamingCommands(() => primary()));
+
+  // ── .gitattributes Diagnostics (F42) ─────────────────────────────
+  reg('gitsight.gitattributesDiagnostics', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showGitattributesDiagnostics(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
