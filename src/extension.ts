@@ -77,6 +77,7 @@ import { showBranchStalenessPruner } from './views/branchStalenessPruner';
 import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
 import { openInCodespaces } from './views/codespaces';
 import { showStashDiffBrowser } from './views/stashDiffBrowser';
+import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -581,6 +582,15 @@ export function activate(ctx: vscode.ExtensionContext) {
   const workingTreePill = new WorkingTreePill(repos);
   ctx.subscriptions.push(workingTreePill);
   reg('gitsight.refreshWorkingTree', () => workingTreePill.refresh());
+
+  // ── Submodule status pill (F59) ──────────────────────────────────
+  const submodulePill = new SubmodulePill(repos);
+  ctx.subscriptions.push(submodulePill);
+  reg('gitsight.refreshSubmodules', () => submodulePill.refresh());
+  reg('gitsight.submoduleMenu', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showSubmoduleMenu(git, submodulePill.getLatest());
+  }));
 
   // ── Recent Files Touched view (F7) ───────────────────────────────
   reg('gitsight.refreshRecentFiles', () => recentFiles.refresh());

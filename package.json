@@ -587,6 +587,16 @@
         "icon": "$(diff-multiple)"
       },
       {
+        "command": "gitsight.submoduleMenu",
+        "title": "GitSight: Submodules\u2026",
+        "icon": "$(repo-forked)"
+      },
+      {
+        "command": "gitsight.refreshSubmodules",
+        "title": "GitSight: Refresh Submodule Pill",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1590,6 +1600,21 @@
           "type": "string",
           "default": "",
           "description": "Pinned devcontainer.json path (relative to repo root) for `gitsight.openInCodespaces`. Leave empty to auto-detect; when 2+ devcontainers are found the picker will ask."
+        },
+        "gitsight.submodules.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, show a status-bar pill summarising submodule state (in sync / out of sync / not init / conflict)."
+        },
+        "gitsight.submodules.hideWhenNone": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON (default), the submodule pill is hidden if the repo has zero submodules. Turn OFF to keep a placeholder pill visible."
+        },
+        "gitsight.submodules.recursive": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, run `git submodule status --recursive` so nested submodules are surfaced too."
         }
       }
     },

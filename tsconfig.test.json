@@ -53,7 +53,8 @@
     "src/git/branchPruner.ts",
     "src/git/sshKeyCheck.ts",
     "src/git/codespaces.ts",
-    "src/git/stashDiff.ts"
+    "src/git/stashDiff.ts",
+    "src/git/submodules.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
