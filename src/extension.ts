@@ -76,6 +76,7 @@ import { showAdvancedCommitSearch } from './views/commitSearchAdvanced';
 import { showBranchStalenessPruner } from './views/branchStalenessPruner';
 import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
 import { openInCodespaces } from './views/codespaces';
+import { showStashDiffBrowser } from './views/stashDiffBrowser';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -906,6 +907,14 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git: Git = (n?.git instanceof Git ? n.git : undefined) ?? primary()!;
     if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await openInCodespaces(git, n);
+  }));
+
+  // ── Stash Diff Browser (F58) ────────────────────────────────────
+  reg('gitsight.stashDiffBrowser', (n?: any) => errorWrap(async () => {
+    const git: Git = (n?.git instanceof Git ? n.git : undefined) ?? primary()!;
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const ref: string | undefined = n?.stash?.ref ?? n?.ref;
+    await showStashDiffBrowser(git, { ref });
   }));
 }
 

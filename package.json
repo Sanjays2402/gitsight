@@ -582,6 +582,11 @@
         "icon": "$(cloud)"
       },
       {
+        "command": "gitsight.stashDiffBrowser",
+        "title": "GitSight: Browse Stash by File\u2026",
+        "icon": "$(diff-multiple)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -946,6 +951,11 @@
           "command": "gitsight.stashPop",
           "when": "viewItem == stash",
           "group": "1_actions@2"
+        },
+        {
+          "command": "gitsight.stashDiffBrowser",
+          "when": "viewItem == stash",
+          "group": "1_actions@3"
         },
         {
           "command": "gitsight.stashDrop",
