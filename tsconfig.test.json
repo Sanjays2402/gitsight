@@ -48,7 +48,8 @@
     "src/git/worktreeDu.ts",
     "src/git/preCommitBridge.ts",
     "src/git/rebasePlan.ts",
-    "src/git/fixtureLens.ts"
+    "src/git/fixtureLens.ts",
+    "src/git/commitSearch.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

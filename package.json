@@ -562,6 +562,11 @@
         "icon": "$(list-tree)"
       },
       {
+        "command": "gitsight.searchCommitsAdvanced",
+        "title": "GitSight: Search Commits (Advanced)\u2026",
+        "icon": "$(search-view-icon)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1500,6 +1505,13 @@
           "minimum": 1,
           "maximum": 10,
           "description": "How many distinct authors to name inline in the fixture CodeLens before collapsing the rest into '+N more'."
+        },
+        "gitsight.commitSearch.defaultMaxCount": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Default cap on results for gitsight.searchCommitsAdvanced. Users can override per-query with `max:N` in the query text (hard cap 5000)."
         }
       }
     },

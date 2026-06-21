@@ -72,6 +72,7 @@ import { showWorktreeDiskUsage } from './views/worktreeDiskUsage';
 import { runPreCommitBridge } from './views/preCommitBridge';
 import { showRebasePlanPreview } from './views/rebasePlanPreview';
 import { FixtureLensProvider } from './views/fixtureLens';
+import { showAdvancedCommitSearch } from './views/commitSearchAdvanced';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -766,6 +767,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Fixture-Author CodeLens (F50) ───────────────────────────────
   const fixtureLens = new FixtureLensProvider(repos);
   ctx.subscriptions.push(fixtureLens.register());
+
+  // ── Advanced Commit Search (F51) ────────────────────────────────
+  reg('gitsight.searchCommitsAdvanced', (initial?: string) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showAdvancedCommitSearch(git, ctx, initial);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
