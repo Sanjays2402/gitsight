@@ -50,6 +50,30 @@
         "key": "ctrl+shift+k",
         "mac": "cmd+shift+k",
         "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.branchQuickSwitcher",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.stashQuickSwitcher",
+        "key": "ctrl+shift+j",
+        "mac": "cmd+shift+j",
+        "when": "!terminalFocus && !editorTextFocus || editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpNext",
+        "key": "ctrl+alt+]",
+        "mac": "cmd+alt+]",
+        "when": "editorTextFocus && !suggestWidgetVisible"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpPrev",
+        "key": "ctrl+alt+[",
+        "mac": "cmd+alt+[",
+        "when": "editorTextFocus && !suggestWidgetVisible"
       }
     ],
     "viewsContainers": {
@@ -127,6 +151,11 @@
           "id": "gitsight.issues",
           "name": "Issues",
           "icon": "$(issues)"
+        },
+        {
+          "id": "gitsight.recentFiles",
+          "name": "Recent Files",
+          "icon": "$(history)"
         }
       ]
     },
@@ -380,6 +409,139 @@
         "icon": "$(search)"
       },
       {
+        "command": "gitsight.authorsOfRange",
+        "title": "GitSight: Show Authors of Range\u2026",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "gitsight.branchCleanup",
+        "title": "GitSight: Cleanup Merged Branches\u2026",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitsight.commitLintShowProblems",
+        "title": "GitSight: Commit Linter \u2014 Show Problems"
+      },
+      {
+        "command": "gitsight.restoreFileFromCommit",
+        "title": "GitSight: Restore File from Commit\u2026",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "gitsight.rebaseCoach",
+        "title": "GitSight: Rebase Coach\u2026",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "gitsight.tagQuickSwitcher",
+        "title": "GitSight: Switch to Tag\u2026",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "gitsight.findCoAuthors",
+        "title": "GitSight: Find Co-Authors\u2026",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "gitsight.branchCompareSummary",
+        "title": "GitSight: Branch Compare Summary\u2026",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "gitsight.conventionalCommitInsert",
+        "title": "GitSight: Conventional Commit \u2014 Quick Insert\u2026",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "gitsight.stashQuickSwitcher",
+        "title": "GitSight: Switch Stash\u2026",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpNext",
+        "title": "GitSight: Jump to Next Conflict Marker",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "gitsight.conflictMarker.jumpPrev",
+        "title": "GitSight: Jump to Previous Conflict Marker",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "gitsight.conflictMarker.rescan",
+        "title": "GitSight: Rescan Open Files for Conflict Markers"
+      },
+      {
+        "command": "gitsight.recentBranches",
+        "title": "GitSight: Recent Branches\u2026",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitsight.checkoutPreviousBranch",
+        "title": "GitSight: Checkout Previous Branch",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "gitsight.refreshLastTagPill",
+        "title": "GitSight: Refresh Last-Tag Pill",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.whatWillPush",
+        "title": "GitSight: What Will Push?\u2026",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "gitsight.wipHunter",
+        "title": "GitSight: WIP Hunter (find & autosquash)\u2026",
+        "icon": "$(combine)"
+      },
+      {
+        "command": "gitsight.repoSizeReport",
+        "title": "GitSight: Repo Size \u2014 Biggest Files Report\u2026",
+        "icon": "$(file-binary)"
+      },
+      {
+        "command": "gitsight.openLastPushedBranch",
+        "title": "GitSight: Open Last Pushed Branch on Remote\u2026",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.showSelectionHistory",
+        "title": "GitSight: Show History for Selection\u2026",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitsight.forgottenFiles.show",
+        "title": "GitSight: Forgotten Files \u2014 Show Picker\u2026",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "gitsight.forgottenFiles.rescan",
+        "title": "GitSight: Forgotten Files \u2014 Rescan",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.compareWorkingTreeToCommit",
+        "title": "GitSight: Compare Working Tree to Any Commit\u2026",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "gitsight.stashSaveSmart",
+        "title": "GitSight: Smart Stash \u2014 Save with Suggested Name\u2026",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "gitsight.stashSuggestNames",
+        "title": "GitSight: Stash Naming \u2014 Copy a Suggested Name",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "gitsight.gitattributesDiagnostics",
+        "title": "GitSight: .gitattributes \u2014 Find Conflicts with File Content\u2026",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -410,6 +572,11 @@
         "command": "gitsight.generateChangelog",
         "title": "GitSight: Generate AI Changelog\u2026",
         "icon": "$(book)"
+      },
+      {
+        "command": "gitsight.generatePullRequestDescription",
+        "title": "GitSight: Draft AI Pull Request Description\u2026",
+        "icon": "$(git-pull-request)"
       },
       {
         "command": "gitsight.bisectStart",
@@ -500,6 +667,65 @@
         "title": "GitSight: Toggle Word Wrap (Diff)",
         "category": "GitSight",
         "icon": "$(word-wrap)"
+      },
+      {
+        "command": "gitsight.branchQuickSwitcher",
+        "title": "GitSight: Switch Branch\u2026",
+        "category": "GitSight",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "gitsight.openRepoOnRemote",
+        "title": "GitSight: Open Repository on Remote",
+        "category": "GitSight",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.openBranchOnRemote",
+        "title": "GitSight: Open Branch on Remote",
+        "category": "GitSight",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.openFileOnRemote",
+        "title": "GitSight: Open File on Remote (HEAD, with selection)",
+        "category": "GitSight",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "gitsight.sync",
+        "title": "GitSight: Sync (fetch + pull + push)",
+        "category": "GitSight",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "gitsight.refreshWorkingTree",
+        "title": "GitSight: Refresh Working-Tree Pill",
+        "category": "GitSight",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.refreshRecentFiles",
+        "title": "GitSight: Refresh Recent Files",
+        "category": "GitSight",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitsight.openRecentFile",
+        "title": "GitSight: Open Recent File",
+        "category": "GitSight"
+      },
+      {
+        "command": "gitsight.openHistoryForRecentFile",
+        "title": "GitSight: Show History for Recent File",
+        "category": "GitSight",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitsight.showIgnoredFiles",
+        "title": "GitSight: Show Files Ignored by This .gitignore",
+        "category": "GitSight",
+        "icon": "$(eye-closed)"
       }
     ],
     "menus": {
@@ -525,6 +751,11 @@
           "group": "navigation@3"
         },
         {
+          "command": "gitsight.generatePullRequestDescription",
+          "when": "view == gitsight.pullRequests",
+          "group": "navigation@4"
+        },
+        {
           "command": "gitsight.refreshIssues",
           "when": "view == gitsight.issues",
           "group": "navigation@1"
@@ -533,6 +764,11 @@
           "command": "gitsight.createIssue",
           "when": "view == gitsight.issues",
           "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.refreshRecentFiles",
+          "when": "view == gitsight.recentFiles",
+          "group": "navigation@1"
         },
         {
           "command": "gitsight.showCommitGraph",
@@ -545,14 +781,34 @@
           "group": "navigation@2"
         },
         {
+          "command": "gitsight.authorsOfRange",
+          "when": "view == gitsight.contributors",
+          "group": "navigation@1"
+        },
+        {
           "command": "gitsight.createBranch",
           "when": "view == gitsight.branches",
           "group": "navigation@1"
         },
         {
+          "command": "gitsight.branchQuickSwitcher",
+          "when": "view == gitsight.branches",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitsight.branchCleanup",
+          "when": "view == gitsight.branches",
+          "group": "navigation@3"
+        },
+        {
           "command": "gitsight.createTag",
           "when": "view == gitsight.tags",
           "group": "navigation@1"
+        },
+        {
+          "command": "gitsight.tagQuickSwitcher",
+          "when": "view == gitsight.tags",
+          "group": "navigation@2"
         },
         {
           "command": "gitsight.stashSave",
@@ -575,12 +831,27 @@
           "group": "navigation@1"
         },
         {
+          "command": "gitsight.openRepoOnRemote",
+          "when": "view == gitsight.remotes || view == gitsight.repositories",
+          "group": "navigation@2"
+        },
+        {
           "command": "gitsight.fetch",
           "when": "view =~ /^gitsight\\./",
           "group": "navigation@90"
+        },
+        {
+          "command": "gitsight.sync",
+          "when": "view == gitsight.repositories",
+          "group": "navigation@91"
         }
       ],
       "view/item/context": [
+        {
+          "command": "gitsight.openHistoryForRecentFile",
+          "when": "viewItem == recentFile",
+          "group": "1_actions@1"
+        },
         {
           "command": "gitsight.checkoutBranch",
           "when": "viewItem == branch",
@@ -605,6 +876,11 @@
           "command": "gitsight.compareWithWorking",
           "when": "viewItem == branch",
           "group": "2_compare@1"
+        },
+        {
+          "command": "gitsight.openBranchOnRemote",
+          "when": "viewItem == branch",
+          "group": "2_compare@2"
         },
         {
           "command": "gitsight.deleteBranch",
@@ -701,6 +977,14 @@
         {
           "command": "gitsight.showFileHistory",
           "group": "gitsight@3"
+        },
+        {
+          "command": "gitsight.openFileOnRemote",
+          "group": "gitsight@4"
+        },
+        {
+          "command": "gitsight.restoreFileFromCommit",
+          "group": "gitsight@5"
         }
       ],
       "editor/title": [
@@ -822,6 +1106,234 @@
           "type": "boolean",
           "default": true,
           "description": "Show the current worktree name in the status bar (hidden when only one worktree exists). Click to open the worktree switcher."
+        },
+        "gitsight.sync.pullMode": {
+          "type": "string",
+          "enum": ["ff-only", "rebase"],
+          "default": "ff-only",
+          "description": "Strategy used by GitSight: Sync when pulling. 'rebase' uses --rebase --autostash so unpushed local commits stay on top."
+        },
+        "gitsight.sync.pill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Sync status-bar pill with ahead/behind counts. Click to run GitSight: Sync."
+        },
+        "gitsight.workingTree.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill summarizing the working tree (staged / modified / untracked / conflicted counts). Click to open the Source Control view."
+        },
+        "gitsight.workingTree.hideWhenClean": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide the Working-Tree pill when there is nothing staged, modified, untracked, or conflicted."
+        },
+        "gitsight.recentFiles.commits": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "How many recent commits the Recent Files view scans to build its list."
+        },
+        "gitsight.recentFiles.max": {
+          "type": "number",
+          "default": 50,
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Maximum number of files to show in the Recent Files view."
+        },
+        "gitsight.blameHover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a rich GitSight hover with commit subject, body, co-authors, and quick-action links."
+        },
+        "gitsight.blameHover.showBody": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include the commit body in the blame hover."
+        },
+        "gitsight.blameHover.showCoAuthors": {
+          "type": "boolean",
+          "default": true,
+          "description": "Surface Co-authored-by trailers in the blame hover."
+        },
+        "gitsight.gitignoreInsight.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens at the top of every .gitignore reporting how many files it is currently ignoring."
+        },
+        "gitsight.gitignoreInsight.maxFiles": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 100000,
+          "description": "Cap on the number of ignored files scanned to attribute back to a .gitignore. Very large workspaces with huge node_modules trees should keep this conservative."
+        },
+        "gitsight.fileCommitLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeLens at the top of every tracked file with its commit count, age span, and contributor count."
+        },
+        "gitsight.fileCommitLens.maxCommits": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "Maximum commits to inspect per file when computing the per-file CodeLens. Larger values give better contributor counts on long-lived files but cost more git CPU."
+        },
+        "gitsight.commitLint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Lint commit messages — surfaces problems as diagnostics in COMMIT_EDITMSG and as a status-bar pill summary of the SCM input box."
+        },
+        "gitsight.commitLint.showPill": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the commit-linter status-bar pill summarising the current SCM input message."
+        },
+        "gitsight.commitLint.maxSubjectLength": {
+          "type": "number",
+          "default": 72,
+          "minimum": 20,
+          "maximum": 200,
+          "description": "Maximum allowed length of the commit subject line (the first line)."
+        },
+        "gitsight.commitLint.maxBodyLength": {
+          "type": "number",
+          "default": 100,
+          "minimum": 40,
+          "maximum": 240,
+          "description": "Recommended wrap width for commit body lines. Lines longer than this raise a warning."
+        },
+        "gitsight.commitLint.requireBlankLineAfterSubject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the second line of the message is non-empty (Conventional Commits requires a blank line between subject and body)."
+        },
+        "gitsight.commitLint.warnTrailingWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn on lines with trailing whitespace."
+        },
+        "gitsight.commitLint.warnLowercaseSubject": {
+          "type": "boolean",
+          "default": false,
+          "description": "Warn when the subject starts with a lowercase letter (excluding Conventional Commits prefixes like 'feat:')."
+        },
+        "gitsight.commitLint.warnSubjectPeriod": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the subject ends with sentence-ending punctuation ('.', '!', '?')."
+        },
+        "gitsight.commitLint.warnWipPrefix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block commits whose subject starts with WIP, fixup!, squash!, or amend!."
+        },
+        "gitsight.commitLint.warnMissingBody": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when the subject ends with ':' but no body is provided."
+        },
+        "gitsight.branchAge.agingDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days at which a branch starts to be tagged 'aging' (yellow) in the Branches tree."
+        },
+        "gitsight.branchAge.staleDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Days at which a branch is tagged 'stale' (orange) in the Branches tree."
+        },
+        "gitsight.branchAge.ancientDays": {
+          "type": "number",
+          "default": 365,
+          "minimum": 1,
+          "maximum": 7300,
+          "description": "Days at which a branch is tagged 'ancient' (red) in the Branches tree. Use Branch Cleanup to delete merged ones in bulk."
+        },
+        "gitsight.rebaseCoach.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Rebase Coach status-bar pill when a rebase is in progress, and offer a quick-pick of next actions (continue/skip/abort/open conflict)."
+        },
+        "gitsight.coAuthors.scanCommits": {
+          "type": "number",
+          "default": 200,
+          "minimum": 20,
+          "maximum": 5000,
+          "description": "How many recent commits to scan when finding co-author suggestions."
+        },
+        "gitsight.coAuthors.selfEmails": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra email addresses (lowercase) the user considers their own; excluded from co-author suggestions in addition to git's user.email."
+        },
+        "gitsight.conflictMarker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Surface unresolved Git conflict markers (<<<<<<<, =======, >>>>>>>) as Error diagnostics in open files."
+        },
+        "gitsight.conflictMarker.showPill": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill with the conflict count when the active editor has unresolved markers."
+        },
+        "gitsight.recentBranches.reflogWindow": {
+          "type": "number",
+          "default": 200,
+          "minimum": 20,
+          "maximum": 5000,
+          "description": "How many reflog entries to scan when building the Recent Branches list. Larger windows catch older switches at the cost of a slightly slower picker."
+        },
+        "gitsight.recentBranches.showLimit": {
+          "type": "number",
+          "default": 10,
+          "minimum": 3,
+          "maximum": 30,
+          "description": "Maximum number of recent branches to show in the picker."
+        },
+        "gitsight.lastTagPill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a status-bar pill with the most recent tag and the number of commits since it. Click for tag actions (copy, open on remote, show shortlog, checkout)."
+        },
+        "gitsight.lastTagPill.preferStable": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, prefer the newest stable semver tag over a pre-release (rc/beta/alpha) when both are present, so the pill shows the version users actually have."
+        },
+        "gitsight.lockfileWatch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a one-click notification when a known lockfile (package-lock.json, pnpm-lock.yaml, yarn.lock, Cargo.lock, go.sum, Gemfile.lock, poetry.lock, composer.lock, mix.lock, Pipfile.lock, bun.lockb, uv.lock) changes via pull/merge/rebase/checkout, offering to run the ecosystem's install command."
+        },
+        "gitsight.branchDivergence.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a one-click notification when the branch you just checked out is behind its tracked upstream, naming the top contributors on the diverged side, with Rebase / Merge / Show diff actions."
+        },
+        "gitsight.forgottenFiles.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "While a commit is being composed, show a status-bar pill if any file you edited in the last N days has worktree changes but isn't staged (the classic 'I forgot the test fixture' miss)."
+        },
+        "gitsight.forgottenFiles.days": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 90,
+          "description": "How far back (in days) to consider a file 'recently edited' for the Forgotten Files diagnostic."
+        },
+        "gitsight.forgottenFiles.includeClean": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also flag recently-edited files that are currently clean (no worktree changes). Off by default to keep the signal high."
         }
       }
     },
@@ -851,7 +1363,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package --no-dependencies",
-    "lint": "tsc -p ./ --noEmit"
+    "lint": "tsc -p ./ --noEmit",
+    "test:compile": "tsc -p ./tsconfig.test.json",
+    "test": "npm run test:compile && node --test out-test/test/**/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

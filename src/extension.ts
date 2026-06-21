@@ -20,6 +20,7 @@ import { generateCommitMessage, explainCommit } from './ai/commitMessage';
 import { pickModel, getSelectedModel, listCopilotModels, promptCopilotSignIn } from './ai/copilot';
 import { showWorktreeSwitcher } from './views/worktreeSwitcher';
 import { generateChangelog } from './ai/changelog';
+import { generatePullRequestDescription } from './ai/prDescription';
 import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
@@ -32,6 +33,38 @@ import { WorktreePill } from './views/worktreePill';
 import { toggleDiffWordWrap } from './views/diffWordWrap';
 import { pickTheme } from './views/graphThemes';
 import { StatusBar } from './views/statusBar';
+import { showBranchQuickSwitcher } from './views/branchSwitcher';
+import { openRepoOnRemote, openBranchOnRemote, openFileOnRemote } from './git/openOnRemote';
+import { runSync, SyncStatusBar } from './views/sync';
+import { WorkingTreePill } from './views/workingTreePill';
+import { RecentFilesView } from './views/recentFilesView';
+import { BlameHoverProvider } from './blame/blameHover';
+import { GitignoreInsightLens, showIgnoredFilesPicker } from './views/gitignoreLens';
+import { FileCommitLensProvider } from './views/fileCommitLens';
+import { showAuthorsOfRange } from './views/authorsOfRange';
+import { showBranchCleanup } from './views/branchCleanup';
+import { CommitLintController } from './views/commitLintController';
+import { showRestoreFromCommit } from './views/restoreFromCommit';
+import { RebaseCoach } from './views/rebaseCoach';
+import { showTagQuickSwitcher } from './views/tagSwitcher';
+import { showFindCoAuthors } from './views/findCoAuthors';
+import { showBranchCompareSummary } from './views/branchCompareSummary';
+import { showConventionalCommitInsert } from './views/conventionalCommit';
+import { showStashQuickSwitcher } from './views/stashSwitcher';
+import { ConflictMarkerController } from './views/conflictMarkerController';
+import { showRecentBranches, checkoutPreviousBranch } from './views/recentBranches';
+import { LastTagPill } from './views/lastTagPill';
+import { showWhatWillPush } from './views/whatWillPush';
+import { showWipHunter } from './views/wipHunter';
+import { showRepoSizeReport } from './views/repoSize';
+import { showOpenLastPushedBranch } from './views/openLastPushed';
+import { LockfileWatcher } from './views/lockfileWatcher';
+import { registerSelectionHistory } from './views/selectionHistory';
+import { BranchDivergenceWatcher } from './views/branchDivergence';
+import { ForgottenFilesController } from './views/forgottenFiles';
+import { showWorkingTreeCompare } from './views/workingTreeCompare';
+import { registerStashNamingCommands } from './views/stashNaming';
+import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -56,6 +89,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const search = new SearchView(repos);
   const prs = new PullRequestProvider(() => repos.primary() ?? new Git(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()), ctx);
   const issues = new IssuesProvider(() => repos.primary());
+  const recentFiles = new RecentFilesView(repos);
 
   // Virtual filesystem for historic files (gitsight://)
   ctx.subscriptions.push(
@@ -76,12 +110,14 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('gitsight.search', search),
     vscode.window.registerTreeDataProvider('gitsight.pullRequests', prs),
     vscode.window.registerTreeDataProvider('gitsight.issues', issues),
+    vscode.window.registerTreeDataProvider('gitsight.recentFiles', recentFiles),
   );
 
   const refreshAll = () => {
     repositoriesView.refresh(); commits.refresh(); branches.refresh(); tags.refresh();
     remotes.refresh(); stashes.refresh(); worktrees.refresh(); contributors.refresh();
     fileHistory.refresh(); lineHistory.refresh();
+    recentFiles.refresh();
     vscode.window.visibleTextEditors.forEach(e => blame.renderGutter(e));
   };
 
@@ -407,6 +443,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     await generateChangelog(ctx, git);
   }));
 
+  // ── AI PR description generator ─────────────────────────────────
+  reg('gitsight.generatePullRequestDescription', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await generatePullRequestDescription(ctx, git);
+  }));
+
   // ── Bisect wizard ───────────────────────────────────────────────
   const bisect = new BisectWizard(() => primary());
   ctx.subscriptions.push(bisect);
@@ -474,6 +516,212 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Commit graph theme picker ────────────────────────────────────
   reg('gitsight.pickGraphTheme', () => errorWrap(() => pickTheme()));
+
+  // ── Branch Quick-Switcher (Cmd+Shift+B) ──────────────────────────
+  reg('gitsight.branchQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBranchQuickSwitcher(ctx, git);
+  }));
+
+  // ── Open on Remote suite ─────────────────────────────────────────
+  reg('gitsight.openRepoOnRemote', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openRepoOnRemote(git);
+  }));
+  reg('gitsight.openBranchOnRemote', (n: any) => errorWrap(async () => {
+    const git: Git = n?.git ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const branch = n?.branch?.name ?? n?.name;
+    await openBranchOnRemote(git, branch);
+  }));
+  reg('gitsight.openFileOnRemote', () => errorWrap(async () => {
+    const git = gitForActive() ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openFileOnRemote(git);
+  }));
+
+  // ── One-Click Sync ───────────────────────────────────────────────
+  const syncPill = new SyncStatusBar(repos);
+  ctx.subscriptions.push(syncPill);
+  reg('gitsight.sync', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const res = await runSync(git);
+    if (res.ok) vscode.window.setStatusBarMessage(`GitSight sync: ${res.message}`, 4000);
+    else vscode.window.showErrorMessage(`GitSight sync failed: ${res.message}`);
+    syncPill.refresh();
+    refreshAll();
+  }));
+
+  // ── Working-Tree status pill (F6) ────────────────────────────────
+  const workingTreePill = new WorkingTreePill(repos);
+  ctx.subscriptions.push(workingTreePill);
+  reg('gitsight.refreshWorkingTree', () => workingTreePill.refresh());
+
+  // ── Recent Files Touched view (F7) ───────────────────────────────
+  reg('gitsight.refreshRecentFiles', () => recentFiles.refresh());
+  reg('gitsight.openRecentFile', (entry: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const rel = entry?.entry?.path ?? entry?.path;
+    if (!rel) return;
+    const uri = vscode.Uri.file(path.join(git.cwd, rel));
+    await vscode.commands.executeCommand('vscode.open', uri);
+  }));
+  reg('gitsight.openHistoryForRecentFile', (entry: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return;
+    const rel = entry?.entry?.path ?? entry?.path;
+    if (!rel) return;
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(git.cwd, rel)));
+    await vscode.commands.executeCommand('gitsight.showFileHistory');
+  }));
+
+  // ── Blame Hover provider (F11) ───────────────────────────────────
+  const blameHover = new BlameHoverProvider(file => repos.forFile(file));
+  ctx.subscriptions.push(blameHover.register());
+
+  // ── Gitignore Insight CodeLens (F15) ─────────────────────────────
+  const ignoreLens = new GitignoreInsightLens(repos);
+  ctx.subscriptions.push(ignoreLens.register());
+  reg('gitsight.showIgnoredFiles', (arg: any) => errorWrap(() => showIgnoredFilesPicker(arg)));
+
+  // ── Per-File Commit CodeLens (F20) ───────────────────────────────
+  const fileLens = new FileCommitLensProvider(repos);
+  ctx.subscriptions.push(fileLens.register());
+
+  // ── Show Authors of Range (F8) ───────────────────────────────────
+  reg('gitsight.authorsOfRange', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showAuthorsOfRange(ctx, git);
+  }));
+
+  // ── Branch Cleanup (F9) ──────────────────────────────────────────
+  reg('gitsight.branchCleanup', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBranchCleanup(git);
+  }));
+
+  // ── Commit-Message Linter (F21) ──────────────────────────────────
+  const commitLint = new CommitLintController();
+  ctx.subscriptions.push(commitLint);
+  ctx.subscriptions.push(...commitLint.registerCommands());
+
+  // ── Restore File from any commit (F17) ───────────────────────────
+  reg('gitsight.restoreFileFromCommit', () => errorWrap(async () => {
+    const git = gitForActive() ?? primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRestoreFromCommit(git);
+  }));
+
+  // ── Smart Rebase Conflict Coach (F10) ────────────────────────────
+  const rebaseCoach = new RebaseCoach(repos);
+  ctx.subscriptions.push(rebaseCoach);
+  reg('gitsight.rebaseCoach', () => errorWrap(() => rebaseCoach.showMenu()));
+  reg('gitsight.refreshRebaseCoach', () => rebaseCoach.refresh());
+
+  // ── Tag Quick-Switcher (F16) ─────────────────────────────────────
+  reg('gitsight.tagQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showTagQuickSwitcher(git);
+  }));
+
+  // ── Find Co-Authors (F18) ────────────────────────────────────────
+  reg('gitsight.findCoAuthors', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showFindCoAuthors(git);
+  }));
+
+  // ── Branch Compare Summary (F26) ─────────────────────────────────
+  reg('gitsight.branchCompareSummary', (n?: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const head = n?.branch?.name ?? n?.name;
+    await showBranchCompareSummary(git, head ? { head } : undefined);
+  }));
+
+  // ── Conventional Commit Quick-Insert (F29) ───────────────────────
+  reg('gitsight.conventionalCommitInsert', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showConventionalCommitInsert(git);
+  }));
+
+  // ── Stash Quick-Switcher (F31) ───────────────────────────────────
+  reg('gitsight.stashQuickSwitcher', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showStashQuickSwitcher(git);
+  }));
+
+  // ── Conflict Marker Linter (F34) ─────────────────────────────────
+  const conflictLinter = new ConflictMarkerController();
+  ctx.subscriptions.push(conflictLinter);
+  ctx.subscriptions.push(...conflictLinter.registerCommands());
+
+  // ── Recent Branches MRU (F32) ────────────────────────────────────
+  reg('gitsight.recentBranches', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRecentBranches(git);
+  }));
+  reg('gitsight.checkoutPreviousBranch', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await checkoutPreviousBranch(git);
+  }));
+
+  // ── Last-Tag Pill (F30) ──────────────────────────────────────────
+  const lastTagPill = new LastTagPill(repos);
+  ctx.subscriptions.push(lastTagPill);
+  reg('gitsight.refreshLastTagPill', () => lastTagPill.refresh());
+
+  // ── What Will Push (F33) ─────────────────────────────────────────
+  reg('gitsight.whatWillPush', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWhatWillPush(git);
+  }));
+
+  // ── WIP Commit Hunter (F37) ──────────────────────────────────────
+  reg('gitsight.wipHunter', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWipHunter(git);
+  }));
+
+  // ── Repo Size + Biggest Files report (F40) ───────────────────────
+  reg('gitsight.repoSizeReport', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRepoSizeReport(git);
+  }));
+
+  // ── Open Last Pushed Branch (F38) ────────────────────────────────
+  reg('gitsight.openLastPushedBranch', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showOpenLastPushedBranch(git);
+  }));
+
+  // ── Lockfile Change Watcher (F28) ────────────────────────────────
+  const lockfileWatcher = new LockfileWatcher(repos);
+  ctx.subscriptions.push(lockfileWatcher);
+
+  // ── Selection History / Reveal in History CodeAction (F23) ───────
+  ctx.subscriptions.push(...registerSelectionHistory(ctx, repos));
+
+  // ── Branch Divergence Visualiser (F36) ───────────────────────────
+  const branchDivergence = new BranchDivergenceWatcher(repos);
+  ctx.subscriptions.push(branchDivergence);
+
+  // ── Forgotten Files Diagnostic (F39) ─────────────────────────────
+  const forgotten = new ForgottenFilesController(repos);
+  ctx.subscriptions.push(forgotten);
+  ctx.subscriptions.push(...forgotten.registerCommands());
+
+  // ── Compare Working Tree to Any Commit (F44) ─────────────────────
+  reg('gitsight.compareWorkingTreeToCommit', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWorkingTreeCompare(git);
+  }));
+
+  // ── Smart Stash Save (F43) ───────────────────────────────────────
+  ctx.subscriptions.push(...registerStashNamingCommands(() => primary()));
+
+  // ── .gitattributes Diagnostics (F42) ─────────────────────────────
+  reg('gitsight.gitattributesDiagnostics', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showGitattributesDiagnostics(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 
