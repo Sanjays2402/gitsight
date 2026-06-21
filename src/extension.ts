@@ -52,6 +52,7 @@ import { showBranchCompareSummary } from './views/branchCompareSummary';
 import { showConventionalCommitInsert } from './views/conventionalCommit';
 import { showStashQuickSwitcher } from './views/stashSwitcher';
 import { ConflictMarkerController } from './views/conflictMarkerController';
+import { showRecentBranches, checkoutPreviousBranch } from './views/recentBranches';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -639,6 +640,16 @@ export function activate(ctx: vscode.ExtensionContext) {
   const conflictLinter = new ConflictMarkerController();
   ctx.subscriptions.push(conflictLinter);
   ctx.subscriptions.push(...conflictLinter.registerCommands());
+
+  // ── Recent Branches MRU (F32) ────────────────────────────────────
+  reg('gitsight.recentBranches', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showRecentBranches(git);
+  }));
+  reg('gitsight.checkoutPreviousBranch', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await checkoutPreviousBranch(git);
+  }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);
 

@@ -27,7 +27,8 @@
     "src/git/branchCompare.ts",
     "src/git/conventionalCommit.ts",
     "src/git/stashSort.ts",
-    "src/git/conflictMarkers.ts"
+    "src/git/conflictMarkers.ts",
+    "src/git/recentBranches.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

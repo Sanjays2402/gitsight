@@ -472,6 +472,16 @@
         "title": "GitSight: Rescan Open Files for Conflict Markers"
       },
       {
+        "command": "gitsight.recentBranches",
+        "title": "GitSight: Recent Branches\u2026",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitsight.checkoutPreviousBranch",
+        "title": "GitSight: Checkout Previous Branch",
+        "icon": "$(arrow-left)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1213,6 +1223,20 @@
           "type": "boolean",
           "default": true,
           "description": "Show a status-bar pill with the conflict count when the active editor has unresolved markers."
+        },
+        "gitsight.recentBranches.reflogWindow": {
+          "type": "number",
+          "default": 200,
+          "minimum": 20,
+          "maximum": 5000,
+          "description": "How many reflog entries to scan when building the Recent Branches list. Larger windows catch older switches at the cost of a slightly slower picker."
+        },
+        "gitsight.recentBranches.showLimit": {
+          "type": "number",
+          "default": 10,
+          "minimum": 3,
+          "maximum": 30,
+          "description": "Maximum number of recent branches to show in the picker."
         }
       }
     },
