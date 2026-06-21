@@ -69,6 +69,7 @@ import { runPrePushLint } from './views/prePushLintGate';
 import { showFilesIOwnPicker } from './views/filesIOwn';
 import { checkoutWithAutoStash } from './views/autoStashCheckout';
 import { showWorktreeDiskUsage } from './views/worktreeDiskUsage';
+import { runPreCommitBridge } from './views/preCommitBridge';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -746,6 +747,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.worktreeDiskUsage', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showWorktreeDiskUsage(git);
+  }));
+
+  // ── Pre-Commit Hook Bridge (F45) ────────────────────────────────
+  reg('gitsight.preCommitBridge', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await runPreCommitBridge(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

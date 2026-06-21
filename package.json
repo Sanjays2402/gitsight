@@ -552,6 +552,11 @@
         "icon": "$(graph-line)"
       },
       {
+        "command": "gitsight.preCommitBridge",
+        "title": "GitSight: Pre-Commit \u2014 Run Hook & Show Failures\u2026",
+        "icon": "$(shield)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1466,6 +1471,11 @@
           "type": "boolean",
           "default": false,
           "description": "Follow symlinks when measuring a worktree. Off by default (matches `du -P`); turning it on can produce infinite-loop walks if the worktree contains circular symlinks."
+        },
+        "gitsight.preCommitBridge.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, gitsight.preCommitBridge runs `.git/hooks/pre-commit` and presents a friendly picker for any failures (open file at line, copy --no-verify, disable hook). When OFF the command no-ops."
         }
       }
     },
