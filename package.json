@@ -1365,6 +1365,28 @@
           "type": "boolean",
           "default": false,
           "description": "Also flag recently-edited files that are currently clean (no worktree changes). Off by default to keep the signal high."
+        },
+        "gitsight.prePushLint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Before pushing, scan the to-push range (<upstream>..HEAD) for WIP/fixup commits and unresolved conflict markers, and offer a confirm/cancel/inspect prompt."
+        },
+        "gitsight.prePushLint.scanPatches": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fetch each commit's patch body and scan for unresolved conflict markers. Disable to skip the per-commit `git show` round-trip on huge ranges."
+        },
+        "gitsight.prePushLint.maxCommits": {
+          "type": "number",
+          "default": 200,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "If the to-push range exceeds this many commits, skip the pre-push lint entirely (you've explicitly opted into a fast push)."
+        },
+        "gitsight.prePushLint.requireSubjectMatching": {
+          "type": "string",
+          "default": "",
+          "description": "Optional JavaScript regex (e.g. '^(GH-|ABC-)\\\\d+') that every commit subject in the to-push range must match. Mismatches are warnings, not errors. Empty disables the check."
         }
       }
     },

@@ -65,6 +65,7 @@ import { ForgottenFilesController } from './views/forgottenFiles';
 import { showWorkingTreeCompare } from './views/workingTreeCompare';
 import { registerStashNamingCommands } from './views/stashNaming';
 import { showGitattributesDiagnostics } from './views/gitattributesDiag';
+import { runPrePushLint } from './views/prePushLintGate';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -336,6 +337,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.push', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     const branch = await git.currentBranch();
+    // Pre-push lint hook (F14): scan <upstream>..HEAD for WIP commits,
+    // unresolved conflict markers, and (optionally) missing issue refs.
+    const lint = await runPrePushLint(git);
+    if (lint.decision === 'cancel') {
+      vscode.window.setStatusBarMessage('GitSight: push cancelled by pre-push lint.', 3000);
+      return;
+    }
     await git.push('origin', branch); refreshAll();
   }));
   reg('gitsight.addRemote', () => errorWrap(async () => {
