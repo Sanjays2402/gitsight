@@ -54,7 +54,8 @@
     "src/git/sshKeyCheck.ts",
     "src/git/codespaces.ts",
     "src/git/stashDiff.ts",
-    "src/git/submodules.ts"
+    "src/git/submodules.ts",
+    "src/git/commitWalk.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -597,6 +597,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.commitTestRunner",
+        "title": "GitSight: Run Tests at Each Commit (upstream..HEAD)\u2026",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1615,6 +1620,28 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, run `git submodule status --recursive` so nested submodules are surfaced too."
+        },
+        "gitsight.commitTestRunner.command": {
+          "type": "string",
+          "default": "npm test",
+          "description": "Default test command for `gitsight.commitTestRunner`. Run through the system shell so chained commands work (e.g. `npm install && npm test`)."
+        },
+        "gitsight.commitTestRunner.timeoutMs": {
+          "type": "number",
+          "default": 300000,
+          "minimum": 1000,
+          "description": "Per-commit timeout in milliseconds for `gitsight.commitTestRunner` (default 5 min). Hitting the timeout records that commit as `error` and moves on."
+        },
+        "gitsight.commitTestRunner.stopOnFirstFail": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, the runner stops at the first failing commit (faster for known-good \u2192 known-bad ranges). Off by default so you get the full picture."
+        },
+        "gitsight.commitTestRunner.maxCommits": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "description": "Cap on the number of commits the runner will iterate without an explicit confirmation. Going above this triggers a modal warning."
         }
       }
     },

@@ -78,6 +78,7 @@ import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
 import { openInCodespaces } from './views/codespaces';
 import { showStashDiffBrowser } from './views/stashDiffBrowser';
 import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
+import { showCommitByCommitTestRunner } from './views/commitTestRunner';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -925,6 +926,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     const ref: string | undefined = n?.stash?.ref ?? n?.ref;
     await showStashDiffBrowser(git, { ref });
+  }));
+
+  // ── Commit-by-Commit Test Runner (F55) ──────────────────────────
+  reg('gitsight.commitTestRunner', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showCommitByCommitTestRunner(git);
   }));
 }
 
