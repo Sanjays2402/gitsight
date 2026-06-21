@@ -66,6 +66,7 @@ import { showWorkingTreeCompare } from './views/workingTreeCompare';
 import { registerStashNamingCommands } from './views/stashNaming';
 import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 import { runPrePushLint } from './views/prePushLintGate';
+import { showFilesIOwnPicker } from './views/filesIOwn';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -729,6 +730,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.gitattributesDiagnostics', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showGitattributesDiagnostics(git);
+  }));
+
+  // ── Files I own picker (F47) ────────────────────────────────────
+  reg('gitsight.filesIOwn', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showFilesIOwnPicker(git);
   }));
 
   vscode.window.setStatusBarMessage('GitSight ready', 3000);

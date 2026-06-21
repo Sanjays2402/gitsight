@@ -42,7 +42,8 @@
     "src/git/stashNaming.ts",
     "src/git/gitattributesDiag.ts",
     "src/git/hoverAgeTint.ts",
-    "src/git/prePushLint.ts"
+    "src/git/prePushLint.ts",
+    "src/git/filesIOwn.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

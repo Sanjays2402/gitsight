@@ -542,6 +542,11 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "gitsight.filesIOwn",
+        "title": "GitSight: Files I Own \u2014 Pick\u2026",
+        "icon": "$(person)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1387,6 +1392,32 @@
           "type": "string",
           "default": "",
           "description": "Optional JavaScript regex (e.g. '^(GH-|ABC-)\\\\d+') that every commit subject in the to-push range must match. Mismatches are warnings, not errors. Empty disables the check."
+        },
+        "gitsight.filesIOwn.days": {
+          "type": "number",
+          "default": 365,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Shortlog scan window (days) for the 'Files I own' picker. Files where you are the dominant author within this window are included even without a CODEOWNERS rule."
+        },
+        "gitsight.filesIOwn.maxFiles": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 10000,
+          "description": "Maximum number of owned files to surface in the 'Files I own' picker."
+        },
+        "gitsight.filesIOwn.handles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra GitHub-style handles (e.g. '@sanjays2402') to treat as 'me' when matching CODEOWNERS rules, in addition to the one auto-derived from the noreply email."
+        },
+        "gitsight.filesIOwn.emails": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra email addresses to treat as 'me' when matching CODEOWNERS rules and the shortlog, in addition to git config user.email."
         }
       }
     },
