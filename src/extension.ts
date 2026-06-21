@@ -79,6 +79,7 @@ import { withAuthSanityCheck, runStartupAuthProbe } from './views/sshKeyCheck';
 import { openInCodespaces } from './views/codespaces';
 import { showStashDiffBrowser } from './views/stashDiffBrowser';
 import { SubmodulePill, showSubmoduleMenu } from './views/submodulePill';
+import { SubmoduleAutoPullWatcher } from './views/submoduleAutoPull';
 import { showCommitByCommitTestRunner } from './views/commitTestRunner';
 import { showDefaultReviewersPicker } from './views/defaultReviewers';
 import { CommitScaffoldController } from './views/commitScaffold';
@@ -619,6 +620,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showSubmoduleMenu(git, submodulePill.getLatest());
   }));
+
+  // ── Submodule Auto-Pull watcher (F70) ────────────────────────────
+  const submoduleAutoPull = new SubmoduleAutoPullWatcher(repos);
+  ctx.subscriptions.push(submoduleAutoPull);
 
   // ── Recent Files Touched view (F7) ───────────────────────────────
   reg('gitsight.refreshRecentFiles', () => recentFiles.refresh());

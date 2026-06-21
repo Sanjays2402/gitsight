@@ -1809,6 +1809,17 @@
           "type": "object",
           "default": {},
           "description": "Lint options passed verbatim to the commit-message linter (same shape as the SCM input-box validator). Tune `maxSubjectLength`, `maxBodyLength`, etc."
+        },
+        "gitsight.submoduleAutoPull.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, a passive watcher detects submodule gitlink moves between ref changes (pull / merge / rebase / checkout) and surfaces a toast with one-click `git submodule update` actions. Mirrors the F28 lockfile watcher shape."
+        },
+        "gitsight.submoduleAutoPull.cooldownMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Don't re-surface the same submodule change toast within this many minutes. Prevents a multi-step rebase from spamming notifications."
         }
       }
     },

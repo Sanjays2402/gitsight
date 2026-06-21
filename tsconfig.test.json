@@ -63,7 +63,8 @@
     "src/git/cherryPickScout.ts",
     "src/git/stashTrash.ts",
     "src/git/reflog.ts",
-    "src/git/prePushMessageGate.ts"
+    "src/git/prePushMessageGate.ts",
+    "src/git/submoduleAutoPull.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
