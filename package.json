@@ -1793,6 +1793,22 @@
           },
           "default": [],
           "description": "Kinds to pre-tick in the filter chip. Empty array = show everything. Useful when you mostly use the explorer for undo (set to [\"reset\", \"rebase\", \"merge\"])."
+        },
+        "gitsight.prePushMessageGate.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, `gitsight.push` runs the commit-message linter against every commit in the to-push range and blocks (or warns) when issues are found. Composes with the F14 pre-push lint."
+        },
+        "gitsight.prePushMessageGate.blockAt": {
+          "type": "string",
+          "enum": ["error", "warning", "never"],
+          "default": "error",
+          "description": "Severity floor that blocks the push. `error` blocks on lint errors only (subject too long, WIP prefix, missing issue ref). `warning` is strict and blocks on warnings too. `never` surfaces a warning but always lets the push through."
+        },
+        "gitsight.prePushMessageGate.options": {
+          "type": "object",
+          "default": {},
+          "description": "Lint options passed verbatim to the commit-message linter (same shape as the SCM input-box validator). Tune `maxSubjectLength`, `maxBodyLength`, etc."
         }
       }
     },

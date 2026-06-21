@@ -66,6 +66,7 @@ import { showWorkingTreeCompare } from './views/workingTreeCompare';
 import { registerStashNamingCommands } from './views/stashNaming';
 import { showGitattributesDiagnostics } from './views/gitattributesDiag';
 import { runPrePushLint } from './views/prePushLintGate';
+import { runPrePushMessageGate } from './views/prePushMessageGate';
 import { showFilesIOwnPicker } from './views/filesIOwn';
 import { checkoutWithAutoStash } from './views/autoStashCheckout';
 import { showWorktreeDiskUsage } from './views/worktreeDiskUsage';
@@ -379,6 +380,13 @@ export function activate(ctx: vscode.ExtensionContext) {
     const lint = await runPrePushLint(git);
     if (lint.decision === 'cancel') {
       vscode.window.setStatusBarMessage('GitSight: push cancelled by pre-push lint.', 3000);
+      return;
+    }
+    // Pre-push commit-message gate (F69): run the same linter used by the
+    // SCM input-box validator against every commit in the to-push range.
+    const msgGate = await runPrePushMessageGate(git);
+    if (msgGate.decision === 'cancel') {
+      vscode.window.setStatusBarMessage('GitSight: push cancelled by commit-message gate.', 3000);
       return;
     }
     await withAuthSanityCheck(git, 'origin', () => git.push('origin', branch));
