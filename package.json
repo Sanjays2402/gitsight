@@ -692,6 +692,11 @@
         "icon": "$(organization)"
       },
       {
+        "command": "gitsight.tagFromMerged",
+        "title": "GitSight: Tag from Merged PR (next semver)\u2026",
+        "icon": "$(tag)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"

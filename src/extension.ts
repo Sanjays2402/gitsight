@@ -98,6 +98,7 @@ import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
 import { StagedConflictGateController } from './views/stagedConflictGate';
 import { runStashOnSwitchFireAndForget } from './views/stashOnSwitch';
 import { RecentContributorsProvider } from './views/recentContributors';
+import { showTagFromMergedPrompt } from './views/tagOnMerge';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1071,6 +1072,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   const recentContrib = new RecentContributorsProvider(repos);
   ctx.subscriptions.push(recentContrib.register());
   ctx.subscriptions.push(...recentContrib.registerCommands());
+
+  // ── Tag-on-Merge Prompt (F86) ───────────────────────────────────
+  reg('gitsight.tagFromMerged', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showTagFromMergedPrompt(git);
+  }));
 }
 
 export function deactivate() {}

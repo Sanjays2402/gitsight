@@ -75,7 +75,8 @@
     "src/git/stagedConflictGate.ts",
     "src/git/stashOnSwitch.ts",
     "src/git/recentContributors.ts",
-    "src/git/commitGraphExport.ts"
+    "src/git/commitGraphExport.ts",
+    "src/git/tagOnMerge.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
