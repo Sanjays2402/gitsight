@@ -3,6 +3,8 @@ import * as assert from 'node:assert/strict';
 import {
   buildFromShortlog,
   buildIdentityIndex,
+  classifySelfReview,
+  buildSelfReviewHint,
 } from '../../src/git/reviewersFromShortlog';
 import { rerankRoundRobin } from '../../src/git/defaultReviewers';
 import { ShortlogEntry } from '../../src/git/filesIOwn';
@@ -192,4 +194,130 @@ test('buildIdentityIndex: builds lower-cased map, skips bad rows', () => {
   assert.equal(m.get('alice@example.com'), '@alicegh');
   assert.equal(m.get('bob@x'), 'bobgh');
   assert.equal(m.size, 2);
+});
+
+// ─────────── F96: self-review verdict ───────────
+
+test('classifySelfReview: returns ok when suggestions are non-empty', () => {
+  const verdict = classifySelfReview({
+    suggestions: [{ handle: 'x', displayHandle: '@x', kind: 'user', ownedPaths: ['a'], coverage: 1 }],
+    shortlog: [],
+    changedPaths: ['a'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'ok');
+});
+
+test('classifySelfReview: self-dominant when only author shows in shortlog', () => {
+  const shortlog: ShortlogEntry[] = [
+    { path: 'src/foo.ts', byAuthor: { 'sanjay@example.com': 10 } },
+  ];
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog,
+    changedPaths: ['src/foo.ts'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'self-dominant');
+});
+
+test('classifySelfReview: bot-only when every non-author is a bot', () => {
+  const shortlog: ShortlogEntry[] = [
+    {
+      path: 'src/foo.ts',
+      byAuthor: {
+        'sanjay@example.com': 5,
+        'dependabot[bot]@users.noreply.github.com': 3,
+        '49699333+github-actions[bot]@users.noreply.github.com': 2,
+      },
+    },
+  ];
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog,
+    changedPaths: ['src/foo.ts'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'bot-only');
+});
+
+test('classifySelfReview: self-dominant when other humans exist but suggestion list is empty (extraExcluded)', () => {
+  // Simulates the case where buildFromShortlog filtered everyone out via
+  // extraExcluded — the classifier sees non-bot identities AND falls
+  // through to the safe self-dominant branch.
+  const shortlog: ShortlogEntry[] = [
+    {
+      path: 'src/foo.ts',
+      byAuthor: { 'sanjay@example.com': 5, 'alice@example.com': 3 },
+    },
+  ];
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog,
+    changedPaths: ['src/foo.ts'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'self-dominant');
+});
+
+test('classifySelfReview: no-history when changed paths have no shortlog entries', () => {
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog: [{ path: 'unrelated.ts', byAuthor: { 'alice@example.com': 1 } }],
+    changedPaths: ['new-file.ts'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'no-history');
+});
+
+test('classifySelfReview: no-history when changedPaths is empty', () => {
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog: [],
+    changedPaths: [],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'no-history');
+});
+
+test('classifySelfReview: matches author by local-part too', () => {
+  // Some shortlogs have only the local-part (without the @domain).
+  const shortlog: ShortlogEntry[] = [
+    { path: 'src/foo.ts', byAuthor: { sanjay: 10 } },
+  ];
+  const verdict = classifySelfReview({
+    suggestions: [],
+    shortlog,
+    changedPaths: ['src/foo.ts'],
+    author: AUTHOR,
+  });
+  assert.equal(verdict, 'self-dominant');
+});
+
+test('buildSelfReviewHint: emits Files-I-Own command for self-dominant + bot-only', () => {
+  const sd = buildSelfReviewHint('self-dominant', 4);
+  assert.match(sd.summary, /4 files/);
+  assert.equal(sd.suggestedCommand, 'gitsight.filesIOwn');
+  const bo = buildSelfReviewHint('bot-only', 1);
+  assert.match(bo.summary, /1 file/);
+  assert.equal(bo.suggestedCommand, 'gitsight.filesIOwn');
+});
+
+test('buildSelfReviewHint: no-history mentions new files', () => {
+  const h = buildSelfReviewHint('no-history', 2);
+  assert.match(h.summary, /new/);
+  assert.equal(h.suggestedCommand, undefined);
+});
+
+test('buildSelfReviewHint: degraded mentions shallow-clone hint', () => {
+  const h = buildSelfReviewHint('degraded', 3);
+  assert.match(h.detail, /shallow/i);
+  assert.match(h.detail, /unshallow/);
+  assert.equal(h.suggestedCommand, undefined);
+});
+
+test('buildSelfReviewHint: ok verdict returns empty strings', () => {
+  const h = buildSelfReviewHint('ok', 0);
+  assert.equal(h.summary, '');
+  assert.equal(h.detail, '');
 });

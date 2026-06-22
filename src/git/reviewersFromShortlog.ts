@@ -199,3 +199,148 @@ export function buildIdentityIndex(entries: Array<{ identity: string; handle: st
   }
   return out;
 }
+
+/**
+ * F96 — Self-review verdict.
+ *
+ * When the F91 fallback drains to an empty suggestion list, the user
+ * needs to know WHY (so they don't think the feature is broken). This
+ * verdict explains the empty result and suggests the next step:
+ *
+ *   - `self-dominant`: the author IS the top shortlog contributor for
+ *     these paths — no one else has been editing them. The user should
+ *     consider the F47 "files I own" picker explicitly, or accept that
+ *     a peer-fresh-eyes review may not be available for this PR slice.
+ *
+ *   - `bot-only`: every other contributor in scope is a bot/noreply
+ *     identity (dependabot, renovate, github-actions). Falls back to
+ *     the same self-dominant action.
+ *
+ *   - `no-history`: paths have no commit history at all (new files in
+ *     the PR). Reviewer-picker is the wrong tool — suggest CODEOWNERS
+ *     or a manual mention.
+ *
+ *   - `degraded`: shortlog ran but returned 0 entries (most likely
+ *     because `git log` was empty on the requested range — e.g. a
+ *     shallow clone). Different UX than no-history: we should show
+ *     the deepen-clone hint rather than the new-file hint.
+ *
+ *   - `ok`: there ARE suggestions — caller should NOT bother showing
+ *     a self-review hint at all.
+ *
+ * Pure — operates on the same inputs as buildFromShortlog plus its
+ * already-computed suggestion list.
+ */
+export type SelfReviewVerdict =
+  | 'ok'
+  | 'self-dominant'
+  | 'bot-only'
+  | 'no-history'
+  | 'degraded';
+
+export interface SelfReviewArgs {
+  /** Suggestions produced by buildFromShortlog (post-cap, post-rerank). */
+  suggestions: ReviewerSuggestion[];
+  /** Per-file shortlog entries (the same input fed to buildFromShortlog). */
+  shortlog: ShortlogEntry[];
+  /** Paths the PR is changing. */
+  changedPaths: string[];
+  /** Author identity. */
+  author: AuthorIdentity;
+}
+
+export function classifySelfReview(args: SelfReviewArgs): SelfReviewVerdict {
+  const { suggestions, shortlog, changedPaths, author } = args;
+  if (suggestions.length > 0) return 'ok';
+  if (!changedPaths.length) return 'no-history';
+
+  // Did the shortlog return anything for these paths?
+  const relevantEntries = shortlog.filter(e => changedPaths.includes(e.path));
+  if (!relevantEntries.length) return 'no-history';
+
+  const authorEmail = (author.email || '').toLowerCase();
+  const authorLocal = authorEmail.includes('@') ? authorEmail.slice(0, authorEmail.indexOf('@')) : authorEmail;
+  let sawAuthor = false;
+  let sawOther = false;
+  let sawNonBot = false;
+  for (const entry of relevantEntries) {
+    for (const identity of Object.keys(entry.byAuthor)) {
+      const id = identity.toLowerCase();
+      if (id === authorEmail || (authorLocal && id === authorLocal) || id === (authorEmail.includes('@') ? authorEmail.slice(0, authorEmail.indexOf('@')) : '')) {
+        sawAuthor = true;
+        continue;
+      }
+      sawOther = true;
+      if (!isBotIdentity(id.includes('@') ? id.slice(0, id.indexOf('@')) : id, id)) {
+        sawNonBot = true;
+      }
+    }
+  }
+  if (!sawOther) {
+    // Shortlog has entries but none from non-author identities.
+    return sawAuthor ? 'self-dominant' : 'degraded';
+  }
+  if (!sawNonBot) return 'bot-only';
+  // Other humans WERE in scope but buildFromShortlog filtered them all
+  // (extraExcluded, etc.). Treat as self-dominant — the picker did its
+  // job; the user explicitly told us to exclude them.
+  return 'self-dominant';
+}
+
+export interface SelfReviewHint {
+  verdict: SelfReviewVerdict;
+  summary: string;
+  detail: string;
+  /** Suggested follow-up command name (mirrors a registered VS Code command). */
+  suggestedCommand?: string;
+}
+
+/**
+ * Human-readable hint shape for the F57 picker UI to render when the
+ * suggestion list is empty. Keeps the verdict classification + the
+ * UI copy decoupled so we can A/B the wording later without touching
+ * the classifier.
+ */
+export function buildSelfReviewHint(verdict: SelfReviewVerdict, paths: number): SelfReviewHint {
+  const filesWord = paths === 1 ? '1 file' : `${paths} files`;
+  switch (verdict) {
+    case 'self-dominant':
+      return {
+        verdict,
+        summary: `You are the dominant contributor across ${filesWord} \u2014 no peers in scope.`,
+        detail:
+          'Shortlog ranks YOU as the busiest editor of these paths over the lookback window. ' +
+          'No teammates appear in scope, so the reviewer picker has nothing to suggest. ' +
+          'If you still want a review, mention a teammate directly or open the "Files I own" picker to see the full author breakdown per file.',
+        suggestedCommand: 'gitsight.filesIOwn',
+      };
+    case 'bot-only':
+      return {
+        verdict,
+        summary: `Only bot accounts have touched these ${filesWord} besides you.`,
+        detail:
+          'Dependabot / Renovate / github-actions and similar automated identities show up in the shortlog but are filtered out as reviewer suggestions. ' +
+          'You will likely need to manually mention a human reviewer; the "Files I own" picker can help identify nearby maintainers.',
+        suggestedCommand: 'gitsight.filesIOwn',
+      };
+    case 'no-history':
+      return {
+        verdict,
+        summary: `${filesWord} are new — no commit history to mine.`,
+        detail:
+          'The changed paths have no git history yet, so the shortlog reviewer-picker has nothing to rank. ' +
+          'For brand-new files, fall back to CODEOWNERS, a team-wide mention, or pick a peer who owns adjacent code.',
+      };
+    case 'degraded':
+      return {
+        verdict,
+        summary: 'Shortlog ran empty \u2014 possibly a shallow clone.',
+        detail:
+          'git shortlog returned no entries for the changed paths. Most common cause: this is a shallow clone (CI default) and the relevant commits live deeper in history. ' +
+          'Try `git fetch --unshallow` and re-run, or fall back to CODEOWNERS / a manual mention.',
+      };
+    case 'ok':
+    default:
+      return { verdict: 'ok', summary: '', detail: '' };
+  }
+}

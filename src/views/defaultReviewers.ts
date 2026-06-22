@@ -39,7 +39,7 @@ import {
   ReviewerSuggestion,
   AuthorIdentity,
 } from '../git/defaultReviewers';
-import { buildFromShortlog } from '../git/reviewersFromShortlog';
+import { buildFromShortlog, classifySelfReview, buildSelfReviewHint } from '../git/reviewersFromShortlog';
 
 const pexec = promisify(execFile);
 
@@ -77,6 +77,10 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
   // 5. Build suggestions.
   let suggestions: ReviewerSuggestion[];
   let suggestionsSource: 'codeowners' | 'shortlog' = 'codeowners';
+  // F96 keeps the shortlog around so we can classify WHY an empty result
+  // happened (self-dominant / bot-only / no-history / degraded) and
+  // surface a useful next-step hint.
+  let shortlogForVerdict: import('../git/filesIOwn').ShortlogEntry[] | undefined;
   if (owners.found) {
     suggestions = buildReviewerSuggestions({
       rules: owners.rules,
@@ -97,9 +101,9 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     }
     const fallbackDays = Math.max(7, cfg.get<number>('shortlogFallbackDays', 180) ?? 180);
     const perTier = Math.max(1, cfg.get<number>('shortlogPerTier', 5) ?? 5);
-    const shortlog = await loadShortlog(git, fallbackDays, changed);
+    shortlogForVerdict = await loadShortlog(git, fallbackDays, changed);
     suggestions = buildFromShortlog({
-      shortlog,
+      shortlog: shortlogForVerdict,
       changedPaths: changed,
       author,
       extraExcluded,
@@ -108,6 +112,29 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
   }
 
   if (!suggestions.length) {
+    // F96: when the picker drained itself, classify WHY and offer a
+    // next-step suggestion rather than a bare "no suggestions" toast.
+    if (suggestionsSource === 'shortlog' && shortlogForVerdict) {
+      const verdict = classifySelfReview({
+        suggestions,
+        shortlog: shortlogForVerdict,
+        changedPaths: changed,
+        author,
+      });
+      if (verdict !== 'ok') {
+        const hint = buildSelfReviewHint(verdict, changed.length);
+        const offerFilesIOwn = hint.suggestedCommand === 'gitsight.filesIOwn';
+        const action = await vscode.window.showInformationMessage(
+          `GitSight: ${hint.summary}`,
+          { modal: false, detail: hint.detail },
+          ...(offerFilesIOwn ? ['Open Files I Own', 'Dismiss'] : ['Dismiss']),
+        );
+        if (action === 'Open Files I Own') {
+          await vscode.commands.executeCommand('gitsight.filesIOwn');
+        }
+        return;
+      }
+    }
     const reason = suggestionsSource === 'codeowners'
       ? `no CODEOWNERS rule applies to the ${changed.length} changed file(s) (or only the author owns them)`
       : `no recent committers found in the last 180d for the ${changed.length} changed file(s)`;
