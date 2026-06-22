@@ -102,6 +102,7 @@ import { showTagFromMergedPrompt } from './views/tagOnMerge';
 import { generatePrDescriptionFromSelection } from './views/prFromSelection';
 import { showBisectFromCiFailure } from './views/bisectFromCi';
 import { showPrCommentsInbox } from './views/prComments';
+import { SecretAuditPill } from './views/secretAudit';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1105,6 +1106,11 @@ export function activate(ctx: vscode.ExtensionContext) {
       : undefined;
     await showPrCommentsInbox(git, prNumber);
   }));
+
+  // ── Secret Audit Pill (F89) ─────────────────────────────────────
+  const secretAudit = new SecretAuditPill(repos);
+  ctx.subscriptions.push(secretAudit);
+  ctx.subscriptions.push(...secretAudit.registerCommands());
 }
 
 export function deactivate() {}

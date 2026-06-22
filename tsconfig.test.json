@@ -79,7 +79,8 @@
     "src/git/tagOnMerge.ts",
     "src/git/prFromSelection.ts",
     "src/git/bisectFromCi.ts",
-    "src/git/prComments.ts"
+    "src/git/prComments.ts",
+    "src/git/secretAudit.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -677,6 +677,16 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "gitsight.secretAudit.show",
+        "title": "GitSight: Show Missing Workflow Secrets\u2026",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "gitsight.secretAudit.rescan",
+        "title": "GitSight: Re-audit Workflow Secrets",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1947,6 +1957,28 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, hide the pill entirely after a successful run. Quieter status bar; you only see the pill when something needs your attention."
+        },
+        "gitsight.secretAudit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, surface a status-bar pill warning when any `${{ secrets.X }}` reference in `.github/workflows/*` doesn't have a matching secret on GitHub (requires `gh` CLI auth). Pairs with `gitsight.actionsPill` — both are GitHub-only."
+        },
+        "gitsight.secretAudit.refreshMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 120,
+          "description": "How often to re-run `gh secret list` + rescan workflows for secret references. Lower values catch out-of-band secret changes sooner; higher values use less API budget."
+        },
+        "gitsight.secretAudit.hideOnHealthy": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, hide the pill entirely when all referenced secrets are set. When OFF, the pill stays visible as a small `$(shield) N secrets ok` indicator."
+        },
+        "gitsight.secretAudit.includeOrgSecrets": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, also count org-level secrets shared with this repo (via `gh api repos/<owner>/<repo>/actions/secrets`). Disable if you've seen API rate-limit issues or if you want repo-scoped auditing only."
         },
         "gitsight.openAtLastTouched.scanCommits": {
           "type": "number",
