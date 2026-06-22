@@ -250,6 +250,55 @@
   string (older). Tolerate both in one extractor — production gh
   versions in the wild span 6+ months of breaking JSON-shape changes
   and the picker shouldn't crash on a stale install.
+- For multi-file `git diff --cached -U0` parsers, RESET the per-hunk
+  `+`-side line counter when you see `diff --git a/... b/...` —
+  otherwise file2's marker at the file's line 5 gets reported at
+  "file1's last hunkLine + 5". Same trap as parseNameStatusZ from
+  tick 10. The hunk header `@@ -X,Y +A,B @@` initialises hunkLine
+  to A; bump only on `+` rows (in `-U0` mode there are no context
+  rows to skip).
+- For "managed block" round-trip rewrites (PR body sync, commit
+  trailers, scaffolds), use a marker pair (`<!-- GITSIGHT:... -->`)
+  to bound the block. On rewrite, splice between the open and close
+  markers and leave everything outside untouched byte-for-byte. If
+  the block already exists, normalise the whitespace adjacent to
+  the markers so repeated syncs don't drift toward a wall of blank
+  lines. Compare-for-changes should mask the timestamp line so a
+  cosmetic clock advance doesn't trigger a no-op `gh pr edit` call.
+- For colour-input sanitisers in SVG/HTML output, allow-list
+  `#hex(3|4|6|8)`, `rgb(...)`, `rgba(...)` and a tiny set of named
+  colours (`white|black|transparent|none`). Reject anything else
+  and demote to the default. Stops a hostile config from splicing
+  `javascript:` or `expression(eval(...))` into a fill attribute.
+- For FileDecorationProvider performance, never scan the whole
+  repo on `register()`. VS Code calls `provideFileDecoration` lazily
+  for visible explorer rows only; cache per `${absPath}@${mtime}`
+  and fire `onDidChangeFileDecorations(uri)` from inside the lazy
+  load so the explorer re-paints once the badge becomes available.
+  Drop the cache on `RepoManager.onDidChange` so a `git pull`
+  refreshes everyone's badges.
+- For "scientific notation" in test regex assertions, JavaScript
+  `Number.prototype.toString` emits `e[+-]?\d+` form for very small
+  or very large values. A regex like `/^hsl\(0(\.\d+)?, ...` will
+  flake on time-based tests where the input is `Date.now() - now`
+  and the clock is fast enough that the delta rounds to single-
+  digit microseconds. Always permit an optional `(?:e[+-]?\d+)?`
+  suffix on the fractional part.
+- For webview-export features, structure the renderer to return
+  `{ html, exportData }` rather than just `html`. The export
+  command can then re-emit the same SVG fragments the webview is
+  showing without re-running the lane-assignment / graph-layout
+  pass. Cache the exportData on the panel object so click \u2192
+  message \u2192 file-write works without a second `git log` call.
+- For "after a successful checkout" hooks (F80 stash-on-switch),
+  always fire-and-forget — never throw, never block. The checkout
+  ALREADY succeeded; an error in the follow-up surface (network
+  hiccup loading stashes, etc.) shouldn't surface as a modal that
+  would make the user think the switch failed. Session-only
+  dismissal caches keyed by NORMALISED branch name (strip
+  `origin/` / `refs/heads/`, lower-case) so a per-tick dismissal
+  doesn't accidentally re-prompt when the user types the same
+  branch differently next time.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -392,24 +441,31 @@
 - [x] F74: `gh release` companion — DONE tick 13.
 - [x] F75: PR review-request inbox — DONE tick 13.
 
-### Tick 14 (2026-06-21 22:47 PT) — IN PROGRESS
-- [ ] **F77**: PR Draft Auto-Sync — post-push, update draft PR body from `<upstream>..HEAD` diff via `gh pr edit --body-file`
-- [ ] **F78**: Conflict Marker Pre-Stage Gate — pill + picker that blocks commits when staged files still contain `<<<<<<<` markers
-- [ ] **F80**: Stash-on-Branch-Switch — after checkout, offer to apply stashes made on the destination branch
-- [ ] **F81**: Recent Contributors Hover — file hover surfaces last N unique contributors with last-touch date
-- [ ] **F61**: Commit Graph PNG/SVG Export — toolbar button on CommitGraphPanel writes graph image to workspace
+### Tick 14 (2026-06-21 22:47 PT) — SHIPPED
+- [x] **F77**: PR Draft Auto-Sync — post-push, rewrite open draft PR body from `<base>..HEAD` via `gh pr edit --body-file` inside `<!-- GITSIGHT:PR-DRAFT-SYNC -->` marker block — `69106b0`
+- [x] **F78**: Staged Conflict Marker Gate — pill + Problems diagnostics + picker for `<<<<<<<` markers in staged `+` hunks, with `Unstage all flagged` escape — `3bb3772`
+- [x] **F80**: Stash-on-Branch-Switch — after checkout, toast offering Apply newest / Pick from list / Dismiss for stashes made on the destination branch — `988f5ff`
+- [x] **F81**: Recent Contributors Decoration — FileDecorationProvider puts a unique-contributor count badge on every tracked file with markdown tooltip listing them + a `show recent contributors` picker — `87015ff`
+- [x] **F61**: Commit Graph SVG Export — `Export SVG` button on CommitGraphPanel writes standalone self-contained SVG to workspace root with timestamped filename, opens cleanly in browsers/Figma — `625e906`
 
-### Tick 14 candidates (drafted now so future ticks don't restart cold)
+### Tick 14 candidates (drafted now so future ticks don't restart cold) — RESOLVED
+- [x] F61: Branch-graph PNG/SVG export — DONE tick 14 (shipped as SVG which is the more useful vector output for designers; PNG can be a follow-up if needed).
+- [x] F77: PR draft auto-sync — DONE tick 14.
+- [x] F78: Conflict marker pre-stage gate — DONE tick 14.
+- [x] F80: Stash-on-branch-switch picker — DONE tick 14.
+- [x] F81: Recent contributors hover — DONE tick 14 (shipped as FileDecorationProvider badge + tooltip rather than a HoverProvider — VS Code's FileDecorationProvider is the right surface for "explorer hover-like" data and avoids conflicting with the per-line F11 blameHover).
+
+### Tick 15 candidates (drafted now so future ticks don't restart cold)
 - [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
-- [ ] F61: Branch-graph PNG export (F61 carry-over) — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).
 - [ ] F72: Worktree-graph webview — visualise all worktrees as a tree with their HEAD shas, branch attachments, and dirty status. Single-pane "where is everything" view that the F64 pruner picker hints at but doesn't quite deliver.
 - [ ] F76: Bisect script runner from a failed CI step — given a `gh run view` output that locates a failing job/step, generate a `git bisect run` wrapper that re-runs just that step locally for each candidate commit. Extends F55 commit-by-commit test runner.
-- [ ] F77: PR draft auto-sync — when a draft PR exists for the current branch, auto-update its body from the current `<upstream>..HEAD` diff via `gh pr edit --body-file`. Useful for incremental "share what I've got" PRs that grow over a day.
-- [ ] F78: Conflict marker pre-stage gate — extend F34 to block `git add` (via the SCM input pre-stage hook) when the file being staged still has `<<<<<<<` markers. Pairs with F45 pre-commit and F69 pre-push but catches the bug earlier.
 - [ ] F79: Local-branch GitHub Pages preview — for branches that have changed `docs/` or `_site/`, generate the local preview URL that gh-pages would serve (or run `python -m http.server` in `_site/`). Niche but real for repos that publish on every push.
-- [ ] F80: Stash-on-branch-switch picker — when the user switches branches and the destination branch had a stash made *on* it in the past (per stashSort.branch), offer to re-apply it. Bookends F31 + F43 + F48 into a complete stash UX.
-- [ ] F81: Recent contributors hover on file — hover any file in the explorer/editor and surface the last 5 unique contributors with their last-touch date. Lightweight version of F50 fixtureLens for everyday files.
 - [ ] F82: Per-commit benchmark scorer — for `<upstream>..HEAD`, run a configured benchmark command per commit and chart the result. Extends F55 commit-by-commit runner with quantitative output instead of pass/fail.
+- [ ] F83: Commit graph PNG export — companion to F61. Inside the webview, rasterise the standalone SVG via `<canvas>` `drawImage` + `toBlob('image/png')` and write the result through the same message-pipe. Optional; SVG is enough for most workflows.
+- [ ] F84: SCM input box "regenerate from staged" button — wraps the existing F60 commitScaffold so the user can re-trigger the scaffold when they restage. Currently the scaffold only fires when the input box is empty; a manual button would let them refresh after typing.
+- [ ] F85: Reviewer round-robin — for repos with a small set of trusted reviewers in `.github/CODEOWNERS`, pick the reviewer who has been requested LEAST in the last N PRs (gh pr list + review history) so load is balanced. Extends F57 defaultReviewersPicker.
+- [ ] F86: Tag-on-merge prompt — when the merge command lands a PR-shaped branch into `main`, offer to draft a `v<next-semver>` tag based on the conventional-commit footers in the merged range. Extends F73 commitFooter.
+- [ ] F87: PR description from selection — for the active editor's selection, generate a PR title + body draft that wraps the selected diff into a focused micro-PR description. AI fallback uses the existing Copilot integration.
 
 ## TICK LOG
 
@@ -426,6 +482,7 @@
 - 2026-06-21 13:08 PT — 5 features shipped: F57 `60e34b5`, F60 `a3d0056`, F63 `0ee2d1b`, F64 `c58f9de`, F65 `9b2c5ab`. Gate: lint ok, compile ok, 716/716 tests green (629 → 716, +87 new). New configs: 16 (defaultReviewers.{fallbackBase,includeTeams,exclude}, commitScaffold.{enabled,maxPaths,minConfidence,scaffoldWithoutScope}, rerereCache.{staleAfterDays,maxEntries}, worktreePruner.{minAgeDays,includeStaleOnly,forceDirty}, cherryPickScout.{enabled,scanCommits,scanSince}). New commands: 5 (defaultReviewersPicker, commitScaffold.apply, rerereCacheVisualizer, worktreePruner; F65 wraps the existing cherryPick rather than registering new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) auto-degradation when `gh` CLI isn't on PATH (F57 falls back to clipboard); (2) git-internal-dir resolution via `git rev-parse --git-path rr-cache` so the rerere visualizer works in linked worktrees too; (3) refs/remotes intersection for branchesWithUpstream (more reliable than local branch.upstream config on fresh clones); (4) subject normalisation that handles conventional-commit prefix + PR-merge suffix + backport tag in one pass.
 - 2026-06-21 16:41 PT — 5 features shipped: F67 `0771104`, F68 `faa805f`, F69 `770e3ea`, F70 `fafd5b2`, F62 `658706d`. Gate: lint ok, compile ok, 795/795 tests green (716 → 795, +79 new). New configs: 13 (stashTrash.{staleAfterDays,ancientAfterDays,extraLiveBranches}, reflogExplorer.{windowSize,defaultFilter}, prePushMessageGate.{enabled,blockAt,options}, submoduleAutoPull.{enabled,cooldownMinutes}, actionsPill.{enabled,refreshSeconds,hideOnSuccess}). New commands: 4 (stashTrashBin, reflogExplorer, refreshActionsPill; F69 hooks into existing gitsight.push, F70 is a passive watcher). New menus: 1 (stashes.stashTrashBin). New status-bar pills: 1 (ActionsPill at priority 90 — sits just left of the F59 SubmodulePill at 92). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
 - 2026-06-21 19:43 PT — 5 features shipped: F66 `c4cf10b`, F71 `1a6ac23`, F73 `b6a383d`, F74 `fc5f560`, F75 `7b50fed`. Gate: lint ok, compile ok, 873/873 tests green (795 → 873, +78 new). New configs: 6 (openAtLastTouched.scanCommits, forcePushGuard.enabled, releasesCompanion.listLimit, prReviewInbox.{scope,listLimit,includeDrafts}). New commands: 7 (openAtLastTouchedCommit, forcePush, forcePushDangerous, checkBranchProtection, commitFooterComposer, releasesCompanion, prReviewInbox). New menus: 1 (recentFiles.openAtLastTouchedCommit). New providers: 1 CodeAction (Refactor-kind for "Open at last touched commit", scoped to non-binary files inside git repos). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) gh-api JSON classifier with 404-as-unprotected fallback (forcePushGuard); (2) committed-trailer-block detection with case-insensitive dedup on name-email but case-sensitive on BREAKING CHANGE (commitFooter); (3) urgency-state ordering with drafts-always-last + within-state recency tiebreak (prReviewInbox); (4) rename-aware "last touched" walker that returns the rename's destination commit + renamedFrom hint (openAtLastTouched); (5) same-repo guard before `gh pr checkout` so we never land PR #X from `other/repo` in a clone of `foo/bar`.
+- 2026-06-21 22:47 PT — 5 features shipped: F77 `69106b0`, F78 `3bb3772`, F80 `988f5ff`, F81 `87015ff`, F61 `625e906`. Gate: lint ok, compile ok, 940/940 tests green across 10 consecutive runs (873 → 940, +67 new). Also caught + fixed a pre-existing flake: `heatmapColor` test regex didn't accept scientific-notation hues like `6.97e-9`, which `new Date()` + fast clocks occasionally produce; widened the regex to allow `e[+-]?\d+` suffixes (`93cbc54`). New configs: 12 (prDraftSync.{enabled,maxCommits,maxFiles,baseRef}, stagedConflictGate.{enabled,severity}, stashOnSwitch.{enabled,freshDays,agingDays}, recentContributors.{enabled,scanCommits,maxInTooltip}, graphExport.directory). New commands: 4 (stagedConflictGate.show, stagedConflictGate.rescan, recentContributors.show; F77 + F80 are passive hooks into push + checkout). New providers: 1 FileDecorationProvider (recentContributors, scoped to non-binary tracked files). New webview message types: 1 (`exportSvg` in commitGraph). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) marker-bracketed managed body block with timestamp-ignored diff so we don't make no-op `gh pr edit` calls (prDraftSync); (2) `git diff --cached -U0` parser that only flags markers on the `+` side so resolution commits stay silent (stagedConflictGate); (3) per-hunk hunkLine reset across files so a second file's marker doesn't inherit the first file's line offset (stagedConflictGate); (4) session-only dismissal cache keyed by normalised branch name so the same toast doesn't re-appear on the next checkout (stashOnSwitch); (5) FileDecorationProvider with per-file-mtime cache that lets VS Code lazily request decorations only for currently-visible explorer rows (recentContributors); (6) standalone SVG with allow-listed colour sanitiser that rejects `javascript:` / `expression()` inputs and demotes them to defaults (commitGraphExport); (7) renderGraph now returns `{ html, exportData }` so the export command can re-emit the same row SVG fragments the webview is showing without re-running the lane-assignment pass.
 
 CAUGHT MID-TICK: 4 tests failed on first gate run (cherryPickScout: subject-exact matched empty='' vs empty=''; commitScaffold: composeScaffoldHeader returned `docs(docs): ` instead of `docs: ` when type==scope; same for `ci(ci): `; worktreePruner test expected upstreamGone=1 but classifier correctly counts both reasons when one entry has missing-on-disk AND upstream-gone). Fixed via 2 source fixes (subject-exact gated on truthy source.subject; composeScaffoldHeader drops redundant scope when scope==type) + 1 test expectation correction. All three landed as `--fixup` commits and were autosquashed into their parents before push, so each feature commit stays self-passing.
 
