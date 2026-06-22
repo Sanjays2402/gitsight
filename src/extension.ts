@@ -104,6 +104,7 @@ import { showBisectFromCiFailure } from './views/bisectFromCi';
 import { showPrCommentsInbox } from './views/prComments';
 import { composeAndPostPrComment } from './views/prCommentCompose';
 import { SecretAuditPill } from './views/secretAudit';
+import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -1123,6 +1124,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const secretAudit = new SecretAuditPill(repos);
   ctx.subscriptions.push(secretAudit);
   ctx.subscriptions.push(...secretAudit.registerCommands());
+
+  // ── Workspace Secret Audit Summary (F94) ────────────────────────
+  reg('gitsight.workspaceSecretAudit', () => errorWrap(async () => {
+    await showWorkspaceSecretAudit(repos);
+  }));
 
   // ── Diff Size Heuristic (F90) ───────────────────────────────────
   const diffSize = new DiffSizeHeuristicController(repos);
