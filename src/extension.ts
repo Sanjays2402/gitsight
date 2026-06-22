@@ -100,6 +100,7 @@ import { runStashOnSwitchFireAndForget } from './views/stashOnSwitch';
 import { RecentContributorsProvider } from './views/recentContributors';
 import { showTagFromMergedPrompt } from './views/tagOnMerge';
 import { generatePrDescriptionFromSelection } from './views/prFromSelection';
+import { showBisectFromCiFailure } from './views/bisectFromCi';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1084,6 +1085,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.prDescriptionFromSelection', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await generatePrDescriptionFromSelection(ctx, git);
+  }));
+
+  // ── Bisect from CI Failure (F76) ────────────────────────────────
+  reg('gitsight.bisectFromCi', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showBisectFromCiFailure(git);
   }));
 }
 

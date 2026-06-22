@@ -702,6 +702,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "gitsight.bisectFromCi",
+        "title": "GitSight: Bisect from Failing CI Run\u2026",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
