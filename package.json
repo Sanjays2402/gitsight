@@ -637,6 +637,21 @@
         "icon": "$(history)"
       },
       {
+        "command": "gitsight.forcePush",
+        "title": "GitSight: Force Push (with lease)\u2026",
+        "icon": "$(repo-force-push)"
+      },
+      {
+        "command": "gitsight.forcePushDangerous",
+        "title": "GitSight: Force Push (DANGEROUS, no lease)\u2026",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "gitsight.checkBranchProtection",
+        "title": "GitSight: Check Branch Protection\u2026",
+        "icon": "$(shield)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1858,6 +1873,11 @@
           "minimum": 50,
           "maximum": 2000,
           "description": "How many recent commits to scan when mining the most recent touch of a file. Higher values find historic touches deeper in history at the cost of one slower `git log` call."
+        },
+        "gitsight.forcePushGuard.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, the F71 force-push commands probe GitHub branch protection via `gh api` and refuse when the branch is protected and force-push is disallowed. Composes with the F14 pre-push lint and F69 commit-message gate. No-op for non-GitHub remotes."
         }
       }
     },

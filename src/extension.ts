@@ -90,6 +90,7 @@ import { scoutAndCherryPick } from './views/cherryPickScout';
 import { showStashTrashBin } from './views/stashTrashBin';
 import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
+import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1010,6 +1011,22 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // ── Open at Last Touched Commit (F66) ───────────────────────────
   registerOpenAtLastTouched(ctx, repos);
+
+  // ── Force-Push Protection Guard (F71) ───────────────────────────
+  reg('gitsight.forcePush', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await forcePush(git, { lease: true });
+    refreshAll();
+  }));
+  reg('gitsight.forcePushDangerous', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await forcePush(git, { lease: false });
+    refreshAll();
+  }));
+  reg('gitsight.checkBranchProtection', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await checkBranchProtection(git);
+  }));
 }
 
 export function deactivate() {}
