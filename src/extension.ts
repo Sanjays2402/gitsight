@@ -96,6 +96,7 @@ import { insertIssueAtCursor, insertIssueAsMarkdownLink, appendIssueTrailerToScm
 import { showWhatsMineDashboard } from './views/whatsMine';
 import { CodeownersValidatorController, runValidateCodeowners } from './views/codeownersValidator';
 import { runPrCheckoutPreflight, runPrCheckoutPreflightInteractive } from './views/prCheckoutPreflight';
+import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTemplateLint';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1097,6 +1098,13 @@ export function activate(ctx: vscode.ExtensionContext) {
     } else {
       await runPrCheckoutPreflightInteractive(git);
     }
+  }));
+
+  // ── PR template lint (F103) ─────────────────────────────────────
+  const prTemplateLint = new PrTemplateLintController(repos);
+  ctx.subscriptions.push(prTemplateLint);
+  reg('gitsight.lintPrTemplate', () => errorWrap(async () => {
+    await runPrTemplateLintCommand(repos);
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────

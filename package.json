@@ -692,6 +692,11 @@
         "icon": "$(rocket)"
       },
       {
+        "command": "gitsight.lintPrTemplate",
+        "title": "GitSight: Lint PR Description (placeholders, empty sections)",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2176,6 +2181,22 @@
           "minimum": 1,
           "maximum": 60,
           "description": "How many days back to consider when computing the conflict-risk overlap between PR files and the user's recent commits. 7 catches the typical week of in-flight work."
+        },
+        "gitsight.prTemplateLint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight passively lints markdown PR description scratch buffers (the `(gitsight) Pull Request Description` flow) plus any `PULL_REQUEST_TEMPLATE.md` you open, surfacing placeholder leftovers (TODO/TBD/FIXME), instruction comments, empty sections, and untouched-from-template sections in the Problems panel."
+        },
+        "gitsight.prTemplateLint.flagEmptyCheckboxes": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, every unchecked `- [ ]` row in the PR body produces an info-level finding. OFF is the gentler default \u2014 unchecked boxes are often intentional placeholders that the reviewer ticks during merge."
+        },
+        "gitsight.prTemplateLint.requiredSections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Section headings that MUST be present in every PR body (matched case-insensitively). A missing required section emits an info-level finding. Leave empty to disable the check."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
