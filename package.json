@@ -687,6 +687,16 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.diffSize.show",
+        "title": "GitSight: Show Staged Diff Size\u2026",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "gitsight.diffSize.rescan",
+        "title": "GitSight: Rescan Staged Diff Size",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1979,6 +1989,44 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, also count org-level secrets shared with this repo (via `gh api repos/<owner>/<repo>/actions/secrets`). Disable if you've seen API rate-limit issues or if you want repo-scoped auditing only."
+        },
+        "gitsight.diffSize.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, watches the staged diff size while you compose a commit; surfaces a status-bar pill + diagnostic suggesting a split when the diff crosses configurable line/file thresholds. Pairs with F60 commitScaffold + F84 regenerate so the suggestion shows up at commit-compose time, not push time."
+        },
+        "gitsight.diffSize.lineThreshold": {
+          "type": "number",
+          "default": 400,
+          "minimum": 50,
+          "maximum": 100000,
+          "description": "Total +/- line count above which the diff-size heuristic warns. 400 lines is the reviewer-fatigue threshold most teams converge on."
+        },
+        "gitsight.diffSize.fileThreshold": {
+          "type": "number",
+          "default": 20,
+          "minimum": 2,
+          "maximum": 1000,
+          "description": "File-count above which the diff-size heuristic warns. Independent of line count — 25 files at 5 lines each still benefits from a split."
+        },
+        "gitsight.diffSize.hugeLineThreshold": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 200,
+          "maximum": 100000,
+          "description": "Line count above which the diff-size heuristic escalates from `warning` to `huge` (red pill). Even style/chore commits get flagged at this size — strongly suggest splitting."
+        },
+        "gitsight.diffSize.noisyDominance": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0.1,
+          "maximum": 1,
+          "description": "Fraction (0..1) of lockfile / generated / vendored lines in the staged diff above which the warning shifts from `large diff` to `noisy diff` (lockfile dominant). Default 0.7 = 70%."
+        },
+        "gitsight.diffSize.requireSCMInput": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, the diff-size pill only appears while the SCM input box has text (i.e. you're composing a commit). When OFF, the pill stays visible whenever staging is dirty."
         },
         "gitsight.openAtLastTouched.scanCommits": {
           "type": "number",

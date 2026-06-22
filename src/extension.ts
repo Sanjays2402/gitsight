@@ -103,6 +103,7 @@ import { generatePrDescriptionFromSelection } from './views/prFromSelection';
 import { showBisectFromCiFailure } from './views/bisectFromCi';
 import { showPrCommentsInbox } from './views/prComments';
 import { SecretAuditPill } from './views/secretAudit';
+import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1111,6 +1112,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const secretAudit = new SecretAuditPill(repos);
   ctx.subscriptions.push(secretAudit);
   ctx.subscriptions.push(...secretAudit.registerCommands());
+
+  // ── Diff Size Heuristic (F90) ───────────────────────────────────
+  const diffSize = new DiffSizeHeuristicController(repos);
+  ctx.subscriptions.push(diffSize);
+  ctx.subscriptions.push(...diffSize.registerCommands());
 }
 
 export function deactivate() {}
