@@ -707,6 +707,11 @@
         "icon": "$(megaphone)"
       },
       {
+        "command": "gitsight.prTimelinePill.refresh",
+        "title": "GitSight: Refresh PR Timeline pill",
+        "icon": "$(sync)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2224,6 +2229,23 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, reviewers who left only a COMMENTED review (no approval, no changes-requested) are still considered inactive and eligible for a nudge. Default OFF treats commented-and-walked-away as \"engaged enough\" to skip the nudge."
+        },
+        "gitsight.prTimelinePill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight shows a status-bar pill summarising the current branch's open PR (ready / waiting on N / +N since review / conflicts / changes requested / draft). Click for an action menu. Hides silently when there's no open PR or no github.com origin."
+        },
+        "gitsight.prTimelinePill.refreshSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 15,
+          "maximum": 600,
+          "description": "How often (seconds) the PR timeline pill polls gh for fresh state. 60 is the default; bump higher on networks where gh round-trips are slow, lower for tight feedback loops."
+        },
+        "gitsight.prTimelinePill.hideWhenReady": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, the pill hides when the PR is approved + mergeable (ready state). Reduces status-bar noise once the PR is just waiting on you to click merge."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",

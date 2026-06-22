@@ -99,6 +99,7 @@ import { runPrCheckoutPreflight, runPrCheckoutPreflightInteractive } from './vie
 import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTemplateLint';
 import { runOpenIssueFromSelection, OpenIssueCodeActionProvider } from './views/openIssueFromSelection';
 import { runFindInactiveReviewers } from './views/inactiveReviewers';
+import { PrTimelinePill } from './views/prTimelinePill';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1128,6 +1129,13 @@ export function activate(ctx: vscode.ExtensionContext) {
       ? { number: arg.number, repoSlug: typeof arg.repoSlug === 'string' ? arg.repoSlug : undefined }
       : undefined;
     await runFindInactiveReviewers(git, parsed);
+  }));
+
+  // ── PR Timeline Pill (F106) ─────────────────────────────────────
+  const prTimelinePill = new PrTimelinePill(repos);
+  ctx.subscriptions.push(prTimelinePill);
+  reg('gitsight.prTimelinePill.refresh', () => errorWrap(async () => {
+    await prTimelinePill.refresh();
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────
