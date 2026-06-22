@@ -92,6 +92,7 @@ import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 import { showCommitFooterComposer } from './views/commitFooter';
+import { showReleasesCompanion } from './views/githubReleases';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1033,6 +1034,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.commitFooterComposer', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showCommitFooterComposer(git);
+  }));
+
+  // ── GitHub Releases Companion (F74) ─────────────────────────────
+  reg('gitsight.releasesCompanion', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showReleasesCompanion(git);
   }));
 }
 

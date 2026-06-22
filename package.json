@@ -657,6 +657,11 @@
         "icon": "$(symbol-key)"
       },
       {
+        "command": "gitsight.releasesCompanion",
+        "title": "GitSight: GitHub Releases\u2026",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1883,6 +1888,13 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, the F71 force-push commands probe GitHub branch protection via `gh api` and refuse when the branch is protected and force-push is disallowed. Composes with the F14 pre-push lint and F69 commit-message gate. No-op for non-GitHub remotes."
+        },
+        "gitsight.releasesCompanion.listLimit": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "maximum": 100,
+          "description": "How many releases to load into the GitHub Releases picker. Larger limits surface deeper history at the cost of one slower `gh release list` call."
         }
       }
     },
