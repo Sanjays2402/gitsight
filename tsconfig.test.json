@@ -87,7 +87,8 @@
     "src/git/workspaceSecretAudit.ts",
     "src/git/reviewersFromShortlog.ts",
     "src/git/prTemplate.ts",
-    "src/git/issueInsert.ts"
+    "src/git/issueInsert.ts",
+    "src/git/whatsMine.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -93,6 +93,7 @@ import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 import { showCommitFooterComposer } from './views/commitFooter';
 import { insertIssueAtCursor, insertIssueAsMarkdownLink, appendIssueTrailerToScm } from './views/issueInsert';
+import { showWhatsMineDashboard } from './views/whatsMine';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1071,6 +1072,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.appendIssueTrailer', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await appendIssueTrailerToScm(git);
+  }));
+
+  // ── What's Mine? dashboard (F100) ───────────────────────────────
+  reg('gitsight.whatsMine', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showWhatsMineDashboard(git);
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────

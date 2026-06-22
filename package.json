@@ -677,6 +677,11 @@
         "icon": "$(check)"
       },
       {
+        "command": "gitsight.whatsMine",
+        "title": "GitSight: What's mine? (PRs, issues, recent commits)\u2026",
+        "icon": "$(person)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2135,6 +2140,20 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, the inserter prompts each invocation whether to use the bare `#NN` form or the qualified `org/repo#NN` form. OFF defaults to bare references (correct for the common single-repo case)."
+        },
+        "gitsight.whatsMine.listLimit": {
+          "type": "number",
+          "default": 25,
+          "minimum": 5,
+          "maximum": 100,
+          "description": "How many PRs / issues to pull per surface in `gitsight.whatsMine`. Loading three feeds at this cap means the picker shows up to 3 * limit GH rows plus the local commit window."
+        },
+        "gitsight.whatsMine.commitWindowDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How many days back to include in the \"Your recent commits\" section. 7 catches the typical week; bump to 30 for the monthly retrospective view."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
