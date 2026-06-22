@@ -45,13 +45,15 @@ test('colorForAuthor: deterministic, hsl format', () => {
 test('heatmapColor: hot (red) at 0 days, cold (blue) near coldDays', () => {
   const hot = heatmapColor(new Date(), 365);
   const cold = heatmapColor(new Date(Date.now() - 365 * 86_400_000), 365);
-  assert.match(hot, /^hsl\(0(\.\d+)?, 70%, 50%\)$/);
-  assert.match(cold, /^hsl\(220(\.\d+)?, 70%, 50%\)$/);
+  // Hot side: hue is 220 * ratio where ratio ≈ 0; tolerate scientific notation
+  // (e.g. "6.97e-9") that JS Number.toString emits for very small values.
+  assert.match(hot, /^hsl\(0(?:\.\d+(?:e-?\d+)?)?, 70%, 50%\)$/);
+  assert.match(cold, /^hsl\(220(?:\.\d+(?:e[+-]?\d+)?)?, 70%, 50%\)$/);
 });
 
 test('heatmapColor: clamps very-old dates to fully cold', () => {
   const ancient = heatmapColor(new Date(0), 365);
-  assert.match(ancient, /^hsl\(220(\.\d+)?, 70%, 50%\)$/);
+  assert.match(ancient, /^hsl\(220(?:\.\d+(?:e[+-]?\d+)?)?, 70%, 50%\)$/);
 });
 
 test('gravatarUrl: hashes lowercase email, supports size', () => {
