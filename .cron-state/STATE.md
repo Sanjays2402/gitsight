@@ -299,6 +299,59 @@
   `origin/` / `refs/heads/`, lower-case) so a per-tick dismissal
   doesn't accidentally re-prompt when the user types the same
   branch differently next time.
+- For "manual regenerate that might clobber typed input" UX (F84),
+  build a drift classifier (`untouched` / `extended` / `replaced`)
+  on top of a remembered scaffold string. `untouched` skips the
+  confirm because the user hasn't typed anything yet; `extended`
+  and `replaced` go through a modal preview showing the
+  before -> after transition. The trailing-whitespace tolerance
+  (`replace(/\s+$/, '')` on both sides) catches editors that
+  append a newline on focus loss — a common source of false
+  "extended" verdicts.
+- For semver-bump comparisons across a discriminated union
+  (`'major' | 'minor' | 'patch' | 'none'`), use a numeric rank
+  table (`{none:0, patch:1, minor:2, major:3}`) instead of
+  chained `&& !== 'major' && !== 'minor'` conditionals. The
+  chained form trips TypeScript's narrowing analysis and emits
+  TS2367 ("comparison appears unintentional"); the rank table
+  is also cleaner to extend when a new bump kind lands.
+- For "no previous tag" seed semantics (F86 suggestNextTag),
+  emit `v0.0.1` for patch and `v0.1.0` for minor OR major. The
+  0.x semver convention treats majors-within-0.x as minor
+  bumps; the user can manually pick v1.0.0 when they want to
+  declare API stability. Don't try to be clever and pre-bump.
+- For language fence tags in markdown output (F87), GitHub's
+  markdown renderer accepts a small allow-list but tolerates
+  unknown tags by ignoring them. Common VS Code language ids
+  that DON'T match GitHub conventions: typescriptreact (use
+  `tsx`), javascriptreact (use `jsx`), plaintext (use ''). For
+  anything else, strip non-alphanumerics and lowercase — guards
+  against weird custom-grammar ids like `csv (custom)` that
+  would otherwise break the fence parser.
+- For large-context truncation in AI prompts, head + tail with
+  an explicit `// ...N lines omitted...` marker beats a simple
+  head-only truncate. The model uses the surrounding context as
+  orientation; cutting only the head loses the "what comes
+  after" signal that often disambiguates the meaning of a
+  function. Split the budget 50/50 between head and tail.
+- For `git bisect run` script convention, the exit codes MATTER
+  and are not the same as a normal shell command:
+    0   = commit is GOOD (continue bisect)
+    1   = commit is BAD (regression is here-or-before)
+    125 = commit is UNTESTABLE (skip; install failure, missing
+          dep, etc.) — bisect will skip and continue
+  Treating an install failure as exit 1 (BAD) would falsely
+  attribute the regression to a commit that just happened to
+  have a broken `npm ci`. Always wrap the install step in an
+  `|| exit 125`.
+- For "infer a local command from a CI step name" (F76), use
+  exact-match first for the most common step names ("Run tests",
+  "Lint", "Build", "Type check") then substring fallbacks for
+  ecosystem-specific patterns (`/\bjest\b/`, `/\bpytest\b/`,
+  `/\bcargo\b/`). Always return a `confident: boolean` so the
+  preview can warn the user when the result is a placeholder
+  — a confident-looking command that doesn't exist locally
+  would silently `exit 127` and bisect every commit as BAD.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -455,17 +508,36 @@
 - [x] F80: Stash-on-branch-switch picker — DONE tick 14.
 - [x] F81: Recent contributors hover — DONE tick 14 (shipped as FileDecorationProvider badge + tooltip rather than a HoverProvider — VS Code's FileDecorationProvider is the right surface for "explorer hover-like" data and avoids conflicting with the per-line F11 blameHover).
 
-### Tick 15 candidates (drafted now so future ticks don't restart cold)
-- [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
-- [ ] F72: Worktree-graph webview — visualise all worktrees as a tree with their HEAD shas, branch attachments, and dirty status. Single-pane "where is everything" view that the F64 pruner picker hints at but doesn't quite deliver.
-- [ ] F76: Bisect script runner from a failed CI step — given a `gh run view` output that locates a failing job/step, generate a `git bisect run` wrapper that re-runs just that step locally for each candidate commit. Extends F55 commit-by-commit test runner.
-- [ ] F79: Local-branch GitHub Pages preview — for branches that have changed `docs/` or `_site/`, generate the local preview URL that gh-pages would serve (or run `python -m http.server` in `_site/`). Niche but real for repos that publish on every push.
-- [ ] F82: Per-commit benchmark scorer — for `<upstream>..HEAD`, run a configured benchmark command per commit and chart the result. Extends F55 commit-by-commit runner with quantitative output instead of pass/fail.
-- [ ] F83: Commit graph PNG export — companion to F61. Inside the webview, rasterise the standalone SVG via `<canvas>` `drawImage` + `toBlob('image/png')` and write the result through the same message-pipe. Optional; SVG is enough for most workflows.
-- [ ] F84: SCM input box "regenerate from staged" button — wraps the existing F60 commitScaffold so the user can re-trigger the scaffold when they restage. Currently the scaffold only fires when the input box is empty; a manual button would let them refresh after typing.
-- [ ] F85: Reviewer round-robin — for repos with a small set of trusted reviewers in `.github/CODEOWNERS`, pick the reviewer who has been requested LEAST in the last N PRs (gh pr list + review history) so load is balanced. Extends F57 defaultReviewersPicker.
-- [ ] F86: Tag-on-merge prompt — when the merge command lands a PR-shaped branch into `main`, offer to draft a `v<next-semver>` tag based on the conventional-commit footers in the merged range. Extends F73 commitFooter.
-- [ ] F87: PR description from selection — for the active editor's selection, generate a PR title + body draft that wraps the selected diff into a focused micro-PR description. AI fallback uses the existing Copilot integration.
+### Tick 15 (2026-06-22 02:02 PT) — SHIPPED
+- [x] **F84**: SCM input box `Regenerate from staged` button — manual force-rebuild of conventional-commit header on the SCM-title bar, with drift classifier (untouched / extended / replaced) gating a modal preview before clobbering user input — `e7b5596`
+- [x] **F85**: Reviewer round-robin — within each CODEOWNERS coverage tier, re-rank suggestions by recent request load (`gh pr list --search reviewRequests,latestReviews`) so least-loaded handles float to the top; degrades to plain coverage when gh missing — `3ad487b`
+- [x] **F86**: Tag-on-merge prompt — classify range bump from conventional-commit prefixes + BREAKING CHANGE trailers (major/minor/patch/none), suggest next semver tag preserving v-prefix, build grouped release notes (Breaking → Features → Fixes → Performance → Other + Contributors), preview-then-create annotated tag with optional push — `1b30d23`
+- [x] **F87**: PR description from selection (AI) — micro-PR description scoped to the editor's current selection, with +/-30 line context window, language-aware fenced block, sanity-gated (`empty`/`too-small`/`too-large`), suggests a PR title from recentSubject or verb-heuristic — `f68f552`
+- [x] **F76**: Bisect from CI failure — picks first failing job/step from `gh run view --json`, heuristically infers local recovery command (npm test / lint / build / tsc / cargo / go / pytest), generates `git bisect run` wrapper with install-failure -> 125 skip, opens preview + drops user into a terminal preloaded with `git bisect start/run/reset` — `adcfc0e`
+
+### Tick 15 candidates (RESOLVED above)
+- [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — CARRIED TO TICK 16.
+- [ ] F72: Worktree-graph webview — CARRIED TO TICK 16.
+- [x] F76: Bisect script from CI failure — DONE tick 15.
+- [ ] F79: Local-branch GitHub Pages preview — CARRIED TO TICK 16.
+- [ ] F82: Per-commit benchmark scorer — CARRIED TO TICK 16.
+- [ ] F83: Commit graph PNG export — CARRIED TO TICK 16.
+- [x] F84: SCM input box "regenerate from staged" — DONE tick 15.
+- [x] F85: Reviewer round-robin — DONE tick 15.
+- [x] F86: Tag-on-merge prompt — DONE tick 15.
+- [x] F87: PR description from selection — DONE tick 15.
+
+### Tick 16 candidates (drafted now so future ticks don't restart cold)
+- [ ] F53: Commit-Detail Webview (multi-tick carry-over) — rich webview with header/stats/per-file-diff tabs + per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
+- [ ] F72: Worktree-graph webview — visualise all worktrees as a tree with their HEAD shas, branch attachments, and dirty status. Pairs with F64 pruner.
+- [ ] F79: Local-branch GitHub Pages preview — for branches that have changed `docs/` or `_site/`, generate the local preview URL that gh-pages would serve (or run `python -m http.server` in `_site/`).
+- [ ] F82: Per-commit benchmark scorer — for `<upstream>..HEAD`, run a configured benchmark command per commit and chart the result. Extends F55 with quantitative output.
+- [ ] F83: Commit graph PNG export — companion to F61 SVG export. Inside the webview, rasterise the standalone SVG via canvas drawImage + toBlob('image/png') and write through the same message-pipe.
+- [ ] F88: PR comments inbox — `gh pr view <num> --json comments,reviewComments` picker that opens each comment at the right file:line in the editor. Pairs with F75 review-request inbox.
+- [ ] F89: `gh secret` audit pill — status-bar pill that warns when the repo references secrets that aren't actually set on the GitHub side (parse workflows for `${{ secrets.X }}` and check against `gh secret list`).
+- [ ] F90: SCM diff size heuristic — diagnostic on the SCM input box when the staged diff exceeds N lines/files (`diffStat threshold`) suggesting the user split the commit. Pairs with F60 scaffold + F84 regenerate.
+- [ ] F91: Reviewer round-robin LITE for non-CODEOWNERS repos (F85 extension) — when no CODEOWNERS file is present, fall back to the top-N committers from `git shortlog -sne --no-merges` over the changed files, with the same round-robin re-rank applied.
+- [ ] F92: Tag-on-merge auto-push prompt (F86 extension) — when the user picks `Create + push`, optionally chain into `gh release create <tag> --notes-file -` for a one-shot release flow.
 
 ## TICK LOG
 
@@ -489,4 +561,6 @@ CAUGHT MID-TICK: 4 tests failed on first gate run (cherryPickScout: subject-exac
 POLICY UPDATE this tick: stopped using `feature/autoship` — commits on that branch never showed on Sanjay's GitHub contribution graph. The wrapper now gates on `main` directly and trusts the end-of-tick lint+compile gate to keep the line green. The 5 features above were committed straight to main, gated together, then pushed once.
 
 CAUGHT MID-TICK: 4 tests failed on first run (parseGitHubRemote ssh://port shape lost to SCP regex; tailLines split count off-by-one on trailing newline; classifyAuthFailure repo-not-found shadowed by connection-closed pattern; parseNameStatusZ truncated rename pushed an empty-string path). Fixed via 4 targeted `--fixup` commits + autosquash so each feature commit stays self-passing — never shipped a red commit. New SHAs in the log above reflect post-rebase state.
+
+- 2026-06-22 02:02 PT — 5 features shipped: F84 `e7b5596`, F85 `3ad487b`, F86 `1b30d23`, F87 `f68f552`, F76 `adcfc0e`. Gate: lint ok, compile ok, 1056/1056 tests green (940 → 1056, +116 new). New configs: 2 (defaultReviewers.{roundRobin, roundRobinWindow}). New commands: 5 (commitScaffold.regenerate, tagFromMerged, prDescriptionFromSelection, bisectFromCi, plus the existing scaffold.apply unchanged). New menus: 2 (scm/title.commitScaffold.regenerate via $(refresh); editor/context.prDescriptionFromSelection gated on editorHasSelection). New files: 9 (3 fresh pure helpers + 3 view controllers + 3 test files; F84 + F85 extended existing modules in place rather than creating new ones). Notable patterns added: (1) drift classifier (untouched / extended / replaced) that lets a manual regenerate know when to ask vs. when to silently overwrite — same idea as F60's lastWrittenScaffold but flipped from "skip" to "confirm" semantics; (2) coverage-tier preserving load-rerank in F85 — high-coverage owners NEVER demote below low-coverage even when their load is huge, ensuring CODEOWNERS coverage stays the primary signal; (3) semver bump rank table in F86 (`{none:0, patch:1, minor:2, major:3}`) avoids the trap of "minor && best !== 'major'" comparisons triggering TS2367 narrowing errors when SemverBump unions tighten; (4) suggestNextTag seeds with v0.0.1 (patch) or v0.1.0 (minor/major) when no prior tag exists, respecting the 0.x semver convention that majors-within-0.x are expressed as minor bumps; (5) language fence-tag normaliser (typescriptreact→tsx, javascriptreact→jsx, plaintext→'', else strip non-alphanumerics + lowercase); (6) selection-context truncator with head + tail + omitted-lines marker so a 500-line context block doesn't blow the prompt budget; (7) `inferLocalCommand` exact-match + substring fallback with confidence flag so the bisect preview can warn the user when the inferred command is just a placeholder; (8) `git bisect run` script convention: exit 125 (UNTESTABLE) on install failure, 0 (good) on recovery success, 1 (bad) on failure — matches `git bisect run`'s contract exactly.
 
