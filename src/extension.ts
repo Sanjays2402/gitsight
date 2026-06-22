@@ -97,6 +97,7 @@ import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
 import { StagedConflictGateController } from './views/stagedConflictGate';
 import { runStashOnSwitchFireAndForget } from './views/stashOnSwitch';
+import { RecentContributorsProvider } from './views/recentContributors';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1065,6 +1066,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const stagedConflict = new StagedConflictGateController(repos);
   ctx.subscriptions.push(stagedConflict);
   ctx.subscriptions.push(...stagedConflict.registerCommands());
+
+  // ── Recent Contributors Decoration (F81) ────────────────────────
+  const recentContrib = new RecentContributorsProvider(repos);
+  ctx.subscriptions.push(recentContrib.register());
+  ctx.subscriptions.push(...recentContrib.registerCommands());
 }
 
 export function deactivate() {}

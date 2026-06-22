@@ -682,6 +682,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.recentContributors.show",
+        "title": "GitSight: Show Recent Contributors\u2026",
+        "icon": "$(organization)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1982,6 +1987,25 @@
           "minimum": 1,
           "maximum": 1095,
           "description": "Stashes newer than this many days are tagged `aging`; older ones are `old`. Must be \u2265 `freshDays`."
+        },
+        "gitsight.recentContributors.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, every tracked file in the explorer gets a small badge showing the number of unique contributors who touched it in the recent commit window, with a rich tooltip listing them. Click `Show Recent Contributors\u2026` in the command palette to open the picker for the active file."
+        },
+        "gitsight.recentContributors.scanCommits": {
+          "type": "number",
+          "default": 50,
+          "minimum": 5,
+          "maximum": 500,
+          "description": "How many recent commits per file to scan for the contributor list. Higher values surface more history at the cost of a slightly slower `git log` call per file (cached per file-mtime)."
+        },
+        "gitsight.recentContributors.maxInTooltip": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Cap on how many contributors appear in the file decoration tooltip. The picker always shows the full list."
         }
       }
     },
