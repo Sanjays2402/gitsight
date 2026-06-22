@@ -682,6 +682,11 @@
         "icon": "$(person)"
       },
       {
+        "command": "gitsight.validateCodeowners",
+        "title": "GitSight: Validate CODEOWNERS",
+        "icon": "$(shield)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2154,6 +2159,11 @@
           "minimum": 1,
           "maximum": 60,
           "description": "How many days back to include in the \"Your recent commits\" section. 7 catches the typical week; bump to 30 for the monthly retrospective view."
+        },
+        "gitsight.codeownersValidator.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight lints CODEOWNERS files (root, .github/, docs/) on every open / save / edit and emits findings into the Problems panel: invalid owners (errors), negation patterns + duplicate rules + shadowed rules (warnings), and empty-owner / dead-pattern rules (info)."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
