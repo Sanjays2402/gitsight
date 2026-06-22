@@ -65,7 +65,8 @@
     "src/git/reflog.ts",
     "src/git/prePushMessageGate.ts",
     "src/git/submoduleAutoPull.ts",
-    "src/git/ghActions.ts"
+    "src/git/ghActions.ts",
+    "src/git/openAtLastTouched.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

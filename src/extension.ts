@@ -89,6 +89,7 @@ import { showWorktreePruner } from './views/worktreePruner';
 import { scoutAndCherryPick } from './views/cherryPickScout';
 import { showStashTrashBin } from './views/stashTrashBin';
 import { showReflogExplorer } from './views/reflogExplorer';
+import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1006,6 +1007,9 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showReflogExplorer(git);
   }));
+
+  // ── Open at Last Touched Commit (F66) ───────────────────────────
+  registerOpenAtLastTouched(ctx, repos);
 }
 
 export function deactivate() {}

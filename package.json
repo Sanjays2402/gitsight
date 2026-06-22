@@ -632,6 +632,11 @@
         "icon": "$(history)"
       },
       {
+        "command": "gitsight.openAtLastTouchedCommit",
+        "title": "GitSight: Open at Last Touched Commit\u2026",
+        "icon": "$(history)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -951,6 +956,11 @@
           "command": "gitsight.openHistoryForRecentFile",
           "when": "viewItem == recentFile",
           "group": "1_actions@1"
+        },
+        {
+          "command": "gitsight.openAtLastTouchedCommit",
+          "when": "viewItem == recentFile",
+          "group": "1_actions@2"
         },
         {
           "command": "gitsight.checkoutBranch",
@@ -1841,6 +1851,13 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, hide the pill entirely after a successful run. Quieter status bar; you only see the pill when something needs your attention."
+        },
+        "gitsight.openAtLastTouched.scanCommits": {
+          "type": "number",
+          "default": 500,
+          "minimum": 50,
+          "maximum": 2000,
+          "description": "How many recent commits to scan when mining the most recent touch of a file. Higher values find historic touches deeper in history at the cost of one slower `git log` call."
         }
       }
     },
