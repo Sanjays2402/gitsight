@@ -2099,6 +2099,11 @@
           "default": false,
           "description": "When ON, draft PRs awaiting your review appear in the inbox. Draft PRs are sorted to the end of the list and labelled as such."
         },
+        "gitsight.prTemplate.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, `gitsight.generatePullRequestDescription` folds AI-generated content into your repo's `.github/PULL_REQUEST_TEMPLATE.md` (or any of the canonical variants - directory form, repo-root form, docs/ form). The template's checklist boxes and instruction comments are preserved verbatim; the AI's prose fills the prose sections."
+        },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
           "default": true,
