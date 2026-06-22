@@ -2006,6 +2006,11 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Cap on how many contributors appear in the file decoration tooltip. The picker always shows the full list."
+        },
+        "gitsight.graphExport.directory": {
+          "type": "string",
+          "default": "",
+          "description": "Workspace-relative directory to write exported commit-graph SVGs into. Empty (default) writes to the workspace root. Created if missing. Filenames are timestamped (`gitsight-graph-YYYY-MM-DD-HHmm.svg`)."
         }
       }
     },

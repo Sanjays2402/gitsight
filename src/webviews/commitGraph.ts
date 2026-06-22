@@ -1,12 +1,24 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import { Git, Commit } from '../git/git';
 import { timeAgo, colorForAuthor } from '../git/format';
 import { activePalette } from '../views/graphThemes';
+import { buildStandaloneSvg, buildExportFilename, ExportRow } from '../git/commitGraphExport';
 
 export class CommitGraphPanel {
   private static current?: CommitGraphPanel;
   private panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
+  /** Cache of the last-rendered rows so the export command can build
+   *  the same SVG fragment the webview is showing. */
+  private lastRender?: {
+    rowsSvg: string;
+    graphWidth: number;
+    rowHeight: number;
+    rowCount: number;
+    rows: ExportRow[];
+  };
 
   static show(ctx: vscode.ExtensionContext, git: Git) {
     if (CommitGraphPanel.current) {
@@ -41,6 +53,8 @@ export class CommitGraphPanel {
         await this.refresh(git);
       } else if (msg.type === 'search') {
         await this.refresh(git, msg.q);
+      } else if (msg.type === 'exportSvg') {
+        await this.exportSvg(git);
       }
     });
     this.refresh(git);
@@ -52,9 +66,54 @@ export class CommitGraphPanel {
     const all = cfg.get<boolean>('showAllBranches') ?? true;
     try {
       const commits = await git.log({ max, all, grep: search });
-      this.panel.webview.html = renderGraph(commits, search ?? '');
+      const rendered = renderGraph(commits, search ?? '');
+      this.lastRender = rendered.exportData;
+      this.panel.webview.html = rendered.html;
     } catch (e: any) {
       this.panel.webview.html = `<pre style="padding:16px;color:#e44">${escape(e.message)}</pre>`;
+    }
+  }
+
+  /**
+   * F61 — export the current graph as a standalone SVG file written to
+   * the workspace root with a timestamped filename. Shows a "Reveal in
+   * Finder" / "Open" follow-up.
+   */
+  private async exportSvg(git: Git): Promise<void> {
+    if (!this.lastRender || this.lastRender.rowCount === 0) {
+      vscode.window.showInformationMessage('GitSight: nothing to export \u2014 no commits in the current view.');
+      return;
+    }
+    const cfg = vscode.workspace.getConfiguration('gitsight.graphExport');
+    const dirRaw = cfg.get<string>('directory', '').trim();
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? git.cwd;
+    const outDir = dirRaw ? path.resolve(folder, dirRaw) : folder;
+    await fs.mkdir(outDir, { recursive: true }).catch(() => {});
+    const filename = buildExportFilename(new Date(), 'svg');
+    const target = path.join(outDir, filename);
+    const built = buildStandaloneSvg({
+      rowsSvg: this.lastRender.rowsSvg,
+      graphWidth: this.lastRender.graphWidth,
+      rowHeight: this.lastRender.rowHeight,
+      rowCount: this.lastRender.rowCount,
+      rows: this.lastRender.rows,
+      title: `GitSight \u2014 ${path.basename(git.cwd)}`,
+    });
+    try {
+      await fs.writeFile(target, built.svg, 'utf8');
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`GitSight: export failed: ${e.message ?? e}`);
+      return;
+    }
+    const choice = await vscode.window.showInformationMessage(
+      `GitSight: exported ${filename} (${built.width}\u00d7${built.height})`,
+      'Reveal in OS', 'Open',
+    );
+    if (choice === 'Reveal in OS') {
+      vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(target));
+    } else if (choice === 'Open') {
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
+      vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
     }
   }
 
@@ -69,7 +128,18 @@ function escape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function renderGraph(commits: Commit[], search: string): string {
+interface RenderResult {
+  html: string;
+  exportData: {
+    rowsSvg: string;
+    graphWidth: number;
+    rowHeight: number;
+    rowCount: number;
+    rows: ExportRow[];
+  };
+}
+
+function renderGraph(commits: Commit[], search: string): RenderResult {
   type Lane = { sha: string; color: string };
   const lanes: (Lane | null)[] = [];
   const rows: { commit: Commit; lane: number; lanes: (Lane | null)[]; color: string }[] = [];
@@ -146,7 +216,7 @@ function renderGraph(commits: Commit[], search: string): string {
     </div>`;
   }).join('');
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   :root { color-scheme: dark light; }
   body { margin:0; font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); font-size: 13px; }
@@ -176,6 +246,7 @@ function renderGraph(commits: Commit[], search: string): string {
 <div class="toolbar">
   <input id="search" placeholder="Search commits by message…" value="${escape(search)}"/>
   <button id="refresh">Refresh</button>
+  <button id="export" title="Export the current graph view as a standalone SVG">Export SVG</button>
   <span class="stats">${rows.length} commits</span>
 </div>
 <div class="wrap">
@@ -186,7 +257,7 @@ function renderGraph(commits: Commit[], search: string): string {
   const vscode = acquireVsCodeApi();
   document.querySelectorAll('.row').forEach(el => {
     el.addEventListener('click', e => {
-      if ((e.target as HTMLElement).classList.contains('sha')) return;
+      if (e.target.classList.contains('sha')) return;
       document.querySelectorAll('.row.active').forEach(x => x.classList.remove('active'));
       el.classList.add('active');
       vscode.postMessage({ type: 'showCommit', sha: el.dataset.sha });
@@ -205,6 +276,22 @@ function renderGraph(commits: Commit[], search: string): string {
     t = setTimeout(() => vscode.postMessage({ type: 'search', q: input.value }), 300);
   });
   document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
+  document.getElementById('export').addEventListener('click', () => vscode.postMessage({ type: 'exportSvg' }));
 </script>
-</body></html>`.replace('(e.target as HTMLElement)', 'e.target'); // strip TS cast for browser JS
+</body></html>`;
+
+  return { html, exportData: {
+    rowsSvg: svgRows,
+    graphWidth: graphW,
+    rowHeight: rowH,
+    rowCount: rows.length,
+    rows: rows.map((r, i) => ({
+      shortSha: r.commit.shortSha,
+      subject: r.commit.subject,
+      author: r.commit.author,
+      relativeDate: timeAgo(r.commit.date),
+      y: i * rowH,
+    })),
+  } };
 }
+

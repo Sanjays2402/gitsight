@@ -74,7 +74,8 @@
     "src/git/prDraftSync.ts",
     "src/git/stagedConflictGate.ts",
     "src/git/stashOnSwitch.ts",
-    "src/git/recentContributors.ts"
+    "src/git/recentContributors.ts",
+    "src/git/commitGraphExport.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
