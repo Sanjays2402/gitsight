@@ -672,6 +672,11 @@
         "icon": "$(eye)"
       },
       {
+        "command": "gitsight.prCommentsInbox",
+        "title": "GitSight: PR Comments Inbox\u2026",
+        "icon": "$(comment-discussion)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1017,6 +1022,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "gitsight.prCommentsInbox",
+          "when": "viewItem =~ /^pr-(open|draft|merged|closed)$/",
+          "group": "1_actions@5"
+        },
         {
           "command": "gitsight.openHistoryForRecentFile",
           "when": "viewItem == recentFile",

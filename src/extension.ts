@@ -101,6 +101,7 @@ import { RecentContributorsProvider } from './views/recentContributors';
 import { showTagFromMergedPrompt } from './views/tagOnMerge';
 import { generatePrDescriptionFromSelection } from './views/prFromSelection';
 import { showBisectFromCiFailure } from './views/bisectFromCi';
+import { showPrCommentsInbox } from './views/prComments';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1091,6 +1092,18 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.bisectFromCi', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showBisectFromCiFailure(git);
+  }));
+
+  // ── PR Comments Inbox (F88) ─────────────────────────────────────
+  reg('gitsight.prCommentsInbox', (arg?: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    // Allow invocation from a PR tree-item (carries a number) or bare from
+    // the command palette (prompts via gh pr view).
+    const prNumber = typeof arg === 'number' ? arg
+      : typeof arg?.pr?.number === 'number' ? arg.pr.number
+      : typeof arg?.number === 'number' ? arg.number
+      : undefined;
+    await showPrCommentsInbox(git, prNumber);
   }));
 }
 
