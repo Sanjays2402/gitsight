@@ -677,6 +677,11 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "gitsight.composePrComment",
+        "title": "GitSight: Compose PR Comment from Selection\u2026",
+        "icon": "$(comment-add)"
+      },
+      {
         "command": "gitsight.secretAudit.show",
         "title": "GitSight: Show Missing Workflow Secrets\u2026",
         "icon": "$(warning)"
@@ -1046,6 +1051,11 @@
           "command": "gitsight.prCommentsInbox",
           "when": "viewItem =~ /^pr-(open|draft|merged|closed)$/",
           "group": "1_actions@5"
+        },
+        {
+          "command": "gitsight.composePrComment",
+          "when": "viewItem =~ /^pr-(open|draft)$/",
+          "group": "1_actions@6"
         },
         {
           "command": "gitsight.openHistoryForRecentFile",

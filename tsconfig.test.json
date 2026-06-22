@@ -83,6 +83,7 @@
     "src/git/secretAudit.ts",
     "src/git/diffSizeHeuristic.ts",
     "src/git/diffSplitSuggester.ts",
+    "src/git/prCommentCompose.ts",
     "src/git/reviewersFromShortlog.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
