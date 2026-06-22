@@ -92,6 +92,7 @@ import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 import { showCommitFooterComposer } from './views/commitFooter';
+import { insertIssueAtCursor, insertIssueAsMarkdownLink, appendIssueTrailerToScm } from './views/issueInsert';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1056,6 +1057,20 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.commitFooterComposer', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showCommitFooterComposer(git);
+  }));
+
+  // ── Issue Link Inserter (F99) ───────────────────────────────────
+  reg('gitsight.insertIssueReference', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await insertIssueAtCursor(git);
+  }));
+  reg('gitsight.insertIssueAsMarkdownLink', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await insertIssueAsMarkdownLink(git);
+  }));
+  reg('gitsight.appendIssueTrailer', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await appendIssueTrailerToScm(git);
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────

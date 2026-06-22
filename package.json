@@ -662,6 +662,21 @@
         "icon": "$(symbol-key)"
       },
       {
+        "command": "gitsight.insertIssueReference",
+        "title": "GitSight: Insert GitHub Issue Reference\u2026",
+        "icon": "$(issues)"
+      },
+      {
+        "command": "gitsight.insertIssueAsMarkdownLink",
+        "title": "GitSight: Insert GitHub Issue as Markdown Link\u2026",
+        "icon": "$(link)"
+      },
+      {
+        "command": "gitsight.appendIssueTrailer",
+        "title": "GitSight: Append Closes/Fixes/Refs Trailer for Issue\u2026",
+        "icon": "$(check)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2103,6 +2118,23 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, `gitsight.generatePullRequestDescription` folds AI-generated content into your repo's `.github/PULL_REQUEST_TEMPLATE.md` (or any of the canonical variants - directory form, repo-root form, docs/ form). The template's checklist boxes and instruction comments are preserved verbatim; the AI's prose fills the prose sections."
+        },
+        "gitsight.issueInsert.listLimit": {
+          "type": "number",
+          "default": 40,
+          "minimum": 10,
+          "maximum": 200,
+          "description": "How many GitHub issues to load into the picker for `gitsight.insertIssueReference` and siblings."
+        },
+        "gitsight.issueInsert.includeClosed": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, closed issues appear in the picker (sorted after open ones). Useful when you're writing a postmortem and referencing the bug that just got fixed."
+        },
+        "gitsight.issueInsert.qualifiedPrompt": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, the inserter prompts each invocation whether to use the bare `#NN` form or the qualified `org/repo#NN` form. OFF defaults to bare references (correct for the common single-repo case)."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
