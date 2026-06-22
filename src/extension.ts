@@ -95,6 +95,7 @@ import { showCommitFooterComposer } from './views/commitFooter';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
+import { StagedConflictGateController } from './views/stagedConflictGate';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1053,6 +1054,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showPrReviewInbox(git);
   }));
+
+  // ── Staged Conflict Marker Gate (F78) ───────────────────────────
+  const stagedConflict = new StagedConflictGateController(repos);
+  ctx.subscriptions.push(stagedConflict);
+  ctx.subscriptions.push(...stagedConflict.registerCommands());
 }
 
 export function deactivate() {}

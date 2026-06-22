@@ -672,6 +672,16 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "gitsight.stagedConflictGate.show",
+        "title": "GitSight: Show Staged Conflict Markers\u2026",
+        "icon": "$(error)"
+      },
+      {
+        "command": "gitsight.stagedConflictGate.rescan",
+        "title": "GitSight: Rescan Staged Conflict Markers",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1942,6 +1952,17 @@
           "type": "string",
           "default": "",
           "description": "Override the base ref used for the commit/file diff. Empty (default) uses the PR's own baseRefName as reported by `gh pr view`. Useful when your repo's default branch differs from the PR's base for some reason."
+        },
+        "gitsight.stagedConflictGate.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, a passive scanner watches `git diff --cached` for unresolved conflict markers in STAGED hunks and surfaces them as a status-bar pill + Problems-panel diagnostics. Sits between the F34 editor-buffer linter and the F14 pre-push gate."
+        },
+        "gitsight.stagedConflictGate.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "default": "error",
+          "description": "Diagnostic severity for staged conflict markers. Default `error` makes them gutter-red and unmissable; `warning` lets them coexist with other warnings; `info` is the least intrusive."
         }
       }
     },
