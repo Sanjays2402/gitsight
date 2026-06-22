@@ -1825,6 +1825,25 @@
           "minimum": 1,
           "description": "Number of recent PRs (any state) used to compute reviewer-request load for round-robin re-ranking. Each PR counts each handle at most once."
         },
+        "gitsight.defaultReviewers.shortlogFallback": {
+          "type": "boolean",
+          "default": true,
+          "description": "F91: when a repo has no CODEOWNERS file, fall back to suggesting the top committers on the changed files (last 180 days). The same round-robin re-rank applies. Disable to require CODEOWNERS for reviewer suggestions."
+        },
+        "gitsight.defaultReviewers.shortlogFallbackDays": {
+          "type": "number",
+          "default": 180,
+          "minimum": 7,
+          "maximum": 3650,
+          "description": "F91: history window (in days) for the shortlog fallback. Larger windows surface long-tail contributors; smaller windows favour active maintainers. Capped at 7d minimum to filter out trivial fresh repos."
+        },
+        "gitsight.defaultReviewers.shortlogPerTier": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "F91: maximum committers per coverage tier in the shortlog fallback. Default 5 keeps the picker focused; raise to 10+ for very large teams where the round-robin needs more rotation room."
+        },
         "gitsight.commitScaffold.enabled": {
           "type": "boolean",
           "default": true,

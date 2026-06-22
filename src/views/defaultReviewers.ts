@@ -25,7 +25,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Git } from '../git/git';
-import { parseCodeownersBody } from '../git/filesIOwn';
+import { parseCodeownersBody, parseShortlog } from '../git/filesIOwn';
 import {
   buildReviewerSuggestions,
   describeSuggestion,
@@ -39,6 +39,7 @@ import {
   ReviewerSuggestion,
   AuthorIdentity,
 } from '../git/defaultReviewers';
+import { buildFromShortlog } from '../git/reviewersFromShortlog';
 
 const pexec = promisify(execFile);
 
@@ -67,31 +68,50 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     return;
   }
 
-  // 3. CODEOWNERS.
+  // 3. CODEOWNERS — primary signal. When absent, fall back to F91 shortlog.
   const owners = await loadCodeowners(git.cwd);
-  if (!owners.found) {
-    vscode.window.showInformationMessage(
-      'GitSight: no CODEOWNERS file in this repo. Add one to .github/CODEOWNERS to enable reviewer suggestions.',
-    );
-    return;
-  }
 
   // 4. Author identity for exclusion.
   const author = await loadAuthor(git, prInfo?.authorLogin);
 
   // 5. Build suggestions.
-  const suggestions = buildReviewerSuggestions({
-    rules: owners.rules,
-    changedPaths: changed,
-    author,
-    extraExcluded,
-    includeTeams,
-  });
+  let suggestions: ReviewerSuggestion[];
+  let suggestionsSource: 'codeowners' | 'shortlog' = 'codeowners';
+  if (owners.found) {
+    suggestions = buildReviewerSuggestions({
+      rules: owners.rules,
+      changedPaths: changed,
+      author,
+      extraExcluded,
+      includeTeams,
+    });
+  } else {
+    // F91 fallback: top committers across the changed file set.
+    suggestionsSource = 'shortlog';
+    const fallbackEnabled = cfg.get<boolean>('shortlogFallback', true);
+    if (!fallbackEnabled) {
+      vscode.window.showInformationMessage(
+        'GitSight: no CODEOWNERS file in this repo. Add one to .github/CODEOWNERS to enable reviewer suggestions, or enable `gitsight.defaultReviewers.shortlogFallback`.',
+      );
+      return;
+    }
+    const fallbackDays = Math.max(7, cfg.get<number>('shortlogFallbackDays', 180) ?? 180);
+    const perTier = Math.max(1, cfg.get<number>('shortlogPerTier', 5) ?? 5);
+    const shortlog = await loadShortlog(git, fallbackDays, changed);
+    suggestions = buildFromShortlog({
+      shortlog,
+      changedPaths: changed,
+      author,
+      extraExcluded,
+      perTierLimit: perTier,
+    });
+  }
 
   if (!suggestions.length) {
-    vscode.window.showInformationMessage(
-      `GitSight: no CODEOWNERS rule applies to the ${changed.length} changed file(s) (or only the author owns them).`,
-    );
+    const reason = suggestionsSource === 'codeowners'
+      ? `no CODEOWNERS rule applies to the ${changed.length} changed file(s) (or only the author owns them)`
+      : `no recent committers found in the last 180d for the ${changed.length} changed file(s)`;
+    vscode.window.showInformationMessage(`GitSight: ${reason}.`);
     return;
   }
 
@@ -118,10 +138,11 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     ? `Suggest reviewers for PR #${prInfo.number} (${changed.length} file${changed.length === 1 ? '' : 's'} changed)`
     : `Suggest reviewers (${changed.length} file${changed.length === 1 ? '' : 's'} changed)`;
 
+  const sourceWord = suggestionsSource === 'codeowners' ? 'CODEOWNERS' : 'recent committers (no CODEOWNERS)';
   const picked = await vscode.window.showQuickPick(items, {
     canPickMany: true,
     title,
-    placeHolder: `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} from CODEOWNERS \u00b7 base=${base}`,
+    placeHolder: `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} from ${sourceWord} \u00b7 base=${base}`,
     matchOnDescription: true,
     matchOnDetail: true,
   });
@@ -280,4 +301,25 @@ async function loadRecentReviewerLoad(git: Git, windowSize: number): Promise<Map
   } catch {
     return new Map();
   }
+}
+
+/**
+ * F91 — Load the per-file shortlog over the last N days, restricted to
+ * the file set that the PR actually changed. Restricting at the git-log
+ * layer keeps the call cheap on monorepos — without `-- <paths>` we'd
+ * pull every author of every file in the repo.
+ */
+async function loadShortlog(git: Git, days: number, paths: string[]): Promise<ReturnType<typeof parseShortlog>> {
+  if (!paths.length) return [];
+  const args = [
+    'log',
+    `--since=${days}.days`,
+    '--no-merges',
+    `--pretty=format:%aE|%aN`,
+    '--name-only',
+    '--',
+    ...paths,
+  ];
+  const out = await safe(git, args);
+  return parseShortlog(out);
 }

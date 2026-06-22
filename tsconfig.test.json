@@ -81,7 +81,8 @@
     "src/git/bisectFromCi.ts",
     "src/git/prComments.ts",
     "src/git/secretAudit.ts",
-    "src/git/diffSizeHeuristic.ts"
+    "src/git/diffSizeHeuristic.ts",
+    "src/git/reviewersFromShortlog.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
