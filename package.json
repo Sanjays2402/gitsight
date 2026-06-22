@@ -697,6 +697,11 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "gitsight.openIssueFromSelection",
+        "title": "GitSight: Open GitHub Issue from Selection\u2026",
+        "icon": "$(issues)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"

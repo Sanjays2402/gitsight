@@ -97,6 +97,7 @@ import { showWhatsMineDashboard } from './views/whatsMine';
 import { CodeownersValidatorController, runValidateCodeowners } from './views/codeownersValidator';
 import { runPrCheckoutPreflight, runPrCheckoutPreflightInteractive } from './views/prCheckoutPreflight';
 import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTemplateLint';
+import { runOpenIssueFromSelection, OpenIssueCodeActionProvider } from './views/openIssueFromSelection';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1106,6 +1107,18 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.lintPrTemplate', () => errorWrap(async () => {
     await runPrTemplateLintCommand(repos);
   }));
+
+  // ── Open issue from selection (F104) ────────────────────────────
+  reg('gitsight.openIssueFromSelection', () => errorWrap(async () => {
+    await runOpenIssueFromSelection(repos);
+  }));
+  ctx.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { scheme: 'file' },
+      new OpenIssueCodeActionProvider(repos),
+      OpenIssueCodeActionProvider.metadata,
+    ),
+  );
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────
   reg('gitsight.releasesCompanion', () => errorWrap(async () => {
