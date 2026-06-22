@@ -9,6 +9,7 @@ import {
   suggestNextTag,
   buildReleaseNotes,
   detectMergedPrNumber,
+  isPrereleaseTag,
   MergedCommit,
 } from '../../src/git/tagOnMerge';
 
@@ -285,4 +286,45 @@ test('detectMergedPrNumber: rejects bare # references', () => {
 
 test('detectMergedPrNumber: tolerates trailing whitespace', () => {
   assert.equal(detectMergedPrNumber('feat: x (#9)   '), 9);
+});
+
+// ── F92: prerelease detection ──────────────────────────────────────
+
+test('isPrereleaseTag: standard prerelease segments recognised', () => {
+  assert.equal(isPrereleaseTag('v1.0.0-alpha'), true);
+  assert.equal(isPrereleaseTag('v1.0.0-beta.1'), true);
+  assert.equal(isPrereleaseTag('v1.0.0-rc.2'), true);
+  assert.equal(isPrereleaseTag('v0.5.0-pre.0'), true);
+  assert.equal(isPrereleaseTag('v3.0.0-canary'), true);
+  assert.equal(isPrereleaseTag('v0.1.0-nightly.20'), true);
+  assert.equal(isPrereleaseTag('v3.0.0-next.1'), true);
+});
+
+test('isPrereleaseTag: works without v prefix', () => {
+  assert.equal(isPrereleaseTag('1.2.3-alpha'), true);
+  assert.equal(isPrereleaseTag('2.0.0-beta.5'), true);
+});
+
+test('isPrereleaseTag: stable releases NOT flagged', () => {
+  assert.equal(isPrereleaseTag('v1.0.0'), false);
+  assert.equal(isPrereleaseTag('v2.3.4'), false);
+  assert.equal(isPrereleaseTag('1.0.0'), false);
+});
+
+test('isPrereleaseTag: arbitrary hyphenated suffix NOT a prerelease', () => {
+  // \"v1.0.0-fix-hotpatch\" is a custom tag, not a SemVer prerelease.
+  assert.equal(isPrereleaseTag('v1.0.0-fix-hotpatch'), false);
+  assert.equal(isPrereleaseTag('v1.0.0-redhat-build'), false);
+});
+
+test('isPrereleaseTag: case-insensitive match', () => {
+  assert.equal(isPrereleaseTag('v1.0.0-ALPHA'), true);
+  assert.equal(isPrereleaseTag('v1.0.0-Beta.1'), true);
+  assert.equal(isPrereleaseTag('V1.0.0-rc.0'), true);
+});
+
+test('isPrereleaseTag: empty / whitespace -> false', () => {
+  assert.equal(isPrereleaseTag(''), false);
+  assert.equal(isPrereleaseTag('   '), false);
+  assert.equal(isPrereleaseTag(undefined as any), false);
 });

@@ -9,11 +9,13 @@
  *   3. Suggest the next semver tag based on conventional-commit prefixes
  *      and BREAKING CHANGE trailers in the range.
  *   4. Open a markdown preview of the release notes draft.
- *   5. Offer to create the tag (annotated) and push it to origin.
+ *   5. Offer to create the tag (annotated) and push it to origin, with
+ *      an opt-in F92 chain to `gh release create` immediately after
+ *      pushing.
  *
- * All inputs require user confirmation. The tag/push never fires
- * automatically — this is opt-in, surfaced from the command palette
- * and the PRs view item menu.
+ * All inputs require user confirmation. The tag/push/release never
+ * fires automatically — this is opt-in, surfaced from the command
+ * palette and the PRs view item menu.
  */
 import * as vscode from 'vscode';
 import { execFile } from 'child_process';
@@ -26,6 +28,7 @@ import {
   suggestNextTag,
   buildReleaseNotes,
   detectMergedPrNumber,
+  isPrereleaseTag,
   SemverBump,
 } from '../git/tagOnMerge';
 
@@ -90,7 +93,7 @@ export async function showTagFromMergedPrompt(git: Git): Promise<void> {
   const action = await vscode.window.showInformationMessage(
     `GitSight: ${previewSummary}\nSuggested tag: ${suggested}`,
     { modal: true },
-    'Create tag', 'Create + push', 'Cancel',
+    'Create tag', 'Create + push', 'Create + push + release', 'Cancel',
   );
   if (!action || action === 'Cancel') return;
 
@@ -104,15 +107,35 @@ export async function showTagFromMergedPrompt(git: Git): Promise<void> {
   });
   if (!finalTag) return;
 
-  // 8. Create the annotated tag, optionally push.
+  // 8. Create the annotated tag, optionally push, optionally create release.
   const tagMessage = `Release ${finalTag}\n\n${notes}`;
+  const wantsPush = action === 'Create + push' || action === 'Create + push + release';
+  const wantsRelease = action === 'Create + push + release';
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `GitSight: tagging ${finalTag}\u2026` },
     async () => {
       try {
         await git.raw(['tag', '-a', finalTag.trim(), '-m', tagMessage]);
-        if (action === 'Create + push') {
+        if (wantsPush) {
           await git.raw(['push', 'origin', finalTag.trim()]);
+        }
+        if (wantsRelease) {
+          // F92 chain: create a draft release on GitHub with the same
+          // notes the user just previewed. Gracefully degrades to a
+          // status-bar breadcrumb when gh isn't available.
+          const ok = await tryCreateGhRelease(git, finalTag.trim(), notes, bump);
+          if (ok) {
+            vscode.window.setStatusBarMessage(
+              `GitSight: tagged ${finalTag}, pushed, and drafted GitHub release.`,
+              5000,
+            );
+          } else {
+            vscode.window.setStatusBarMessage(
+              `GitSight: tagged ${finalTag} and pushed; gh release skipped (see notification).`,
+              5000,
+            );
+          }
+        } else if (wantsPush) {
           vscode.window.setStatusBarMessage(`GitSight: tagged ${finalTag} and pushed to origin.`, 5000);
         } else {
           vscode.window.setStatusBarMessage(`GitSight: tagged ${finalTag} (not pushed).`, 5000);
@@ -123,6 +146,66 @@ export async function showTagFromMergedPrompt(git: Git): Promise<void> {
       }
     },
   );
+}
+
+/**
+ * F92 — Create a draft GitHub release for the just-tagged version.
+ *
+ * Returns true when gh accepted the request, false when gh is missing
+ * or the call failed. We don't throw — the tag + push already succeeded;
+ * a release-step failure is a degradation, not a regression.
+ *
+ * The release is created as DRAFT so the user can review/edit on
+ * github.com before publishing. Prerelease flag is set when the tag
+ * looks like a pre-release (`-alpha`, `-beta`, `-rc.N`, `-pre`). Major
+ * bumps don't auto-publish — even a confident `breaking` change deserves
+ * a manual sanity check before the world sees it.
+ */
+async function tryCreateGhRelease(
+  git: Git,
+  tag: string,
+  notes: string,
+  bump: SemverBump,
+): Promise<boolean> {
+  if (!(await ghAvailable())) {
+    vscode.window.showWarningMessage(
+      'GitSight: gh CLI not on PATH \u2014 tagged + pushed, but release draft skipped (install: brew install gh).',
+    );
+    return false;
+  }
+  const args: string[] = [
+    'release', 'create', tag,
+    '--title', tag,
+    '--notes-file', '-',  // read notes from stdin
+    '--draft',            // never auto-publish; user reviews on github.com
+  ];
+  if (isPrereleaseTag(tag)) args.push('--prerelease');
+  // Drop a tiny breadcrumb at the top of the notes so the user can
+  // see which heuristic chose the bump when reviewing later.
+  const body = `<!-- gitsight: ${bump} bump -->\n\n${notes}`;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = execFile('gh', args, { cwd: git.cwd, maxBuffer: 8 * 1024 * 1024 }, err => {
+        if (err) reject(err); else resolve();
+      });
+      if (child.stdin) {
+        child.stdin.write(body);
+        child.stdin.end();
+      }
+    });
+    return true;
+  } catch (e: any) {
+    const stderr = String(e?.stderr ?? e?.message ?? '');
+    vscode.window.showWarningMessage(
+      `GitSight: gh release create failed \u2014 ${stderr.split('\n')[0] || 'unknown error'}. Tag was still created.`,
+    );
+    return false;
+  }
+}
+
+async function ghAvailable(): Promise<boolean> {
+  try { await pexec('gh', ['--version'], { timeout: 3000, maxBuffer: 64 * 1024 }); return true; }
+  catch { return false; }
 }
 
 function humanBump(bump: SemverBump): string {

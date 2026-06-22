@@ -286,3 +286,25 @@ export function detectMergedPrNumber(subject: string): number | undefined {
   if (m2) return Number(m2[1]);
   return undefined;
 }
+
+/**
+ * F92 — Does this tag name look like a semver pre-release?
+ *
+ *   v1.2.3-alpha       -> true
+ *   1.0.0-beta.1       -> true
+ *   v2.0.0-rc.2        -> true
+ *   v0.5.0-pre.0       -> true
+ *   v3.0.0-canary      -> true
+ *   v0.1.0-nightly.20  -> true
+ *   v3.0.0-next.1      -> true
+ *   v1.2.3             -> false
+ *   v1.2.3-fix-foo     -> false (not a known pre-release tag)
+ *
+ * Used by F92 to pass `--prerelease` to `gh release create` when the
+ * tag is clearly not a stable release.
+ */
+export function isPrereleaseTag(tag: string): boolean {
+  if (!tag) return false;
+  const trimmed = tag.trim().replace(/^v/i, '');
+  return /-(alpha|beta|rc|pre|canary|next|nightly)(?:[.\-+\d]|$)/i.test(trimmed);
+}
