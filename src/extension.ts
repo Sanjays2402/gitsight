@@ -98,6 +98,7 @@ import { CodeownersValidatorController, runValidateCodeowners } from './views/co
 import { runPrCheckoutPreflight, runPrCheckoutPreflightInteractive } from './views/prCheckoutPreflight';
 import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTemplateLint';
 import { runOpenIssueFromSelection, OpenIssueCodeActionProvider } from './views/openIssueFromSelection';
+import { runFindInactiveReviewers } from './views/inactiveReviewers';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1119,6 +1120,15 @@ export function activate(ctx: vscode.ExtensionContext) {
       OpenIssueCodeActionProvider.metadata,
     ),
   );
+
+  // ── Find inactive reviewers (F105) ──────────────────────────────
+  reg('gitsight.findInactiveReviewers', (arg: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const parsed = arg && typeof arg === 'object' && typeof arg.number === 'number'
+      ? { number: arg.number, repoSlug: typeof arg.repoSlug === 'string' ? arg.repoSlug : undefined }
+      : undefined;
+    await runFindInactiveReviewers(git, parsed);
+  }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────
   reg('gitsight.releasesCompanion', () => errorWrap(async () => {

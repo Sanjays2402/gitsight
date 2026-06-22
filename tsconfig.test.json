@@ -92,7 +92,8 @@
     "src/git/codeownersLint.ts",
     "src/git/prCheckoutPreflight.ts",
     "src/git/prTemplateLint.ts",
-    "src/git/issueFromSelection.ts"
+    "src/git/issueFromSelection.ts",
+    "src/git/inactiveReviewers.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

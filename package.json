@@ -702,6 +702,11 @@
         "icon": "$(issues)"
       },
       {
+        "command": "gitsight.findInactiveReviewers",
+        "title": "GitSight: Find Inactive Reviewers (nudge by @-mention)\u2026",
+        "icon": "$(megaphone)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2202,6 +2207,23 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Section headings that MUST be present in every PR body (matched case-insensitively). A missing required section emits an info-level finding. Leave empty to disable the check."
+        },
+        "gitsight.inactiveReviewers.staleAfterDays": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How many days a requested reviewer can be silent before they're flagged as inactive. 3 is the typical \"end of the work week\" threshold; tune higher for slow-rolling teams or lower for shipping daily."
+        },
+        "gitsight.inactiveReviewers.includeTeams": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, team handles (org/team-slug) are eligible for nudging. GitHub expands a team @-mention to every member server-side, which is usually what you want; set OFF to nudge only individual reviewers."
+        },
+        "gitsight.inactiveReviewers.includeCommented": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, reviewers who left only a COMMENTED review (no approval, no changes-requested) are still considered inactive and eligible for a nudge. Default OFF treats commented-and-walked-away as \"engaged enough\" to skip the nudge."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
