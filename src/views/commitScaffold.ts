@@ -33,9 +33,14 @@ import {
   decideScaffold,
   isScaffoldShaped,
   stagingChanged,
+  classifyScaffoldDrift,
+  summariseScaffoldChange,
+  composeScaffoldHeader,
 } from '../git/commitScaffold';
+import { suggestType, suggestScope } from '../git/conventionalCommit';
 
 const APPLY_COMMAND = 'gitsight.commitScaffold.apply';
+const REGENERATE_COMMAND = 'gitsight.commitScaffold.regenerate';
 
 export class CommitScaffoldController implements vscode.Disposable {
   private timer: NodeJS.Timeout;
@@ -60,7 +65,60 @@ export class CommitScaffoldController implements vscode.Disposable {
       vscode.commands.registerCommand(APPLY_COMMAND, () => this.applyOnDemand().catch(e =>
         vscode.window.showErrorMessage(`GitSight: ${e.message ?? e}`),
       )),
+      vscode.commands.registerCommand(REGENERATE_COMMAND, () => this.regenerateOnDemand().catch(e =>
+        vscode.window.showErrorMessage(`GitSight: ${e.message ?? e}`),
+      )),
     ];
+  }
+
+  /**
+   * F84 — manual "regenerate from staged" button. Re-runs the auto-scaffold
+   * heuristic on the CURRENT staging set even when the user has typed past
+   * our previous scaffold. If that would clobber a subject they wrote, ask
+   * for confirmation first; otherwise just rewrite.
+   *
+   * The function force-evaluates (minConfidence=0, scaffoldWithoutScope=true)
+   * so the user always gets *something* back when they explicitly asked for
+   * a regenerate. The auto-scaffold's silence rules are about not being
+   * annoying; the manual button is about getting the user unstuck.
+   */
+  private async regenerateOnDemand() {
+    const git = this.repos.primary();
+    if (!git) return;
+    const staged = await loadStaged(git);
+    if (!staged.length) {
+      vscode.window.showInformationMessage('GitSight: nothing staged to scaffold a commit message from.');
+      return;
+    }
+    const repo = primarySvcRepo();
+    if (!repo) {
+      vscode.window.showWarningMessage('GitSight: built-in git extension not active, cannot write to SCM input.');
+      return;
+    }
+    const currentInput: string = repo.inputBox?.value ?? '';
+    const { type } = suggestType(staged);
+    const scope = suggestScope(staged);
+    const newHeader = composeScaffoldHeader(type, scope);
+    if (!newHeader.trim()) {
+      vscode.window.showInformationMessage('GitSight: no scaffold could be derived from the current staging.');
+      return;
+    }
+    const drift = classifyScaffoldDrift(currentInput, this.lastWrittenScaffold);
+    let proceed = true;
+    if (drift === 'extended' || drift === 'replaced') {
+      const summary = summariseScaffoldChange(firstLine(currentInput), newHeader);
+      const action = await vscode.window.showWarningMessage(
+        `GitSight: regenerate commit header? ${summary}\nThis will replace what you've typed.`,
+        { modal: true },
+        'Regenerate', 'Keep current',
+      );
+      proceed = action === 'Regenerate';
+    }
+    if (!proceed) return;
+    repo.inputBox.value = newHeader;
+    this.lastWrittenScaffold = newHeader;
+    this.lastStaged = staged;
+    vscode.window.setStatusBarMessage(`GitSight: regenerated header \u00b7 ${newHeader.trim()}`, 3000);
   }
 
   /** Manual command — force a rescaffold even if the heuristic would skip. */
@@ -178,4 +236,10 @@ function primarySvcRepo(): any | null {
   } catch {
     return null;
   }
+}
+
+function firstLine(value: string): string {
+  if (!value) return '';
+  const nl = value.indexOf('\n');
+  return nl === -1 ? value : value.slice(0, nl);
 }

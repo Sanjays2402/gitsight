@@ -5,6 +5,8 @@ import {
   composeScaffoldHeader,
   isScaffoldShaped,
   stagingChanged,
+  classifyScaffoldDrift,
+  summariseScaffoldChange,
 } from '../../src/git/commitScaffold';
 
 test('decideScaffold: skips when input has text', () => {
@@ -141,4 +143,58 @@ test('stagingChanged: any difference is a change', () => {
   assert.equal(stagingChanged(['a'], ['a', 'b']), true);
   assert.equal(stagingChanged(['a', 'b'], ['a', 'c']), true);
   assert.equal(stagingChanged(['a'], []), true);
+});
+
+// ── F84: classifyScaffoldDrift ────────────────────────────────────
+
+test('classifyScaffoldDrift: no remembered scaffold is "none"', () => {
+  assert.equal(classifyScaffoldDrift('whatever the user typed', ''), 'none');
+  assert.equal(classifyScaffoldDrift('', ''), 'none');
+  assert.equal(classifyScaffoldDrift('feat(x): subj', '   '), 'none');
+});
+
+test('classifyScaffoldDrift: untouched when input equals remembered', () => {
+  assert.equal(classifyScaffoldDrift('feat(git): ', 'feat(git): '), 'untouched');
+  assert.equal(classifyScaffoldDrift('docs: ', 'docs: '), 'untouched');
+});
+
+test('classifyScaffoldDrift: untouched tolerates trailing whitespace from editors', () => {
+  assert.equal(classifyScaffoldDrift('feat(git): \n', 'feat(git): '), 'untouched');
+  assert.equal(classifyScaffoldDrift('feat(git): ', 'feat(git): \n'), 'untouched');
+});
+
+test('classifyScaffoldDrift: extended when user typed past the prefix', () => {
+  assert.equal(classifyScaffoldDrift('feat(git): add quick switcher', 'feat(git): '), 'extended');
+  assert.equal(
+    classifyScaffoldDrift('feat(git): add quick switcher\n\nbody', 'feat(git): '),
+    'extended',
+  );
+});
+
+test('classifyScaffoldDrift: replaced when user wrote a totally different message', () => {
+  assert.equal(classifyScaffoldDrift('chore: bump deps', 'feat(git): '), 'replaced');
+  assert.equal(classifyScaffoldDrift('WIP debugging', 'docs: '), 'replaced');
+});
+
+// ── F84: summariseScaffoldChange ──────────────────────────────────
+
+test('summariseScaffoldChange: empty old uses placeholder', () => {
+  assert.equal(summariseScaffoldChange('', 'feat(git): '), '(none) \u2192 feat(git):');
+});
+
+test('summariseScaffoldChange: shows transition with arrow', () => {
+  assert.equal(
+    summariseScaffoldChange('feat(git): ', 'docs(commitScaffold): '),
+    'feat(git): \u2192 docs(commitScaffold):',
+  );
+});
+
+test('summariseScaffoldChange: flags unchanged so the picker can skip the confirm', () => {
+  const same = summariseScaffoldChange('feat(git): ', 'feat(git): ');
+  assert.match(same, /unchanged/i);
+});
+
+test('summariseScaffoldChange: trims trailing whitespace before comparing for unchanged', () => {
+  const r = summariseScaffoldChange('feat(git):  ', 'feat(git): ');
+  assert.match(r, /unchanged/i);
 });

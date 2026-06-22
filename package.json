@@ -612,6 +612,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "gitsight.commitScaffold.regenerate",
+        "title": "GitSight: Regenerate Commit Message from Staging\u2026",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "gitsight.rerereCacheVisualizer",
         "title": "GitSight: rerere Cache Visualizer\u2026",
         "icon": "$(history)"
@@ -1126,6 +1131,11 @@
         },
         {
           "command": "gitsight.aiReviewStaged",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        },
+        {
+          "command": "gitsight.commitScaffold.regenerate",
           "group": "navigation",
           "when": "scmProvider == git"
         }

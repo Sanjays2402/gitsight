@@ -144,3 +144,52 @@ export function stagingChanged(prev: string[], next: string[]): boolean {
   }
   return false;
 }
+
+/**
+ * Classify how the user's typed input relates to a previously-written
+ * scaffold. Drives the F84 "Regenerate from staged" flow: we know whether
+ * a regenerate is safe (no user edits → just rewrite) vs. needs a confirm
+ * (user typed past the scaffold → we'd clobber their subject).
+ *
+ *   - `none`        : no scaffold was remembered; nothing to compare.
+ *   - `untouched`   : input equals the remembered scaffold verbatim — safe
+ *                     to overwrite, the user hasn't typed anything.
+ *   - `extended`    : input starts with the remembered scaffold but the
+ *                     user typed more (subject + body) — regenerate would
+ *                     wipe the subject, so we should confirm.
+ *   - `replaced`    : input no longer matches the scaffold prefix at all —
+ *                     user wrote a fully fresh message; regenerate is
+ *                     definitely destructive, confirm hard.
+ *
+ * Pure; takes both values as strings so the controller can pass whatever
+ * fingerprint it has.
+ */
+export type ScaffoldDriftKind = 'none' | 'untouched' | 'extended' | 'replaced';
+
+export function classifyScaffoldDrift(input: string, remembered: string): ScaffoldDriftKind {
+  const r = (remembered ?? '').trim();
+  if (!r) return 'none';
+  const i = input ?? '';
+  if (i === remembered) return 'untouched';
+  // Allow trivial trailing whitespace differences as still-untouched —
+  // some editors append a newline on focus loss.
+  if (i.replace(/\s+$/, '') === r.replace(/\s+$/, '')) return 'untouched';
+  if (i.startsWith(remembered) || i.startsWith(r)) return 'extended';
+  return 'replaced';
+}
+
+/**
+ * Build the human-readable summary line that the regenerate picker shows
+ * BEFORE applying the new header — gives the user a one-glance preview of
+ * what's about to change.
+ *
+ *   "feat(git): -> docs(commitScaffold): "
+ *   "docs:      -> docs(commitScaffold): "   (when the old header had no scope)
+ *   "(none)     -> feat(git): "              (when the input was empty)
+ */
+export function summariseScaffoldChange(oldHeader: string, newHeader: string): string {
+  const left = (oldHeader || '').trim() || '(none)';
+  const right = (newHeader || '').trim();
+  if (left === right) return `${left} (unchanged)`;
+  return `${left} \u2192 ${right}`;
+}
