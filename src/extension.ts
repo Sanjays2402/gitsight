@@ -100,6 +100,7 @@ import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTe
 import { runOpenIssueFromSelection, OpenIssueCodeActionProvider } from './views/openIssueFromSelection';
 import { runFindInactiveReviewers } from './views/inactiveReviewers';
 import { PrTimelinePill } from './views/prTimelinePill';
+import { runConflictCoach, registerConflictCoach } from './views/conflictCoach';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1136,6 +1137,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(prTimelinePill);
   reg('gitsight.prTimelinePill.refresh', () => errorWrap(async () => {
     await prTimelinePill.refresh();
+  }));
+
+  // ── Conflict resolution coach (F107) ────────────────────────────
+  for (const d of registerConflictCoach(repos)) ctx.subscriptions.push(d);
+  reg('gitsight.conflictCoach', () => errorWrap(async () => {
+    await runConflictCoach(repos);
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────

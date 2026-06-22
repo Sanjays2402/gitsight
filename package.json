@@ -712,6 +712,11 @@
         "icon": "$(sync)"
       },
       {
+        "command": "gitsight.conflictCoach",
+        "title": "GitSight: Conflict Resolution Coach (3-way diff per conflict)\u2026",
+        "icon": "$(versions)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
