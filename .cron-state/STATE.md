@@ -197,6 +197,59 @@
   undefined`, but `s.branch` defaults to `''` in the porcelain output
   — the test caught the wrong fallback. Always normalise to undefined
   for the "absent" semantic.
+- For CodeAction providers that show on every file (F23 selection
+  history, F66 last-touched), DO NOT shell out from
+  `provideCodeActions` — that callback runs on every selection change
+  and would explode on a hot key-bash. Decide *whether* to offer the
+  action (cheap path check + repo lookup is fine) and defer the actual
+  mining to the command the action invokes.
+- For commands invoked from multiple surfaces (CodeAction + Recent
+  Files tree-item menu + command palette), accept the raw `any` arg
+  and route through a tiny `normaliseArg` helper that handles the
+  `{file: '/abs/path'}`, the `{kind, entry: {path}, git}` tree shape,
+  the bare URI shape, and the bare string. Saves a stack of overloads
+  and makes the command keyboard-friendly too.
+- For rename-aware file-history walks, the `--name-status` output for
+  a rename is `R<percent>\t<old>\t<new>` — when the user asked about
+  `<new>`, we still want to return the commit + record `renamedFrom`
+  so the picker can show the old name. The renamedFrom value drives
+  the diff URI choice: standard diff uses same-path-both-sides; rename
+  diff has to construct gitsight:// + file:// URIs manually because
+  diffRevisions aligns paths.
+- For the gh branch protection API, an exit-code non-zero with stderr
+  matching `/branch\s+not\s+protected/i` is the canonical "unprotected"
+  signal — NOT a 404 alone (a 404 might mean wrong repo, missing scope,
+  or rate limit). Match the literal phrase. Fall back to "unknown" for
+  any other failure so the user gets a chance to override rather than
+  having the guard silently allow a destructive push.
+- For trailer-block append logic, the git interpret-trailers
+  convention is: blank line between body and the first trailer;
+  subsequent trailers append directly to an existing trailer block
+  with NO blank line. Detect the existing trailer block by checking
+  whether the last non-empty line of the message starts with any
+  registered trailer key (case-insensitive). Mirrors how
+  `git interpret-trailers --in-place` writes its output.
+- For BREAKING CHANGE dedup, do NOT lowercase the value — two distinct
+  notes with the same words-different-case ARE meant to land as two
+  trailers (e.g. an editor pass that re-cased something). All other
+  trailer kinds compare case-insensitively on value so the same
+  Co-authored-by email isn't doubled.
+- For `gh pr list --search "review-requested:@me"`, the search query
+  can append `draft:false` to exclude drafts at the API level rather
+  than client-side. Cheaper round-trip and the result count matches
+  the user's expectation. Wrap the whole search expression in one
+  `--search` arg, not multiple — gh treats them as additive but the
+  shape is uglier.
+- For `gh pr checkout` integration, ALWAYS guard against the
+  workspace's origin not matching the PR's repo. The command will
+  happily land PR #42 from `other/repo` in a clone of `foo/bar` and
+  the user won't notice until tests fail. Single modal warning with
+  an "Open in browser instead?" fallback is the right shape.
+- For repository-shape parsing across gh JSON variants, `repository`
+  can be `{name, owner: {login}}` (current) or a plain `'owner/name'`
+  string (older). Tolerate both in one extractor — production gh
+  versions in the wild span 6+ months of breaking JSON-shape changes
+  and the picker shouldn't crash on a stale install.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -325,16 +378,31 @@
 - [x] F69: Pre-push commit-message gate — DONE tick 12.
 - [x] F70: Submodule auto-pull — DONE tick 12.
 
-### Tick 13 candidates (drafted now so future ticks don't restart cold)
+### Tick 13 (2026-06-21 19:43 PT) — SHIPPED
+- [x] **F66**: Open at Last Touched Commit (CodeAction + Recent Files menu, rename-aware, picker → open/diff/show) — `c4cf10b`
+- [x] **F71**: Force-Push Protection Guard (gh branch protection API probe, modal refusal + confirmation, lease/no-lease variants) — `1a6ac23`
+- [x] **F73**: Commit Footer Composer (multi-pick of Co-authored-by/Reviewed-by/Signed-off-by/Closes/Fixes/Refs/BREAKING, validated values, dedup) — `b6a383d`
+- [x] **F74**: GitHub Releases Companion (gh release list picker, notes preview, copy-tag, create-from-latest-unreleased-tag) — `fc5f560`
+- [x] **F75**: PR Review-Request Inbox (gh pr list review-requested:@me, urgency-sorted, open/copy/checkout with same-repo guard) — `7b50fed`
+
+### Tick 13 candidates (RESOLVED above)
+- [x] F66: Recent-File CodeAction `Open at last touched commit` — DONE tick 13.
+- [x] F71: Branch protection guard for force-push — DONE tick 13.
+- [x] F73: Conventional Commit footer composer — DONE tick 13.
+- [x] F74: `gh release` companion — DONE tick 13.
+- [x] F75: PR review-request inbox — DONE tick 13.
+
+### Tick 14 candidates (drafted now so future ticks don't restart cold)
 - [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
 - [ ] F61: Branch-graph PNG export (F61 carry-over) — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).
-- [ ] F66: Recent-File CodeAction `Open at last touched commit` — for files in `gitsight.recentFiles` view, a CodeAction in the editor that opens the file at its last-touch sha so you can diff-vs-now in two clicks.
-- [ ] F71: Branch protection guard for force-push — wraps `git push --force` / `--force-with-lease` to check `gh api repos/:owner/:repo/branches/:branch/protection` and refuse when the current branch is protected. Mirrors F14/F69 gate shape.
 - [ ] F72: Worktree-graph webview — visualise all worktrees as a tree with their HEAD shas, branch attachments, and dirty status. Single-pane "where is everything" view that the F64 pruner picker hints at but doesn't quite deliver.
-- [ ] F73: Conventional Commit footer composer — picker of well-known trailers (Co-authored-by, BREAKING CHANGE, Closes #N, Reviewed-by) that append to the SCM input box. Pairs with F29 (header) and F60 (scaffold).
-- [ ] F74: `gh release` companion — list recent GitHub releases for the repo with notes preview, copy-tag, and "create release from latest tag" action. Mirrors F38 last-pushed-branch shape for the release surface.
-- [ ] F75: PR review-request inbox — `gh pr list --search "is:open review-requested:@me"` rendered into a sidebar view with hover preview + "open in browser" + "checkout PR locally". Complements existing pullRequests view.
 - [ ] F76: Bisect script runner from a failed CI step — given a `gh run view` output that locates a failing job/step, generate a `git bisect run` wrapper that re-runs just that step locally for each candidate commit. Extends F55 commit-by-commit test runner.
+- [ ] F77: PR draft auto-sync — when a draft PR exists for the current branch, auto-update its body from the current `<upstream>..HEAD` diff via `gh pr edit --body-file`. Useful for incremental "share what I've got" PRs that grow over a day.
+- [ ] F78: Conflict marker pre-stage gate — extend F34 to block `git add` (via the SCM input pre-stage hook) when the file being staged still has `<<<<<<<` markers. Pairs with F45 pre-commit and F69 pre-push but catches the bug earlier.
+- [ ] F79: Local-branch GitHub Pages preview — for branches that have changed `docs/` or `_site/`, generate the local preview URL that gh-pages would serve (or run `python -m http.server` in `_site/`). Niche but real for repos that publish on every push.
+- [ ] F80: Stash-on-branch-switch picker — when the user switches branches and the destination branch had a stash made *on* it in the past (per stashSort.branch), offer to re-apply it. Bookends F31 + F43 + F48 into a complete stash UX.
+- [ ] F81: Recent contributors hover on file — hover any file in the explorer/editor and surface the last 5 unique contributors with their last-touch date. Lightweight version of F50 fixtureLens for everyday files.
+- [ ] F82: Per-commit benchmark scorer — for `<upstream>..HEAD`, run a configured benchmark command per commit and chart the result. Extends F55 commit-by-commit runner with quantitative output instead of pass/fail.
 
 ## TICK LOG
 
@@ -350,6 +418,7 @@
 - 2026-06-21 09:54 PT — 5 features shipped: F54 `bfa7a08`, F56 `539d1ce`, F58 `83bdbf7`, F59 `1326570`, F55 `2412c1c`. Gate: lint ok, compile ok (warm cache), 629/629 tests green (538 → 629, +91 new). New configs: 12 (sshKeyCheck.{enabled,autoCheckOnActivate}, codespaces.{machine,location,devcontainerPath}, submodules.{enabled,hideWhenNone,recursive}, commitTestRunner.{command,timeoutMs,stopOnFirstFail,maxCommits}). New commands: 7 (checkSshKey, openInCodespaces, stashDiffBrowser, submoduleMenu, refreshSubmodules, commitTestRunner; F54 also wraps the existing push/fetch/pull commands with auth-failure recovery). New menus: 3 (branches.openInCodespaces, stashes.stashDiffBrowser, branch-context Codespaces action). New status-bar pills: 1 (SubmodulePill, position 92 between the working-tree pill at 94 and the worktree pill). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
 - 2026-06-21 13:08 PT — 5 features shipped: F57 `60e34b5`, F60 `a3d0056`, F63 `0ee2d1b`, F64 `c58f9de`, F65 `9b2c5ab`. Gate: lint ok, compile ok, 716/716 tests green (629 → 716, +87 new). New configs: 16 (defaultReviewers.{fallbackBase,includeTeams,exclude}, commitScaffold.{enabled,maxPaths,minConfidence,scaffoldWithoutScope}, rerereCache.{staleAfterDays,maxEntries}, worktreePruner.{minAgeDays,includeStaleOnly,forceDirty}, cherryPickScout.{enabled,scanCommits,scanSince}). New commands: 5 (defaultReviewersPicker, commitScaffold.apply, rerereCacheVisualizer, worktreePruner; F65 wraps the existing cherryPick rather than registering new). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) auto-degradation when `gh` CLI isn't on PATH (F57 falls back to clipboard); (2) git-internal-dir resolution via `git rev-parse --git-path rr-cache` so the rerere visualizer works in linked worktrees too; (3) refs/remotes intersection for branchesWithUpstream (more reliable than local branch.upstream config on fresh clones); (4) subject normalisation that handles conventional-commit prefix + PR-merge suffix + backport tag in one pass.
 - 2026-06-21 16:41 PT — 5 features shipped: F67 `0771104`, F68 `faa805f`, F69 `770e3ea`, F70 `fafd5b2`, F62 `658706d`. Gate: lint ok, compile ok, 795/795 tests green (716 → 795, +79 new). New configs: 13 (stashTrash.{staleAfterDays,ancientAfterDays,extraLiveBranches}, reflogExplorer.{windowSize,defaultFilter}, prePushMessageGate.{enabled,blockAt,options}, submoduleAutoPull.{enabled,cooldownMinutes}, actionsPill.{enabled,refreshSeconds,hideOnSuccess}). New commands: 4 (stashTrashBin, reflogExplorer, refreshActionsPill; F69 hooks into existing gitsight.push, F70 is a passive watcher). New menus: 1 (stashes.stashTrashBin). New status-bar pills: 1 (ActionsPill at priority 90 — sits just left of the F59 SubmodulePill at 92). New files: 15 (5 pure helpers + 5 view controllers + 5 test files).
+- 2026-06-21 19:43 PT — 5 features shipped: F66 `c4cf10b`, F71 `1a6ac23`, F73 `b6a383d`, F74 `fc5f560`, F75 `7b50fed`. Gate: lint ok, compile ok, 873/873 tests green (795 → 873, +78 new). New configs: 6 (openAtLastTouched.scanCommits, forcePushGuard.enabled, releasesCompanion.listLimit, prReviewInbox.{scope,listLimit,includeDrafts}). New commands: 7 (openAtLastTouchedCommit, forcePush, forcePushDangerous, checkBranchProtection, commitFooterComposer, releasesCompanion, prReviewInbox). New menus: 1 (recentFiles.openAtLastTouchedCommit). New providers: 1 CodeAction (Refactor-kind for "Open at last touched commit", scoped to non-binary files inside git repos). New files: 15 (5 pure helpers + 5 view controllers + 5 test files). Notable patterns added: (1) gh-api JSON classifier with 404-as-unprotected fallback (forcePushGuard); (2) committed-trailer-block detection with case-insensitive dedup on name-email but case-sensitive on BREAKING CHANGE (commitFooter); (3) urgency-state ordering with drafts-always-last + within-state recency tiebreak (prReviewInbox); (4) rename-aware "last touched" walker that returns the rename's destination commit + renamedFrom hint (openAtLastTouched); (5) same-repo guard before `gh pr checkout` so we never land PR #X from `other/repo` in a clone of `foo/bar`.
 
 CAUGHT MID-TICK: 4 tests failed on first gate run (cherryPickScout: subject-exact matched empty='' vs empty=''; commitScaffold: composeScaffoldHeader returned `docs(docs): ` instead of `docs: ` when type==scope; same for `ci(ci): `; worktreePruner test expected upstreamGone=1 but classifier correctly counts both reasons when one entry has missing-on-disk AND upstream-gone). Fixed via 2 source fixes (subject-exact gated on truthy source.subject; composeScaffoldHeader drops redundant scope when scope==type) + 1 test expectation correction. All three landed as `--fixup` commits and were autosquashed into their parents before push, so each feature commit stays self-passing.
 
