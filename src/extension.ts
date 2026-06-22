@@ -93,6 +93,7 @@ import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 import { showCommitFooterComposer } from './views/commitFooter';
 import { showReleasesCompanion } from './views/githubReleases';
+import { showPrReviewInbox } from './views/prReviewInbox';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1040,6 +1041,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.releasesCompanion', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showReleasesCompanion(git);
+  }));
+
+  // ── PR Review-Request Inbox (F75) ───────────────────────────────
+  reg('gitsight.prReviewInbox', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showPrReviewInbox(git);
   }));
 }
 

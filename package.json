@@ -662,6 +662,11 @@
         "icon": "$(rocket)"
       },
       {
+        "command": "gitsight.prReviewInbox",
+        "title": "GitSight: PR Review Inbox\u2026",
+        "icon": "$(eye)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"
@@ -1895,6 +1900,24 @@
           "minimum": 5,
           "maximum": 100,
           "description": "How many releases to load into the GitHub Releases picker. Larger limits surface deeper history at the cost of one slower `gh release list` call."
+        },
+        "gitsight.prReviewInbox.scope": {
+          "type": "string",
+          "enum": ["all", "current"],
+          "default": "all",
+          "description": "Which repos to include in the PR review inbox. `all` searches every repo accessible to your gh CLI; `current` restricts to the workspace's origin GitHub repository."
+        },
+        "gitsight.prReviewInbox.listLimit": {
+          "type": "number",
+          "default": 25,
+          "minimum": 5,
+          "maximum": 100,
+          "description": "How many PRs to load into the review inbox picker."
+        },
+        "gitsight.prReviewInbox.includeDrafts": {
+          "type": "boolean",
+          "default": false,
+          "description": "When ON, draft PRs awaiting your review appear in the inbox. Draft PRs are sorted to the end of the list and labelled as such."
         }
       }
     },
