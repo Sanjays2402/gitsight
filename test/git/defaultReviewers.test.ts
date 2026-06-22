@@ -5,8 +5,12 @@ import {
   buildReviewerSuggestions,
   describeSuggestion,
   describeSuggestionDetail,
+  describeSuggestionWithLoad,
   buildGhAddReviewerArgs,
   parseChangedPaths,
+  rerankRoundRobin,
+  countReviewerLoad,
+  ReviewerSuggestion,
 } from '../../src/git/defaultReviewers';
 import { parseCodeownersBody } from '../../src/git/filesIOwn';
 
@@ -178,4 +182,134 @@ test('parseChangedPaths: dedupes, sorts, trims', () => {
 
 test('parseChangedPaths: empty input returns []', () => {
   assert.deepEqual(parseChangedPaths(''), []);
+});
+
+// ── F85: rerankRoundRobin ────────────────────────────────────────
+
+function mkSug(handle: string, ownedPaths: string[], kind: 'user' | 'team' = 'user'): ReviewerSuggestion {
+  return {
+    handle, displayHandle: `@${handle}`, kind, ownedPaths,
+    coverage: ownedPaths.length ? ownedPaths.length / Math.max(ownedPaths.length, 1) : 0,
+  };
+}
+
+test('rerankRoundRobin: within a tier, lower load floats up', () => {
+  const sugs = [
+    mkSug('alice', ['a', 'b']),     // tier 2, load 5
+    mkSug('bob',   ['c', 'd']),     // tier 2, load 0
+    mkSug('carol', ['e', 'f']),     // tier 2, load 2
+  ];
+  const load = new Map([['alice', 5], ['carol', 2]]); // bob defaults to 0
+  const out = rerankRoundRobin({ suggestions: sugs, loadByHandle: load });
+  assert.deepEqual(out.map(s => s.handle), ['bob', 'carol', 'alice']);
+});
+
+test('rerankRoundRobin: never crosses coverage tiers', () => {
+  // Higher coverage with high load still beats lower coverage with no load.
+  const sugs = [
+    mkSug('alice', ['a', 'b', 'c']),   // tier 3, load 100
+    mkSug('bob',   ['d']),              // tier 1, load 0
+  ];
+  const load = new Map([['alice', 100]]);
+  const out = rerankRoundRobin({ suggestions: sugs, loadByHandle: load });
+  assert.deepEqual(out.map(s => s.handle), ['alice', 'bob']);
+});
+
+test('rerankRoundRobin: load tiebreak then user-before-team then alphabetical', () => {
+  const sugs = [
+    mkSug('zeb',     ['a'], 'user'),
+    mkSug('myorg/x', ['b'], 'team'),
+    mkSug('alice',   ['c'], 'user'),
+  ];
+  // All same coverage tier (1), all load 0 → user-before-team, then alpha.
+  const out = rerankRoundRobin({ suggestions: sugs, loadByHandle: new Map() });
+  assert.deepEqual(out.map(s => s.handle), ['alice', 'zeb', 'myorg/x']);
+});
+
+test('rerankRoundRobin: empty suggestions returns []', () => {
+  assert.deepEqual(rerankRoundRobin({ suggestions: [], loadByHandle: new Map() }), []);
+});
+
+test('rerankRoundRobin: does not mutate input', () => {
+  const sugs = [
+    mkSug('alice', ['a']),
+    mkSug('bob',   ['b']),
+  ];
+  const snapshot = JSON.stringify(sugs);
+  const load = new Map([['alice', 10]]);
+  rerankRoundRobin({ suggestions: sugs, loadByHandle: load });
+  assert.equal(JSON.stringify(sugs), snapshot);
+});
+
+// ── F85: countReviewerLoad ───────────────────────────────────────
+
+test('countReviewerLoad: user logins from reviewRequests', () => {
+  const counts = countReviewerLoad([
+    { reviewRequests: [{ login: 'alice' }, { login: 'bob' }] },
+    { reviewRequests: [{ login: 'alice' }] },
+  ]);
+  assert.equal(counts.get('alice'), 2);
+  assert.equal(counts.get('bob'), 1);
+});
+
+test('countReviewerLoad: team handles via org/name shape', () => {
+  const counts = countReviewerLoad([
+    { reviewRequests: [{ name: 'core', organization: { login: 'myorg' } }] },
+    { reviewRequests: [{ name: 'core', organization: 'myorg' }] }, // string-shaped org
+  ]);
+  assert.equal(counts.get('myorg/core'), 2);
+});
+
+test('countReviewerLoad: same handle in reviewRequests AND latestReviews counts as 1 per PR', () => {
+  const counts = countReviewerLoad([
+    {
+      reviewRequests: [{ login: 'alice' }],
+      latestReviews: [{ author: { login: 'alice' } }],
+    },
+  ]);
+  assert.equal(counts.get('alice'), 1);
+});
+
+test('countReviewerLoad: latestReviews-only counts (already-reviewed PR)', () => {
+  const counts = countReviewerLoad([
+    { latestReviews: [{ author: { login: 'alice' } }, { author: { login: 'bob' } }] },
+  ]);
+  assert.equal(counts.get('alice'), 1);
+  assert.equal(counts.get('bob'), 1);
+});
+
+test('countReviewerLoad: tolerates missing fields, malformed entries, non-array input', () => {
+  // Non-array → empty.
+  assert.equal(countReviewerLoad('not an array' as any).size, 0);
+  // Entries with no requests/reviews → empty.
+  const counts = countReviewerLoad([
+    null as any,
+    {} as any,
+    { reviewRequests: null as any, latestReviews: null as any } as any,
+    { reviewRequests: [{ login: '' }, null, { name: '' }] } as any,
+  ]);
+  assert.equal(counts.size, 0);
+});
+
+test('countReviewerLoad: case-folds handles for lookup', () => {
+  const counts = countReviewerLoad([
+    { reviewRequests: [{ login: 'AliceCase' }] },
+    { reviewRequests: [{ login: 'alicecase' }] },
+  ]);
+  assert.equal(counts.get('alicecase'), 2);
+});
+
+// ── F85: describeSuggestionWithLoad ──────────────────────────────
+
+test('describeSuggestionWithLoad: pluralises requests correctly', () => {
+  const s = mkSug('alice', ['a', 'b']);
+  const load = new Map([['alice', 1]]);
+  assert.match(describeSuggestionWithLoad(s, 4, load), /1 recent request$/);
+  const load2 = new Map([['alice', 3]]);
+  assert.match(describeSuggestionWithLoad(s, 4, load2), /3 recent requests$/);
+});
+
+test('describeSuggestionWithLoad: zero load reads as "0 recent requests"', () => {
+  const s = mkSug('alice', ['a']);
+  assert.match(describeSuggestionWithLoad(s, 4, new Map()), /0 recent requests$/);
 });

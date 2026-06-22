@@ -193,3 +193,134 @@ export function parseChangedPaths(raw: string): string[] {
   }
   return [...set].sort();
 }
+
+/**
+ * F85 — Reviewer round-robin re-ranker.
+ *
+ * Within each coverage tier, prefer reviewers who have been requested LEAST
+ * across the recent PR window. This stops a small set of "always-on" owners
+ * from getting hammered every PR while teammates with equal coverage sit
+ * idle. The base coverage ranking from `buildReviewerSuggestions` is
+ * preserved (we never demote a high-coverage owner under a low-coverage
+ * one), but inside a tier we sort by load asc, then by team/user kind,
+ * then by handle.
+ *
+ * Inputs:
+ *   - suggestions: output of buildReviewerSuggestions (already coverage-sorted)
+ *   - loadByHandle: handle (lower-case, no @) → number of recent requests.
+ *                   Handles not present default to 0 (interpreted as
+ *                   "never requested in the window" → top of the tier).
+ *
+ * Returns a new array; does not mutate the input.
+ */
+export interface RoundRobinArgs {
+  suggestions: ReviewerSuggestion[];
+  loadByHandle: Map<string, number>;
+}
+
+export function rerankRoundRobin(args: RoundRobinArgs): ReviewerSuggestion[] {
+  const { suggestions, loadByHandle } = args;
+  if (!suggestions.length) return [];
+  const tiers = new Map<number, ReviewerSuggestion[]>();
+  for (const s of suggestions) {
+    const tier = s.ownedPaths.length;
+    let bucket = tiers.get(tier);
+    if (!bucket) {
+      bucket = [];
+      tiers.set(tier, bucket);
+    }
+    bucket.push(s);
+  }
+  const tiersSorted = [...tiers.keys()].sort((a, b) => b - a);
+  const out: ReviewerSuggestion[] = [];
+  for (const tier of tiersSorted) {
+    const bucket = tiers.get(tier)!;
+    bucket.sort((a, b) => {
+      const la = loadByHandle.get(a.handle.toLowerCase()) ?? 0;
+      const lb = loadByHandle.get(b.handle.toLowerCase()) ?? 0;
+      if (la !== lb) return la - lb;
+      if (a.kind !== b.kind) return a.kind === 'user' ? -1 : 1;
+      return a.handle.localeCompare(b.handle);
+    });
+    for (const s of bucket) out.push(s);
+  }
+  return out;
+}
+
+/**
+ * Parse the `gh pr list --json reviewRequests,latestReviews` JSON blob and
+ * count how many times each handle has been requested across the window.
+ *
+ *   { "reviewRequests": [ { "login": "alice" }, { "name": "core" } ], ... }
+ *
+ * Both `login` (user) and `name` (team) shapes are counted. Team names are
+ * normalised to `org/team` only when an `organization` slot is present; bare
+ * `name` lookups stay as `name` (we still match against the same key on the
+ * suggestion side). Robust against missing fields and array entries with
+ * unexpected shapes — older gh JSON versions emit slightly different keys.
+ */
+export interface GhPrLoadEntry {
+  reviewRequests?: Array<{ login?: string; name?: string; organization?: { login?: string } | string }>;
+  latestReviews?: Array<{ author?: { login?: string } }>;
+}
+
+export function countReviewerLoad(prs: GhPrLoadEntry[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!Array.isArray(prs)) return counts;
+  for (const pr of prs) {
+    if (!pr || typeof pr !== 'object') continue;
+    const seen = new Set<string>();
+    if (Array.isArray(pr.reviewRequests)) {
+      for (const req of pr.reviewRequests) {
+        const handle = normaliseRequestHandle(req);
+        if (handle) seen.add(handle);
+      }
+    }
+    if (Array.isArray(pr.latestReviews)) {
+      for (const rev of pr.latestReviews) {
+        const login = rev?.author?.login;
+        if (typeof login === 'string' && login) {
+          seen.add(login.toLowerCase());
+        }
+      }
+    }
+    for (const handle of seen) {
+      counts.set(handle, (counts.get(handle) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function normaliseRequestHandle(req: any): string | undefined {
+  if (!req || typeof req !== 'object') return undefined;
+  if (typeof req.login === 'string' && req.login) return req.login.toLowerCase();
+  if (typeof req.name === 'string' && req.name) {
+    const orgLogin = typeof req.organization === 'string'
+      ? req.organization
+      : (req.organization?.login ?? '');
+    if (orgLogin) return `${orgLogin}/${req.name}`.toLowerCase();
+    return req.name.toLowerCase();
+  }
+  return undefined;
+}
+
+/**
+ * Render a one-line load summary for a suggestion's picker `detail` line:
+ *
+ *   "owns 3/5 (60%) · 0 recent requests"
+ *   "owns 1/5 (20%) · 7 recent requests"
+ *
+ * Pass the same loadByHandle that fed rerankRoundRobin. Zero load reads as
+ * "0 recent requests" rather than being omitted — the goal is to make load
+ * visible so the user understands WHY the order changed.
+ */
+export function describeSuggestionWithLoad(
+  s: ReviewerSuggestion,
+  totalFiles: number,
+  loadByHandle: Map<string, number>,
+): string {
+  const base = describeSuggestion(s, totalFiles);
+  const load = loadByHandle.get(s.handle.toLowerCase()) ?? 0;
+  const word = load === 1 ? 'request' : 'requests';
+  return `${base} \u00b7 ${load} recent ${word}`;
+}

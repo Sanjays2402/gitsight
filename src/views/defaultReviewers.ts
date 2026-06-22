@@ -30,8 +30,12 @@ import {
   buildReviewerSuggestions,
   describeSuggestion,
   describeSuggestionDetail,
+  describeSuggestionWithLoad,
   buildGhAddReviewerArgs,
   parseChangedPaths,
+  rerankRoundRobin,
+  countReviewerLoad,
+  GhPrLoadEntry,
   ReviewerSuggestion,
   AuthorIdentity,
 } from '../git/defaultReviewers';
@@ -45,6 +49,8 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
   const fallbackBase = cfg.get<string>('fallbackBase', 'main') ?? 'main';
   const includeTeams = cfg.get<boolean>('includeTeams', true) ?? true;
   const extraExcluded = cfg.get<string[]>('exclude', []) ?? [];
+  const roundRobin = cfg.get<boolean>('roundRobin', true) ?? true;
+  const roundRobinWindow = Math.max(1, cfg.get<number>('roundRobinWindow', 20) ?? 20);
 
   // 1. Resolve PR + base.
   const prInfo = await loadPrForBranch(git);
@@ -89,10 +95,20 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     return;
   }
 
+  // 5b. Round-robin: re-rank within each coverage tier by recent request load.
+  let ranked = suggestions;
+  let loadByHandle = new Map<string, number>();
+  if (roundRobin) {
+    loadByHandle = await loadRecentReviewerLoad(git, roundRobinWindow);
+    ranked = rerankRoundRobin({ suggestions, loadByHandle });
+  }
+
   // 6. Picker.
-  const items: Pk[] = suggestions.map(s => ({
+  const items: Pk[] = ranked.map(s => ({
     label: `${s.kind === 'team' ? '$(organization) ' : '$(account) '}${s.displayHandle}`,
-    description: describeSuggestion(s, changed.length),
+    description: roundRobin
+      ? describeSuggestionWithLoad(s, changed.length, loadByHandle)
+      : describeSuggestion(s, changed.length),
     detail: describeSuggestionDetail(s),
     picked: true,
     _suggestion: s,
@@ -231,4 +247,37 @@ async function ghAvailable(): Promise<boolean> {
 
 async function safe(git: Git, args: string[]): Promise<string> {
   try { return await git.raw(args); } catch { return ''; }
+}
+
+/**
+ * F85 — Load the recent reviewer-request window for round-robin re-ranking.
+ *
+ * Asks gh for the last `windowSize` PRs on the current repo (any state),
+ * each with their `reviewRequests` + `latestReviews` arrays. We then count
+ * unique-per-PR appearances per handle. Same handle in `reviewRequests`
+ * AND `latestReviews` of the same PR counts as ONE — we're measuring how
+ * many PRs touched them, not how many request events there were.
+ *
+ * Silently returns an empty map when gh is missing, the call fails, or
+ * the repo isn't a GitHub remote — the picker falls back to plain coverage
+ * ranking in that case.
+ */
+async function loadRecentReviewerLoad(git: Git, windowSize: number): Promise<Map<string, number>> {
+  if (!(await ghAvailable())) return new Map();
+  try {
+    const { stdout } = await pexec(
+      'gh',
+      [
+        'pr', 'list',
+        '--state', 'all',
+        '--limit', String(windowSize),
+        '--json', 'reviewRequests,latestReviews',
+      ],
+      { cwd: git.cwd, maxBuffer: 10 * 1024 * 1024 },
+    );
+    const parsed = JSON.parse(stdout) as GhPrLoadEntry[];
+    return countReviewerLoad(parsed);
+  } catch {
+    return new Map();
+  }
 }

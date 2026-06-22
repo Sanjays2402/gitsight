@@ -1764,6 +1764,17 @@
           "default": [],
           "description": "GitHub handles to permanently exclude from `gitsight.defaultReviewersPicker` suggestions (e.g. bots, paused teammates). Accepts `@handle` or `@org/team`."
         },
+        "gitsight.defaultReviewers.roundRobin": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, the reviewer picker re-ranks suggestions within each coverage tier so the LEAST-recently-requested handles float to the top. Helps balance review load across owners with equal CODEOWNERS coverage. Requires the `gh` CLI."
+        },
+        "gitsight.defaultReviewers.roundRobinWindow": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "description": "Number of recent PRs (any state) used to compute reviewer-request load for round-robin re-ranking. Each PR counts each handle at most once."
+        },
         "gitsight.commitScaffold.enabled": {
           "type": "boolean",
           "default": true,
