@@ -308,3 +308,75 @@ export function isPrereleaseTag(tag: string): boolean {
   const trimmed = tag.trim().replace(/^v/i, '');
   return /-(alpha|beta|rc|pre|canary|next|nightly)(?:[.\-+\d]|$)/i.test(trimmed);
 }
+
+/**
+ * F97 — Release-as trailer detection.
+ *
+ * Scan a commit body for an explicit `Release-as: vX.Y.Z` (or `Release-As:`)
+ * trailer. When present, the tag-on-merge prompt skips the suggestion step
+ * entirely and uses the trailer value verbatim — the author has already
+ * decided which tag they want shipped.
+ *
+ * Recognised forms (case-insensitive on the key, case-sensitive on the value):
+ *
+ *   Release-as: v1.2.3
+ *   Release-As: 2.0.0-rc.1
+ *   release-as: v0.1.0-beta.4
+ *
+ * Returns the trailer value (whitespace-stripped) or undefined. We do NOT
+ * semver-validate here — the tagOnMerge prompt has the final regex gate.
+ *
+ * The trailer MUST live on its own line (lockstep with `git-interpret-trailers`
+ * semantics). Embedded references in prose like "we'll Release-as: v2 next
+ * sprint" are ignored because the regex requires start-of-line.
+ *
+ * Why this is its own helper (vs inlining in showTagFromMergedPrompt): the
+ * decision to bypass the prompt depends on a clean true/false from a pure
+ * scanner. Easy to unit-test, easy to extend later (e.g. `Release-as: skip`
+ * to explicitly silence the prompt without tagging).
+ */
+const RELEASE_AS_RE = /^release-as:\s*(.+?)\s*$/im;
+
+export function extractReleaseAsTag(body: string): string | undefined {
+  if (!body) return undefined;
+  // We need a multiline-aware scan because `^` in JS regex with `m` flag
+  // matches after every newline. Walk lines so we never accept a trailer
+  // that's sitting inside a code-fence or quoted block (those don't start
+  // a fresh line under the trailer-block convention).
+  for (const raw of body.split('\n')) {
+    const line = raw.trimEnd();
+    const m = RELEASE_AS_RE.exec(line);
+    if (m) {
+      const val = m[1].trim();
+      if (!val) continue;
+      // Reject obvious sentinel values that mean "don't tag" — the
+      // upstream may want to add `skip` semantics later but for now we
+      // surface only the explicit-tag form.
+      if (/^(skip|none|no)$/i.test(val)) return undefined;
+      return val;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Convenience wrapper: pick the explicit release tag from the most recent
+ * merge commit's body when present, otherwise return undefined so the
+ * caller falls back to the heuristic semver bump.
+ *
+ * The argument is the array of commits returned by `loadMergedCommits` in
+ * the view layer. We check the FIRST commit's body (which is the merge
+ * commit on `main` when the prompt fires immediately after merge); if the
+ * commit isn't a merge or has no body, we walk forward up to the first 5
+ * commits to catch the squash-merge case where the trailer lives on the
+ * single squashed commit instead of a synthetic merge commit.
+ */
+export function explicitReleaseTagFromCommits(commits: MergedCommit[]): string | undefined {
+  if (!commits.length) return undefined;
+  const cap = Math.min(commits.length, 5);
+  for (let i = 0; i < cap; i++) {
+    const tag = extractReleaseAsTag(commits[i].body);
+    if (tag) return tag;
+  }
+  return undefined;
+}

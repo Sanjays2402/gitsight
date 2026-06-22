@@ -29,6 +29,7 @@ import {
   buildReleaseNotes,
   detectMergedPrNumber,
   isPrereleaseTag,
+  explicitReleaseTagFromCommits,
   SemverBump,
 } from '../git/tagOnMerge';
 
@@ -63,7 +64,14 @@ export async function showTagFromMergedPrompt(git: Git): Promise<void> {
     );
     return;
   }
-  const suggested = suggestNextTag(lastTag, commits);
+
+  // F97: if any commit body in the range carries a `Release-as: vX.Y.Z`
+  // trailer, the author has explicitly chosen the tag — skip the heuristic
+  // suggestion and use their pick verbatim. The notes draft still comes
+  // from the conventional-commit classifier (it's just orthogonal to the
+  // tag name).
+  const explicitTag = explicitReleaseTagFromCommits(commits);
+  const suggested = explicitTag ?? suggestNextTag(lastTag, commits);
   if (!suggested) {
     vscode.window.showWarningMessage(
       `GitSight: cannot compute next tag — previous tag ${JSON.stringify(lastTag ?? '(none)')} is not semver. Tag manually.`,
@@ -89,9 +97,10 @@ export async function showTagFromMergedPrompt(git: Git): Promise<void> {
   const previewSummary = mergedPr
     ? `Merged PR #${mergedPr} — ${commits.length} commit(s), ${humanBump(bump)} bump.`
     : `${commits.length} commit(s) since ${lastTag ?? '(no prior tag)'}, ${humanBump(bump)} bump.`;
+  const explicitNote = explicitTag ? ` (explicit tag from \`Release-as:\` trailer)` : '';
 
   const action = await vscode.window.showInformationMessage(
-    `GitSight: ${previewSummary}\nSuggested tag: ${suggested}`,
+    `GitSight: ${previewSummary}\nSuggested tag: ${suggested}${explicitNote}`,
     { modal: true },
     'Create tag', 'Create + push', 'Create + push + release', 'Cancel',
   );

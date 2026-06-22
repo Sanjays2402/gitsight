@@ -10,6 +10,8 @@ import {
   buildReleaseNotes,
   detectMergedPrNumber,
   isPrereleaseTag,
+  extractReleaseAsTag,
+  explicitReleaseTagFromCommits,
   MergedCommit,
 } from '../../src/git/tagOnMerge';
 
@@ -327,4 +329,90 @@ test('isPrereleaseTag: empty / whitespace -> false', () => {
   assert.equal(isPrereleaseTag(''), false);
   assert.equal(isPrereleaseTag('   '), false);
   assert.equal(isPrereleaseTag(undefined as any), false);
+});
+
+// ───────────── F97: Release-as trailer ─────────────
+
+test('extractReleaseAsTag: picks the explicit tag from a clean trailer', () => {
+  const body = [
+    'Some body text.',
+    '',
+    'Release-as: v2.0.0',
+  ].join('\n');
+  assert.equal(extractReleaseAsTag(body), 'v2.0.0');
+});
+
+test('extractReleaseAsTag: case-insensitive key', () => {
+  assert.equal(extractReleaseAsTag('Release-As: v1.2.3'), 'v1.2.3');
+  assert.equal(extractReleaseAsTag('release-as: 2.0.0-rc.1'), '2.0.0-rc.1');
+  assert.equal(extractReleaseAsTag('RELEASE-AS: v0.1.0'), 'v0.1.0');
+});
+
+test('extractReleaseAsTag: ignores mid-line / prose mentions', () => {
+  const body = "we'll do a Release-as: v9.9.9 next sprint, not this PR";
+  assert.equal(extractReleaseAsTag(body), undefined);
+});
+
+test('extractReleaseAsTag: trims whitespace + drops trailing CR/LF artifacts', () => {
+  assert.equal(extractReleaseAsTag('Release-as:   v3.4.5   '), 'v3.4.5');
+  assert.equal(extractReleaseAsTag('Release-as: v3.4.5\r'), 'v3.4.5');
+});
+
+test('extractReleaseAsTag: skip/none sentinels return undefined', () => {
+  assert.equal(extractReleaseAsTag('Release-as: skip'), undefined);
+  assert.equal(extractReleaseAsTag('Release-as: none'), undefined);
+  assert.equal(extractReleaseAsTag('Release-as: no'), undefined);
+  assert.equal(extractReleaseAsTag('Release-as: NONE'), undefined);
+});
+
+test('extractReleaseAsTag: empty body / missing trailer -> undefined', () => {
+  assert.equal(extractReleaseAsTag(''), undefined);
+  assert.equal(extractReleaseAsTag('plain body, no trailer'), undefined);
+});
+
+test('extractReleaseAsTag: empty value -> undefined', () => {
+  assert.equal(extractReleaseAsTag('Release-as:   '), undefined);
+});
+
+test('extractReleaseAsTag: handles preserves non-semver values verbatim (no validation here)', () => {
+  // Pure helper does NOT semver-validate — that's the view's regex gate.
+  assert.equal(extractReleaseAsTag('Release-as: weird-tag-shape'), 'weird-tag-shape');
+});
+
+test('explicitReleaseTagFromCommits: returns tag from FIRST commit when present', () => {
+  const c1 = mk('feat: thing', 'Body\n\nRelease-as: v5.0.0');
+  const c2 = mk('feat: other', 'Body\n\nRelease-as: v9.0.0');
+  assert.equal(explicitReleaseTagFromCommits([c1, c2]), 'v5.0.0');
+});
+
+test('explicitReleaseTagFromCommits: walks up to 5 commits to find trailer', () => {
+  // First 3 commits have no trailer; 4th has the explicit tag.
+  const cs: MergedCommit[] = [
+    mk('feat: a', 'no trailer'),
+    mk('feat: b', 'still no trailer'),
+    mk('feat: c', ''),
+    mk('feat: d', 'Some body\n\nRelease-as: v7.7.7\n'),
+    mk('feat: e', 'Release-as: v0.0.1'),
+  ];
+  assert.equal(explicitReleaseTagFromCommits(cs), 'v7.7.7');
+});
+
+test('explicitReleaseTagFromCommits: stops at 5-commit cap', () => {
+  const cs: MergedCommit[] = [];
+  for (let i = 0; i < 5; i++) cs.push(mk(`feat: x${i}`, 'no trailer here'));
+  // 6th commit has it, but we don't scan that far.
+  cs.push(mk('feat: x5', 'Release-as: v6.6.6'));
+  assert.equal(explicitReleaseTagFromCommits(cs), undefined);
+});
+
+test('explicitReleaseTagFromCommits: empty list -> undefined', () => {
+  assert.equal(explicitReleaseTagFromCommits([]), undefined);
+});
+
+test('explicitReleaseTagFromCommits: every commit has skip sentinel -> undefined', () => {
+  const cs = [
+    mk('chore: bump', 'Release-as: skip'),
+    mk('chore: bump 2', 'Release-as: none'),
+  ];
+  assert.equal(explicitReleaseTagFromCommits(cs), undefined);
 });
