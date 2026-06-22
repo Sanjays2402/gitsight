@@ -652,6 +652,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.commitFooterComposer",
+        "title": "GitSight: Append Commit Trailers\u2026",
+        "icon": "$(symbol-key)"
+      },
+      {
         "command": "gitsight.refreshActionsPill",
         "title": "GitSight: Refresh GitHub Actions Pill",
         "icon": "$(refresh)"

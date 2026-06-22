@@ -91,6 +91,7 @@ import { showStashTrashBin } from './views/stashTrashBin';
 import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
+import { showCommitFooterComposer } from './views/commitFooter';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1026,6 +1027,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.checkBranchProtection', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await checkBranchProtection(git);
+  }));
+
+  // ── Commit Footer Composer (F73) ────────────────────────────────
+  reg('gitsight.commitFooterComposer', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await showCommitFooterComposer(git);
   }));
 }
 

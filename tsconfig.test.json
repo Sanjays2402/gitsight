@@ -67,7 +67,8 @@
     "src/git/submoduleAutoPull.ts",
     "src/git/ghActions.ts",
     "src/git/openAtLastTouched.ts",
-    "src/git/forcePushGuard.ts"
+    "src/git/forcePushGuard.ts",
+    "src/git/commitFooter.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
