@@ -1963,6 +1963,25 @@
           "enum": ["error", "warning", "info"],
           "default": "error",
           "description": "Diagnostic severity for staged conflict markers. Default `error` makes them gutter-red and unmissable; `warning` lets them coexist with other warnings; `info` is the least intrusive."
+        },
+        "gitsight.stashOnSwitch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, after a successful branch checkout GitSight scans the stash list for stashes previously made WHILE ON the destination branch and offers to re-apply them via a toast (`Apply newest` / `Pick from list` / `Dismiss`). Bookends F31 + F43 + F48 into a complete stash UX."
+        },
+        "gitsight.stashOnSwitch.freshDays": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Stashes newer than this many days are tagged `fresh` in the picker. Tiering matches F25 branchAge."
+        },
+        "gitsight.stashOnSwitch.agingDays": {
+          "type": "number",
+          "default": 14,
+          "minimum": 1,
+          "maximum": 1095,
+          "description": "Stashes newer than this many days are tagged `aging`; older ones are `old`. Must be \u2265 `freshDays`."
         }
       }
     },

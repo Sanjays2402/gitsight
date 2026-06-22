@@ -72,7 +72,8 @@
     "src/git/githubReleases.ts",
     "src/git/prReviewInbox.ts",
     "src/git/prDraftSync.ts",
-    "src/git/stagedConflictGate.ts"
+    "src/git/stagedConflictGate.ts",
+    "src/git/stashOnSwitch.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

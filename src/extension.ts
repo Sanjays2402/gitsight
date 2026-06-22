@@ -96,6 +96,7 @@ import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
 import { StagedConflictGateController } from './views/stagedConflictGate';
+import { runStashOnSwitchFireAndForget } from './views/stashOnSwitch';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -302,7 +303,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (!g || !target) return;
     // F48: auto-stash when the worktree has local changes that would be
     // overwritten by the switch.
-    await checkoutWithAutoStash(g, target.replace(/^origin\//, ''));
+    const targetName = target.replace(/^origin\//, '');
+    await checkoutWithAutoStash(g, targetName);
+    // F80: after a successful switch, offer to apply stashes that were
+    // created while previously on this branch. Fire-and-forget so a
+    // failure can't undo the checkout.
+    runStashOnSwitchFireAndForget(g, targetName);
     refreshAll();
   }));
   reg('gitsight.createBranch', () => errorWrap(async () => {
