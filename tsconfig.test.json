@@ -76,7 +76,8 @@
     "src/git/stashOnSwitch.ts",
     "src/git/recentContributors.ts",
     "src/git/commitGraphExport.ts",
-    "src/git/tagOnMerge.ts"
+    "src/git/tagOnMerge.ts",
+    "src/git/prFromSelection.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

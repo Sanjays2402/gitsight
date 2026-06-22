@@ -99,6 +99,7 @@ import { StagedConflictGateController } from './views/stagedConflictGate';
 import { runStashOnSwitchFireAndForget } from './views/stashOnSwitch';
 import { RecentContributorsProvider } from './views/recentContributors';
 import { showTagFromMergedPrompt } from './views/tagOnMerge';
+import { generatePrDescriptionFromSelection } from './views/prFromSelection';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1077,6 +1078,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.tagFromMerged', () => errorWrap(async () => {
     const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
     await showTagFromMergedPrompt(git);
+  }));
+
+  // ── PR Description from Selection (F87) ─────────────────────────
+  reg('gitsight.prDescriptionFromSelection', () => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await generatePrDescriptionFromSelection(ctx, git);
   }));
 }
 

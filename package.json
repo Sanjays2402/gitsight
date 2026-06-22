@@ -697,6 +697,11 @@
         "icon": "$(tag)"
       },
       {
+        "command": "gitsight.prDescriptionFromSelection",
+        "title": "GitSight: PR Description from Selection (AI)\u2026",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "gitsight.generateCommitMessage",
         "title": "GitSight: Generate AI Commit Message",
         "icon": "$(sparkle)"
@@ -1165,6 +1170,11 @@
         {
           "command": "gitsight.restoreFileFromCommit",
           "group": "gitsight@5"
+        },
+        {
+          "command": "gitsight.prDescriptionFromSelection",
+          "group": "gitsight@6",
+          "when": "editorHasSelection"
         }
       ],
       "editor/title": [
