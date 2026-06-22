@@ -392,6 +392,13 @@
 - [x] F74: `gh release` companion — DONE tick 13.
 - [x] F75: PR review-request inbox — DONE tick 13.
 
+### Tick 14 (2026-06-21 22:47 PT) — IN PROGRESS
+- [ ] **F77**: PR Draft Auto-Sync — post-push, update draft PR body from `<upstream>..HEAD` diff via `gh pr edit --body-file`
+- [ ] **F78**: Conflict Marker Pre-Stage Gate — pill + picker that blocks commits when staged files still contain `<<<<<<<` markers
+- [ ] **F80**: Stash-on-Branch-Switch — after checkout, offer to apply stashes made on the destination branch
+- [ ] **F81**: Recent Contributors Hover — file hover surfaces last N unique contributors with last-touch date
+- [ ] **F61**: Commit Graph PNG/SVG Export — toolbar button on CommitGraphPanel writes graph image to workspace
+
 ### Tick 14 candidates (drafted now so future ticks don't restart cold)
 - [ ] F53: Commit-Detail Webview (F13 carry-over, multi-tick) — open a commit in a rich webview with header/stats/per-file-diff tabs and per-file blame links. The existing showCommitDetail dumps a flat diff into a scratch buffer; this is the polish counterpart that matches CommitGraphPanel + StashVisualizer.
 - [ ] F61: Branch-graph PNG export (F61 carry-over) — for the existing CommitGraphPanel, add an "Export as PNG" toolbar button (canvas2img via the webview, drop the file into the workspace root with a timestamped filename).

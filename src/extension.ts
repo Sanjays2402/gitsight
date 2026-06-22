@@ -94,6 +94,7 @@ import { forcePush, checkBranchProtection } from './views/forcePushGuard';
 import { showCommitFooterComposer } from './views/commitFooter';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
+import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -397,6 +398,10 @@ export function activate(ctx: vscode.ExtensionContext) {
       return;
     }
     await withAuthSanityCheck(git, 'origin', () => git.push('origin', branch));
+    // PR Draft Auto-Sync (F77): if the just-pushed branch has an open
+    // DRAFT PR on GitHub, refresh its body from <base>..HEAD. Fire-and-
+    // forget so a transient gh failure never blocks the push.
+    runPrDraftSyncFireAndForget(git, branch);
     refreshAll();
   }));
   reg('gitsight.addRemote', () => errorWrap(async () => {

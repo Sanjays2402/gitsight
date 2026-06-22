@@ -1918,6 +1918,30 @@
           "type": "boolean",
           "default": false,
           "description": "When ON, draft PRs awaiting your review appear in the inbox. Draft PRs are sorted to the end of the list and labelled as such."
+        },
+        "gitsight.prDraftSync.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, a successful `gitsight.push` checks whether the current branch has an open DRAFT PR on GitHub and refreshes its body from `<base>..HEAD` (commits + files list) inside a managed marker block. Non-draft PRs are skipped, and anything outside the markers is preserved verbatim."
+        },
+        "gitsight.prDraftSync.maxCommits": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Cap on the commit list embedded in the synced PR body. Commits are listed oldest-first; older commits are truncated when the count exceeds the cap."
+        },
+        "gitsight.prDraftSync.maxFiles": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Cap on the file list embedded in the synced PR body. Files are listed alphabetically; the list is truncated when it exceeds the cap."
+        },
+        "gitsight.prDraftSync.baseRef": {
+          "type": "string",
+          "default": "",
+          "description": "Override the base ref used for the commit/file diff. Empty (default) uses the PR's own baseRefName as reported by `gh pr view`. Useful when your repo's default branch differs from the PR's base for some reason."
         }
       }
     },
