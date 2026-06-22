@@ -91,12 +91,13 @@ export async function showPrReviewInbox(git: Git): Promise<void> {
 }
 
 async function showPrActions(git: Git, entry: PrReviewEntry): Promise<void> {
-  type Pk = vscode.QuickPickItem & { _action: 'open' | 'copy' | 'checkout' };
+  type Pk = vscode.QuickPickItem & { _action: 'open' | 'copy' | 'checkout' | 'preflight' };
   const headline = `${entry.repoSlug}#${entry.number} \u00b7 ${entry.title}`;
   const action = await vscode.window.showQuickPick<Pk>([
     { label: headline, kind: vscode.QuickPickItemKind.Separator } as any,
     { label: '$(globe) Open in browser',           description: entry.url, _action: 'open'     },
     { label: '$(clippy) Copy PR URL',              description: entry.url, _action: 'copy'     },
+    { label: '$(rocket) Run checkout pre-flight',  description: 'safety checks before gh pr checkout', _action: 'preflight' },
     { label: '$(git-pull-request) Checkout locally', description: `gh pr checkout ${entry.number}`, _action: 'checkout' },
   ], { placeHolder: `PR ${entry.repoSlug}#${entry.number}`, matchOnDescription: true });
   if (!action || !action._action) return;
@@ -108,6 +109,16 @@ async function showPrActions(git: Git, entry: PrReviewEntry): Promise<void> {
   if (action._action === 'copy') {
     await vscode.env.clipboard.writeText(entry.url);
     vscode.window.setStatusBarMessage(`Copied ${entry.repoSlug}#${entry.number} URL`, 2000);
+    return;
+  }
+  if (action._action === 'preflight') {
+    await vscode.commands.executeCommand('gitsight.prCheckoutPreflight', {
+      number: entry.number,
+      repoSlug: entry.repoSlug,
+      headRefName: entry.headRefName,
+      baseRefName: entry.baseRefName,
+      url: entry.url,
+    });
     return;
   }
   if (action._action === 'checkout') {

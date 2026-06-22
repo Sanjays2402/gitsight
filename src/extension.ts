@@ -95,6 +95,7 @@ import { showCommitFooterComposer } from './views/commitFooter';
 import { insertIssueAtCursor, insertIssueAsMarkdownLink, appendIssueTrailerToScm } from './views/issueInsert';
 import { showWhatsMineDashboard } from './views/whatsMine';
 import { CodeownersValidatorController, runValidateCodeowners } from './views/codeownersValidator';
+import { runPrCheckoutPreflight, runPrCheckoutPreflightInteractive } from './views/prCheckoutPreflight';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
 import { runPrDraftSyncFireAndForget } from './views/prDraftSync';
@@ -1086,6 +1087,16 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(codeownersValidator);
   reg('gitsight.validateCodeowners', () => errorWrap(async () => {
     await runValidateCodeowners(repos);
+  }));
+
+  // ── PR checkout pre-flight (F101) ───────────────────────────────
+  reg('gitsight.prCheckoutPreflight', (arg: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    if (arg && typeof arg === 'object' && typeof arg.number === 'number' && typeof arg.repoSlug === 'string') {
+      await runPrCheckoutPreflight(git, arg);
+    } else {
+      await runPrCheckoutPreflightInteractive(git);
+    }
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────

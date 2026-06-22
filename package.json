@@ -687,6 +687,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.prCheckoutPreflight",
+        "title": "GitSight: PR Checkout Pre-Flight\u2026",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "gitsight.releasesCompanion",
         "title": "GitSight: GitHub Releases\u2026",
         "icon": "$(rocket)"
@@ -2164,6 +2169,13 @@
           "type": "boolean",
           "default": true,
           "description": "When ON, GitSight lints CODEOWNERS files (root, .github/, docs/) on every open / save / edit and emits findings into the Problems panel: invalid owners (errors), negation patterns + duplicate rules + shadowed rules (warnings), and empty-owner / dead-pattern rules (info)."
+        },
+        "gitsight.prCheckoutPreflight.recentWindowDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How many days back to consider when computing the conflict-risk overlap between PR files and the user's recent commits. 7 catches the typical week of in-flight work."
         },
         "gitsight.prDraftSync.enabled": {
           "type": "boolean",
