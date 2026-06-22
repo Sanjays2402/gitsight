@@ -52,6 +52,12 @@ import {
   DiffSizeDecision,
   DiffSizeStats,
 } from '../git/diffSizeHeuristic';
+import {
+  clusterDiffRows,
+  buildSplitCommands,
+  summariseClusters,
+  describeCluster,
+} from '../git/diffSplitSuggester';
 
 const SHOW_COMMAND = 'gitsight.diffSize.show';
 const RESCAN_COMMAND = 'gitsight.diffSize.rescan';
@@ -183,7 +189,7 @@ export class DiffSizeHeuristicController implements vscode.Disposable {
       return;
     }
     const { stats, decision, repo } = state;
-    type Pk = vscode.QuickPickItem & { _action: 'addp' | 'unstage' | 'numstat' | 'noop' };
+    type Pk = vscode.QuickPickItem & { _action: 'addp' | 'unstage' | 'numstat' | 'split' | 'noop' };
     const items: Pk[] = [];
     items.push({
       label: decision.summary,
@@ -195,6 +201,23 @@ export class DiffSizeHeuristicController implements vscode.Disposable {
       description: 'Interactive hunk-by-hunk staging — split a big working tree into focused commits',
       _action: 'addp',
     });
+    // F95: surface the auto-split suggester for huge / warning diffs where
+    // it adds the most value. `noisy` already has its own recovery path
+    // (commit the lockfile separately), and `ok` doesn't need a split.
+    if (decision.severity === 'huge' || decision.severity === 'warning') {
+      const preview = clusterDiffRows({
+        rows: stats.rows,
+        preferredType: extractSubjectType(this.lastScmValue),
+      });
+      if (preview.length >= 2) {
+        items.push({
+          label: '$(layers) Suggest a commit split\u2026',
+          description: summariseClusters(preview),
+          detail: `Groups the staged change into ${preview.length} coherent commits (kind \u00b7 top-level path)`,
+          _action: 'split',
+        });
+      }
+    }
     if (stats.files > 1) {
       items.push({
         label: '$(discard) Unstage some files\u2026',
@@ -215,6 +238,7 @@ export class DiffSizeHeuristicController implements vscode.Disposable {
     if (picked._action === 'addp') return this.openAddP(repo);
     if (picked._action === 'unstage') return this.unstagePicker(repo, stats);
     if (picked._action === 'numstat') return this.showNumstat(stats);
+    if (picked._action === 'split') return this.showSplitSuggestion(repo, stats);
   }
 
   private openAddP(repo: string): void {
@@ -274,6 +298,72 @@ export class DiffSizeHeuristicController implements vscode.Disposable {
     }
     const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: lines.join('\n') + '\n' });
     await vscode.window.showTextDocument(doc, { preview: true });
+  }
+
+  /**
+   * F95 — open a markdown preview of the suggested commit-split plan +
+   * offer to drop the user into a terminal pre-loaded with the script.
+   * We NEVER run the commands automatically; the destructive bits
+   * (stage rewrites, multiple commits) stay under user control.
+   */
+  private async showSplitSuggestion(repo: string, stats: DiffSizeStats): Promise<void> {
+    const clusters = clusterDiffRows({
+      rows: stats.rows,
+      preferredType: extractSubjectType(this.lastScmValue),
+    });
+    if (clusters.length < 2) {
+      vscode.window.showInformationMessage('GitSight: split suggester found only one coherent cluster.');
+      return;
+    }
+    const cmds = buildSplitCommands(clusters);
+    const lines: string[] = [];
+    lines.push('# GitSight \u00b7 Suggested commit split');
+    lines.push('');
+    lines.push(`Staged diff: ${stats.files} file${stats.files === 1 ? '' : 's'}, +${stats.added} / -${stats.deleted}.`);
+    lines.push(`Plan: ${clusters.length} commits.`);
+    lines.push('');
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i];
+      lines.push(`## ${i + 1}. ${describeCluster(c)} \u2014 +${c.added} / -${c.deleted}`);
+      lines.push('');
+      lines.push(`**subject**: \`${c.suggestedSubject}\``);
+      lines.push('');
+      lines.push('**files**:');
+      for (const p of c.paths) lines.push(`- \`${p}\``);
+      lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+    lines.push('## Commands to run');
+    lines.push('');
+    lines.push('```bash');
+    lines.push(...cmds);
+    lines.push('```');
+    lines.push('');
+    lines.push('> Adjust the subjects + path lists before running. Use the **Open in terminal** action to drop this into a fresh shell.');
+    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: lines.join('\n') });
+    await vscode.window.showTextDocument(doc, { preview: true });
+
+    const action = await vscode.window.showInformationMessage(
+      `GitSight: previewed ${clusters.length}-commit split plan. Open a terminal with the commands?`,
+      'Open terminal', 'Copy commands', 'Dismiss',
+    );
+    if (action === 'Open terminal') {
+      const term = vscode.window.createTerminal({ name: 'gitsight: split', cwd: repo });
+      term.show();
+      // Send each line as-is so the user reviews + presses Enter manually.
+      // We DO NOT execute the script automatically — destructive intent
+      // belongs to the user.
+      for (const line of cmds) {
+        if (!line) { term.sendText('', true); continue; }
+        // `false` keeps the newline off so the line stays editable.
+        term.sendText(line, false);
+        term.sendText('', true);
+      }
+    } else if (action === 'Copy commands') {
+      await vscode.env.clipboard.writeText(cmds.join('\n') + '\n');
+      vscode.window.setStatusBarMessage('GitSight: split commands copied to clipboard', 3000);
+    }
   }
 
   dispose(): void {
