@@ -129,6 +129,7 @@ import { showBranchProtectionOverview } from './views/branchProtectionOverview';
 import { showWhatsStaleDashboard } from './views/whatsStale';
 import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 import { showTestImpactForCurrentPr } from './views/testImpact';
+import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1310,6 +1311,14 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Test-Impact Suggester (F122) ────────────────────────────────
   reg('gitsight.testImpact', () => errorWrap(async () => {
     await showTestImpactForCurrentPr(repos);
+  }));
+
+  // ── PR Review Submitter (F123) ──────────────────────────────────
+  reg('gitsight.submitPrReview', (arg: any) => errorWrap(async () => {
+    await submitPrReview(repos, arg);
+  }));
+  reg('gitsight.submitPrReviewApprove', (arg: any) => errorWrap(async () => {
+    await approvePrQuick(repos, arg);
   }));
 }
 

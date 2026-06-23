@@ -797,6 +797,16 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "gitsight.submitPrReview",
+        "title": "GitSight: Submit PR Review (approve / request changes / comment)\u2026",
+        "icon": "$(verified)"
+      },
+      {
+        "command": "gitsight.submitPrReviewApprove",
+        "title": "GitSight: Quick Approve current PR",
+        "icon": "$(check)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2493,6 +2503,12 @@
           "type": "boolean",
           "default": true,
           "description": "When true, also include test files whose stem matches a source file's stem under sibling test dirs (e.g. src/foo.ts -> test/foo.test.ts). Lower-confidence signal."
+        },
+        "gitsight.prReview.approveBodyPrompt": {
+          "type": "string",
+          "enum": ["ask", "always", "never"],
+          "default": "ask",
+          "description": "When submitting an approve review, whether to prompt for an optional body. ask = quick-pick between with/without; always = always open the body editor; never = approve without a body."
         }
       }
     },
