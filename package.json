@@ -792,6 +792,11 @@
         "icon": "$(diff-removed)"
       },
       {
+        "command": "gitsight.testImpact",
+        "title": "GitSight: PR Test Impact (likely-touched tests)\u2026",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2476,6 +2481,18 @@
           "enum": ["merge", "squash", "rebase"],
           "default": "merge",
           "description": "Default merge strategy when adding a PR to the merge queue (mergeQueueEnqueue). Each invocation still lets you override via the picker."
+        },
+        "gitsight.testImpact.sourceCap": {
+          "type": "number",
+          "default": 100,
+          "minimum": 5,
+          "maximum": 500,
+          "description": "Maximum number of changed source files to score when computing test impact. Larger numbers mean more thorough analysis but more git grep round-trips."
+        },
+        "gitsight.testImpact.includeNamingSiblings": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, also include test files whose stem matches a source file's stem under sibling test dirs (e.g. src/foo.ts -> test/foo.test.ts). Lower-confidence signal."
         }
       }
     },

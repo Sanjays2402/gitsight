@@ -128,6 +128,7 @@ import { runMergeQueueStatus } from './views/mergeQueue';
 import { showBranchProtectionOverview } from './views/branchProtectionOverview';
 import { showWhatsStaleDashboard } from './views/whatsStale';
 import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
+import { showTestImpactForCurrentPr } from './views/testImpact';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1304,6 +1305,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   reg('gitsight.mergeQueueDequeue', () => errorWrap(async () => {
     await dequeueCurrentPr(repos);
+  }));
+
+  // ── Test-Impact Suggester (F122) ────────────────────────────────
+  reg('gitsight.testImpact', () => errorWrap(async () => {
+    await showTestImpactForCurrentPr(repos);
   }));
 }
 
