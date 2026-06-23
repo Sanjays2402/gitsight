@@ -41,6 +41,16 @@ import {
   RuleSuggestion,
   EnvironmentSignals,
 } from '../git/branchProtectionSuggest';
+import {
+  computeProtectionDelta,
+  classifyDeltaVerdict,
+  selectDeltaRows,
+  describeDeltaRow,
+  describeDeltaTitle,
+  buildDeltaReport,
+  pickAllChanges,
+  ProtectionRuleDelta,
+} from '../git/branchProtectionSuggestDelta';
 
 const pexec = promisify(execFile);
 
@@ -285,4 +295,153 @@ async function applyProtection(owner: string, repo: string, branch: string, body
   } finally {
     await fs.unlink(tmp).catch(() => {});
   }
+}
+
+/**
+ * F135 - Delta-only picker for branch protection.
+ *
+ * When the user re-runs the suggester on a branch that already has
+ * rules, show only the CHANGES (would-add / would-strengthen) rather
+ * than the full picker. Mirrors the same data-gathering path as
+ * `suggestBranchProtection` but routes through the delta classifier.
+ *
+ * When there are no deltas, surfaces a quick info message rather than
+ * an empty picker.
+ */
+export async function suggestBranchProtectionDelta(repos: RepoManager, branchHint?: string): Promise<void> {
+  const git = repos.primary();
+  if (!git) {
+    vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    return;
+  }
+  if (!(await ghAvailable())) {
+    vscode.window.showWarningMessage('GitSight: gh CLI not found - cannot probe or set branch protection.');
+    return;
+  }
+  const repo = await resolveGitHubRepo(git);
+  if (!repo) {
+    vscode.window.showInformationMessage('GitSight: origin is not a GitHub remote.');
+    return;
+  }
+  const branch = await resolveBranch(git, branchHint);
+  if (!branch) {
+    vscode.window.showInformationMessage('GitSight: no branch selected (detached HEAD?).');
+    return;
+  }
+
+  const result = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GitSight: computing protection delta for \`${branch}\`\u2026`,
+    },
+    async () => {
+      const [decision, defaultBranch, signals] = await Promise.all([
+        probeBranch(repo.owner, repo.repo, branch),
+        loadDefaultBranch(git),
+        loadEnvironmentSignals(git),
+      ]);
+      const role = classifyBranchRole({ branch, defaultBranch });
+      const suggestions = suggestProtectionRules({ branch, role, current: decision, signals });
+      const deltas = computeProtectionDelta({ current: decision, proposed: suggestions });
+      return { decision, defaultBranch, signals, role, suggestions, deltas };
+    },
+  );
+
+  const verdict = classifyDeltaVerdict(result.deltas);
+  if (verdict === 'no-delta') {
+    const choice = await vscode.window.showInformationMessage(
+      `GitSight: \`${branch}\` (${result.role}) is already at the proposed baseline.`,
+      'Open full picker', 'Open report',
+    );
+    if (choice === 'Open full picker') {
+      await suggestBranchProtection(repos, branch);
+    } else if (choice === 'Open report') {
+      await openDeltaReport(branch, result.deltas);
+    }
+    return;
+  }
+
+  // Build the delta picker.
+  const visibleDeltas = selectDeltaRows(result.deltas);
+  const picked = await pickDeltas(branch, visibleDeltas, result.deltas);
+  if (!picked || picked.length === 0) return;
+
+  const ok = await vscode.window.showWarningMessage(
+    `Apply ${picked.length} change${picked.length === 1 ? '' : 's'} to \`${branch}\` on ${repo.owner}/${repo.repo}?`,
+    {
+      modal: true,
+      detail: picked.map(p => `\u2022 ${labelForDelta(p)}`).join('\n')
+        + '\n\nThis sends a PUT to the GitHub branch-protection API. Existing enabled rules are preserved.',
+    },
+    'Apply',
+  );
+  if (ok !== 'Apply') return;
+
+  const currentlyEnabled = new Set<string>();
+  if (result.decision.kind === 'protected') {
+    for (const r of result.decision.rules) if (r.enabled) currentlyEnabled.add(r.id);
+  }
+  const body = buildProtectionPutBody({
+    picked: picked.map(p => p.id),
+    currentlyEnabled: currentlyEnabled as Set<any>,
+    statusCheckContexts: result.signals.workflowJobNames,
+  });
+  await applyProtection(repo.owner, repo.repo, branch, body);
+}
+
+function labelForDelta(d: ProtectionRuleDelta): string {
+  const kind = d.change === 'would-add' ? 'add' : 'enable';
+  return `${d.label} (${kind})`;
+}
+
+async function pickDeltas(
+  branch: string,
+  visible: ProtectionRuleDelta[],
+  all: ProtectionRuleDelta[],
+): Promise<ProtectionRuleDelta[] | undefined> {
+  type Pk = vscode.QuickPickItem & { _d?: ProtectionRuleDelta; _allChanges?: true; _report?: true };
+  const items: Pk[] = [];
+  if (visible.length > 1) {
+    items.push({
+      label: '$(check-all) Apply all changes',
+      description: `${visible.length} pending`,
+      _allChanges: true,
+    });
+    items.push({ label: '', kind: vscode.QuickPickItemKind.Separator } as any);
+  }
+  for (const d of visible) {
+    const glyph = d.change === 'would-add' ? 'add' : 'plus';
+    items.push({
+      label: `$(${glyph}) ${d.label}`,
+      description: d.change === 'would-add' ? 'add' : 'strengthen',
+      detail: describeDeltaRow(d),
+      picked: d.strength === 'recommended',
+      _d: d,
+    });
+  }
+  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator } as any);
+  items.push({ label: '$(file) Open full delta report', _report: true });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    title: describeDeltaTitle(branch, all),
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+  if (!picked) return undefined;
+  if (picked.some(p => p._report)) {
+    await openDeltaReport(branch, all);
+    return undefined;
+  }
+  if (picked.some(p => p._allChanges)) {
+    const allIds = new Set(pickAllChanges(all));
+    return all.filter(d => allIds.has(d.id));
+  }
+  return picked.map(p => p._d!).filter(Boolean);
+}
+
+async function openDeltaReport(branch: string, deltas: ProtectionRuleDelta[]): Promise<void> {
+  const md = buildDeltaReport({ branch, deltas });
+  const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+  await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 }

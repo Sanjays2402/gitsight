@@ -822,6 +822,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.suggestBranchProtectionDelta",
+        "title": "GitSight: Suggest Branch Protection (Delta-Only)\u2026",
+        "icon": "$(diff)"
+      },
+      {
         "command": "gitsight.exportStashPatches",
         "title": "GitSight: Export Stash Patches\u2026",
         "icon": "$(save)"
