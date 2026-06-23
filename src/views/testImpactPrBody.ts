@@ -268,6 +268,10 @@ export interface AutoSyncResult {
   outcome: TestImpactAutoSyncOutcome;
   prNumber?: number;
   reason?: string;
+  /** F134: structured delta when the rewrite refreshed an existing block. */
+  diffHeadline?: string;
+  /** F134: full delta object when caller needs deeper inspection. */
+  diff?: import('../git/testImpactPrBodyDelta').TestImpactDiff;
 }
 
 export async function runTestImpactAutoSync(repos: RepoManager, branch?: string): Promise<AutoSyncResult> {
@@ -317,13 +321,66 @@ export async function runTestImpactAutoSync(repos: RepoManager, branch?: string)
   if (verdict.outcome === 'no-change') return { outcome: 'no-change', prNumber: pr.number };
   if (verdict.outcome !== 'refreshed') return { outcome: verdict.outcome, prNumber: pr.number, reason: verdict.reason };
 
+  // F134 - compute structured delta BEFORE we write so the status bar
+  // can render "+2 tests, -1 stale" instead of just "refreshed".
+  let diff: import('../git/testImpactPrBodyDelta').TestImpactDiff | undefined;
+  let diffHeadline: string | undefined;
+  try {
+    const oldOpen = pr.body.indexOf(TEST_IMPACT_OPEN_MARKER);
+    const oldClose = pr.body.indexOf('<!-- /GITSIGHT:TEST-IMPACT -->');
+    if (oldOpen >= 0 && oldClose > oldOpen) {
+      const oldBlock = pr.body.slice(oldOpen, oldClose + '<!-- /GITSIGHT:TEST-IMPACT -->'.length);
+      const { diffTestImpactBlocks, summariseDiffHeadline } = await import('../git/testImpactPrBodyDelta');
+      diff = diffTestImpactBlocks(oldBlock, block);
+      diffHeadline = summariseDiffHeadline(diff);
+    }
+  } catch { /* delta is a bonus, never block the sync */ }
+
   const next = injectTestImpactBlock(pr.body, block);
   try {
     await editPrBodyForSync(repo, pr.number, next);
-    return { outcome: 'refreshed', prNumber: pr.number };
+    // F134 - optional per-push delta comment.
+    await maybePostDeltaComment(repo, pr.number, diff);
+    return { outcome: 'refreshed', prNumber: pr.number, diffHeadline, diff };
   } catch (e: any) {
     return { outcome: 'failed', prNumber: pr.number, reason: shortError(e) };
   }
+}
+
+/**
+ * F134 - opportunistic delta comment. Gated by:
+ *   - gitsight.testImpactPrBody.postDeltaComment (default false)
+ *   - shouldPostDeltaComment verdict (structural change or
+ *     big rescore)
+ *
+ * Fire-and-forget - never throws. Returns silently when not configured.
+ */
+async function maybePostDeltaComment(
+  repo: RepoSlug,
+  prNumber: number,
+  diff: import('../git/testImpactPrBodyDelta').TestImpactDiff | undefined,
+): Promise<void> {
+  if (!diff) return;
+  const cfg = vscode.workspace.getConfiguration('gitsight.testImpactPrBody');
+  if (!cfg.get<boolean>('postDeltaComment', false)) return;
+  const threshold = cfg.get<number>('deltaCommentRescoreThreshold', 10);
+  try {
+    const { shouldPostDeltaComment, buildDeltaCommentBody } = await import('../git/testImpactPrBodyDelta');
+    if (shouldPostDeltaComment({ diff, rescoreThreshold: threshold }) !== 'post') return;
+    const body = buildDeltaCommentBody({ diff });
+    if (!body || !body.trim()) return;
+    const tmp = path.join(os.tmpdir(), `gitsight-test-impact-delta-${prNumber}.md`);
+    await fs.writeFile(tmp, body, 'utf8');
+    try {
+      await pexec('gh', [
+        'pr', 'comment', String(prNumber),
+        '--repo', `${repo.owner}/${repo.repo}`,
+        '--body-file', tmp,
+      ], { timeout: 12000, maxBuffer: 4 * 1024 * 1024 });
+    } finally {
+      try { await fs.unlink(tmp); } catch { /* ignore */ }
+    }
+  } catch { /* comment is a bonus, sync already wrote the body */ }
 }
 
 /**
@@ -338,7 +395,9 @@ export function runTestImpactAutoSyncFireAndForget(repos: RepoManager, branch?: 
       switch (r.outcome) {
         case 'refreshed':
           vscode.window.setStatusBarMessage(
-            `GitSight: refreshed test-impact in PR #${r.prNumber}`,
+            r.diffHeadline && r.diffHeadline !== 'no change'
+              ? `GitSight: refreshed test-impact in PR #${r.prNumber} (${r.diffHeadline})`
+              : `GitSight: refreshed test-impact in PR #${r.prNumber}`,
             4000,
           );
           break;

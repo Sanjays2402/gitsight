@@ -2582,6 +2582,18 @@
           "default": true,
           "description": "F129: when ON, after every `gitsight.push` GitSight refreshes the test-impact block in the current branch's open PR IF the body already contains the F125 managed block. Branches without the block stay untouched (run `Inject Test-Impact into PR Body` once to opt in). Set OFF to keep the block static between manual refreshes."
         },
+        "gitsight.testImpactPrBody.postDeltaComment": {
+          "type": "boolean",
+          "default": false,
+          "description": "F134: when ON (and auto-sync is also ON), every time the test-impact block REFRESHES with structural changes (added/removed tests OR a big rescore) GitSight posts a per-push PR comment summarising the delta. Default is OFF because per-push comments can be noisy; turn ON for review-heavy projects where reviewers want explicit notifications when the suggested test set shifts."
+        },
+        "gitsight.testImpactPrBody.deltaCommentRescoreThreshold": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "F134: minimum abs(scoreDelta) for a rescore-only delta to trigger a PR comment (when postDeltaComment is ON). Lower = more comments; higher = fewer comments. Structural changes (added/removed tests) always post regardless of this threshold."
+        },
         "gitsight.stashTrash.exportPatchesByDefault": {
           "type": "boolean",
           "default": false,
