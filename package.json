@@ -827,6 +827,11 @@
         "icon": "$(save)"
       },
       {
+        "command": "gitsight.importStashPatch",
+        "title": "GitSight: Import Stash Patch\u2026",
+        "icon": "$(arrow-down)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
