@@ -2432,6 +2432,11 @@
           "default": "slash",
           "description": "Separator between conventional type and slug. `slash` gives `feat/add-logout` (default, matches GitHub flow conventions); `kebab` gives `feat-add-logout`; `none` drops the type prefix entirely."
         },
+        "gitsight.branchProtectionSuggest.autoOfferOnCreate": {
+          "type": "boolean",
+          "default": true,
+          "description": "F130: when ON, after creating a branch via `gitsight.createBranch` whose name classifies as `default` / `release` / `hotfix` / `long-lived` (e.g. `release/2026.q2`, `hotfix/cve-fix`, `develop`), GitSight asks once whether you want to run the protection-rule suggester. Personal `feature/*` branches are never prompted. Dismiss stays silent for the rest of the session for that branch name."
+        },
         "gitsight.complexityBadge.enabled": {
           "type": "boolean",
           "default": true,

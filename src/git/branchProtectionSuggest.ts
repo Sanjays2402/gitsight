@@ -89,6 +89,59 @@ export function classifyBranchRole(args: BranchRoleArgs): BranchRole {
   return 'other';
 }
 
+/**
+ * F130 - Decide whether a freshly-created branch SHOULD be offered the
+ * F126 protection-suggestion picker as a follow-up.
+ *
+ * Auto-offer policy:
+ *   - 'default'    -> ALWAYS offer (someone re-created main from scratch)
+ *   - 'release'    -> ALWAYS offer (release/* branches need rules)
+ *   - 'hotfix'     -> offer (hotfixes deserve at least required-reviews)
+ *   - 'long-lived' -> offer (develop/staging/qa want rules too)
+ *   - 'feature'    -> SKIP (personal branches don't need protection)
+ *   - 'other'      -> SKIP (we'd be guessing)
+ *
+ * The view layer should ALSO respect the user's config opt-out
+ * (gitsight.branchProtectionSuggest.autoOfferOnCreate). When opt-out
+ * is on, this verdict never gets a chance to fire.
+ */
+export type AutoOfferVerdict = 'offer' | 'skip';
+
+export function shouldAutoOfferProtection(role: BranchRole): AutoOfferVerdict {
+  switch (role) {
+    case 'default':
+    case 'release':
+    case 'hotfix':
+    case 'long-lived':
+      return 'offer';
+    case 'feature':
+    case 'other':
+      return 'skip';
+  }
+}
+
+/**
+ * Human-readable rationale shown in the toast when auto-offering. The
+ * view layer concatenates this onto the toast body so the user knows
+ * WHY GitSight is asking.
+ */
+export function describeAutoOfferRationale(role: BranchRole): string {
+  switch (role) {
+    case 'default':
+      return 'this looks like a default branch (main / master / trunk)';
+    case 'release':
+      return 'this looks like a release branch';
+    case 'hotfix':
+      return 'this looks like a hotfix branch';
+    case 'long-lived':
+      return 'this looks like a long-lived branch (develop / staging / qa)';
+    case 'feature':
+      return 'this looks like a feature branch';
+    case 'other':
+      return 'unable to classify branch role';
+  }
+}
+
 /** Signals the view layer probes once before calling the suggester. */
 export interface EnvironmentSignals {
   /** True when `.github/workflows/*.{yml,yaml}` exists. */

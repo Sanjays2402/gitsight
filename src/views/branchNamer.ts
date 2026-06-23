@@ -28,6 +28,11 @@ import {
   bestBranchSuggestion,
   BranchNameSuggestion,
 } from '../git/branchNamer';
+import {
+  classifyBranchRole,
+  shouldAutoOfferProtection,
+  describeAutoOfferRationale,
+} from '../git/branchProtectionSuggest';
 
 export async function createBranchWithAssistant(git: Git, _repos: RepoManager): Promise<void> {
   const cfg = vscode.workspace.getConfiguration('gitsight.branchNamer');
@@ -58,6 +63,71 @@ export async function createBranchWithAssistant(git: Git, _repos: RepoManager): 
   await git.createBranch(name);
   const checkout = await vscode.window.showInformationMessage(`Branch '${name}' created`, 'Checkout');
   if (checkout === 'Checkout') await git.checkout(name);
+
+  // F130: For branches with a "needs-protection" role (default / release /
+  // hotfix / long-lived), proactively offer the F126 picker. The classifier
+  // skips feature/* and other shapes - personal branches don't need
+  // protection. Honour the user's opt-out config so this never becomes
+  // surprise-noise.
+  await offerProtectionForNewBranch(git, name);
+}
+
+/**
+ * F130 - After a branch is created, classify its role and (when
+ * classifier says "offer") surface a non-modal info toast asking
+ * whether the user wants to run the F126 suggestion picker.
+ *
+ * The user has THREE choices: Suggest rules / Open settings / Dismiss.
+ * "Dismiss" stays silent for the rest of this session for this branch
+ * via a session-only cache so repeated checkouts don't re-prompt.
+ *
+ * Errors swallowed - the branch already created successfully; an offer
+ * failure shouldn't bubble.
+ */
+const dismissedBranches = new Set<string>();
+async function offerProtectionForNewBranch(git: Git, branch: string): Promise<void> {
+  try {
+    const cfg = vscode.workspace.getConfiguration('gitsight.branchProtectionSuggest');
+    if (!cfg.get<boolean>('autoOfferOnCreate', true)) return;
+    const key = branch.toLowerCase();
+    if (dismissedBranches.has(key)) return;
+    const defaultBranch = await readDefaultBranch(git);
+    const role = classifyBranchRole({ branch, defaultBranch });
+    if (shouldAutoOfferProtection(role) !== 'offer') return;
+    const rationale = describeAutoOfferRationale(role);
+    const action = await vscode.window.showInformationMessage(
+      `GitSight: protect new branch '${branch}'? (${rationale})`,
+      { modal: false },
+      'Suggest rules',
+      'Dismiss',
+    );
+    if (!action || action === 'Dismiss') {
+      dismissedBranches.add(key);
+      return;
+    }
+    if (action === 'Suggest rules') {
+      await vscode.commands.executeCommand('gitsight.suggestBranchProtection', branch);
+    }
+  } catch {
+    // Never surface as a modal - the branch creation already succeeded.
+  }
+}
+
+async function readDefaultBranch(git: Git): Promise<string | undefined> {
+  try {
+    const raw = await git.raw(['symbolic-ref', 'refs/remotes/origin/HEAD']);
+    const trimmed = raw.trim();
+    const m = /refs\/remotes\/origin\/(.+)$/.exec(trimmed);
+    return m?.[1];
+  } catch {
+    // Fall back to a config probe.
+    try {
+      const cfg = (await git.raw(['config', 'init.defaultBranch'])).trim();
+      return cfg || undefined;
+    } catch {
+      return undefined;
+    }
+  }
 }
 
 async function pickOrEdit(suggestions: BranchNameSuggestion[]): Promise<string | undefined> {
