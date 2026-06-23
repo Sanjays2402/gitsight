@@ -107,7 +107,8 @@
     "src/git/reviewSummaryAi.ts",
     "src/git/mergeQueue.ts",
     "src/git/branchProtectionOverview.ts",
-    "src/git/whatsStale.ts"
+    "src/git/whatsStale.ts",
+    "src/git/mergeQueueActions.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

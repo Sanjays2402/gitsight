@@ -127,6 +127,7 @@ import { summarisePrComments, normalisePrArg as normaliseReviewSummaryArg } from
 import { runMergeQueueStatus } from './views/mergeQueue';
 import { showBranchProtectionOverview } from './views/branchProtectionOverview';
 import { showWhatsStaleDashboard } from './views/whatsStale';
+import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1295,6 +1296,14 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── "What's Stale?" Dashboard (F120) ────────────────────────────
   reg('gitsight.whatsStale', () => errorWrap(async () => {
     await showWhatsStaleDashboard(repos);
+  }));
+
+  // ── Merge Queue Enqueue/Dequeue (F121) ──────────────────────────
+  reg('gitsight.mergeQueueEnqueue', () => errorWrap(async () => {
+    await enqueueCurrentPr(repos);
+  }));
+  reg('gitsight.mergeQueueDequeue', () => errorWrap(async () => {
+    await dequeueCurrentPr(repos);
   }));
 }
 

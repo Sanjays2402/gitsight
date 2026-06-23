@@ -782,6 +782,16 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitsight.mergeQueueEnqueue",
+        "title": "GitSight: Add current PR to Merge Queue\u2026",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "gitsight.mergeQueueDequeue",
+        "title": "GitSight: Remove current PR from Merge Queue\u2026",
+        "icon": "$(diff-removed)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2460,6 +2470,12 @@
           "type": "boolean",
           "default": false,
           "description": "When true, include worktrees whose only rot signal is age (existsOnDisk + upstream both fine) in the What's Stale picker. Otherwise only missing-on-disk + upstream-gone worktrees surface."
+        },
+        "gitsight.mergeQueueActions.defaultStrategy": {
+          "type": "string",
+          "enum": ["merge", "squash", "rebase"],
+          "default": "merge",
+          "description": "Default merge strategy when adding a PR to the merge queue (mergeQueueEnqueue). Each invocation still lets you override via the picker."
         }
       }
     },
