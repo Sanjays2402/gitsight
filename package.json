@@ -2321,6 +2321,17 @@
           "default": true,
           "description": "When ON, `gitsight.pull` intercepts the `Your local changes would be overwritten by merge` failure and offers a guided stash + pull + re-apply recovery. Falls back to a plain `git pull` failure toast for non-recoverable cases (untracked overwrite, in-progress merge/rebase, missing upstream). Composes with F43 stash naming and F48 / F80 auto-stash flows."
         },
+        "gitsight.branchNamer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, `gitsight.createBranch` shows a picker of suggested branch names derived from the SCM input box, editor selection, dirty paths, and active filename. Pick a suggestion or choose 'Type a custom name' for an input box prefilled with the top suggestion. Set OFF to get the bare input box behaviour."
+        },
+        "gitsight.branchNamer.separator": {
+          "type": "string",
+          "enum": ["slash", "kebab", "none"],
+          "default": "slash",
+          "description": "Separator between conventional type and slug. `slash` gives `feat/add-logout` (default, matches GitHub flow conventions); `kebab` gives `feat-add-logout`; `none` drops the type prefix entirely."
+        },
         "gitsight.recentContributors.enabled": {
           "type": "boolean",
           "default": true,

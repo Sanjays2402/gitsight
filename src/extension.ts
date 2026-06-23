@@ -114,6 +114,7 @@ import { showPrCommentsInbox } from './views/prComments';
 import { composeAndPostPrComment } from './views/prCommentCompose';
 import { resolvePrCommentThreads } from './views/prThreadResolve';
 import { runGuardedPull } from './views/stashOnPull';
+import { createBranchWithAssistant } from './views/branchNamer';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
@@ -333,11 +334,10 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   reg('gitsight.createBranch', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
-    const name = await vscode.window.showInputBox({ prompt: 'New branch name' });
-    if (!name) return;
-    await git.createBranch(name);
-    const checkout = await vscode.window.showInformationMessage(`Branch '${name}' created`, 'Checkout');
-    if (checkout === 'Checkout') await git.checkout(name);
+    // F110: prefill with a smart kebab name suggested from SCM input,
+    // selection, dirty paths, and active filename. Falls back to a plain
+    // input box when the assistant is disabled or returns no candidates.
+    await createBranchWithAssistant(git, repos);
     refreshAll();
   }));
   reg('gitsight.deleteBranch', (n: any) => errorWrap(async () => {
