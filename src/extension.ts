@@ -87,7 +87,7 @@ import { CommitScaffoldController } from './views/commitScaffold';
 import { showRerereCacheVisualizer } from './views/rerereCache';
 import { showWorktreePruner } from './views/worktreePruner';
 import { scoutAndCherryPick } from './views/cherryPickScout';
-import { showStashTrashBin } from './views/stashTrashBin';
+import { showStashTrashBin, exportStashPatches } from './views/stashTrashBin';
 import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
@@ -1337,6 +1337,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Branch Protection Rule Auto-Suggester (F126) ────────────────
   reg('gitsight.suggestBranchProtection', (branch?: string) => errorWrap(async () => {
     await suggestBranchProtection(repos, typeof branch === 'string' ? branch : undefined);
+  }));
+
+  // ── Stash Patch Export (F127) ───────────────────────────────────
+  reg('gitsight.exportStashPatches', () => errorWrap(async () => {
+    const git = primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    await exportStashPatches(git);
   }));
 }
 

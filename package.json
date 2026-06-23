@@ -822,6 +822,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "gitsight.exportStashPatches",
+        "title": "GitSight: Export Stash Patches\u2026",
+        "icon": "$(save)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2556,6 +2561,16 @@
           "type": "boolean",
           "default": true,
           "description": "When true, append a collapsible orphan-sources <details> block listing source files that had no suggested tests."
+        },
+        "gitsight.stashTrash.exportPatchesByDefault": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, the Stash Trash Bin always offers a 'save patches before dropping' modal. When false (default), the modal still appears for high-value stashes (named / branch-gone / >= 180 days old) but lower-value stashes drop straight away."
+        },
+        "gitsight.stashTrash.patchExportDir": {
+          "type": "string",
+          "default": ".gitsight/stash-patches",
+          "description": "Workspace-relative directory where exported stash .patch files are saved. Absolute paths also accepted. Created if missing."
         }
       }
     },
