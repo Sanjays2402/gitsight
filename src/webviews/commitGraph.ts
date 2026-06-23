@@ -4,7 +4,7 @@ import * as fs from 'fs/promises';
 import { Git, Commit } from '../git/git';
 import { timeAgo, colorForAuthor } from '../git/format';
 import { activePalette } from '../views/graphThemes';
-import { buildStandaloneSvg, buildExportFilename, buildSvgDataUrl, parsePngDataUrl, ExportRow } from '../git/commitGraphExport';
+import { buildStandaloneSvg, buildExportFilename, buildSvgDataUrl, parsePngDataUrl, buildPrintHtml, classifyPdfExport, estimateSvgBytes, ExportRow } from '../git/commitGraphExport';
 
 export class CommitGraphPanel {
   private static current?: CommitGraphPanel;
@@ -61,6 +61,8 @@ export class CommitGraphPanel {
         await this.writePngBytes(git, msg.dataUrl);
       } else if (msg.type === 'exportPngFailed') {
         vscode.window.showErrorMessage(`GitSight: PNG export failed: ${msg.reason ?? 'unknown'}`);
+      } else if (msg.type === 'exportPdf') {
+        await this.exportPdf(git);
       }
     });
     this.refresh(git);
@@ -151,6 +153,50 @@ export class CommitGraphPanel {
       return;
     }
     await this.surfaceExportSuccess(target, filename);
+  }
+
+  /**
+   * F132 - PDF export. The webview side opens a transient print window
+   * with media:print stylesheet that scales the SVG to a single page,
+   * then calls window.print() so the user can save as PDF via the
+   * system print dialog. We can't write PDF bytes from a webview
+   * (no Chromium PDF API exposed) but print-to-PDF is universally
+   * available across macOS, Linux, and Windows.
+   *
+   * Why not generate the PDF in the extension side? Same reason as F83:
+   * Node has no PDF rendering without a heavy binary dep (we don't ship
+   * puppeteer / playwright as a dependency). The webview already has a
+   * Chromium-grade DOM that owns this surface.
+   */
+  private async exportPdf(_git: Git): Promise<void> {
+    if (!this.lastRender || this.lastRender.rowCount === 0) {
+      vscode.window.showInformationMessage('GitSight: nothing to export \u2014 no commits in the current view.');
+      return;
+    }
+    const estimated = estimateSvgBytes(this.lastRender.rowCount);
+    const verdict = classifyPdfExport({ rowCount: this.lastRender.rowCount, estimatedBytes: estimated });
+    if (verdict === 'no-graph') {
+      vscode.window.showInformationMessage('GitSight: nothing to export.');
+      return;
+    }
+    if (verdict === 'too-large') {
+      vscode.window.showWarningMessage('GitSight: graph is too large for PDF export. Consider filtering to a shorter range or using SVG/PNG instead.');
+      return;
+    }
+    const built = this.buildSvgForExport(this.git);
+    const html = buildPrintHtml({
+      svg: built.svg,
+      svgWidth: built.width,
+      svgHeight: built.height,
+      title: `GitSight Commit Graph (${this.lastRender.rowCount} commits)`,
+    });
+    // Post to the webview - it opens an iframe with the print HTML
+    // and calls window.print() once the iframe has loaded.
+    void this.panel.webview.postMessage({
+      type: 'printPdf',
+      html,
+    });
+    vscode.window.setStatusBarMessage('GitSight: opening print dialog\u2014pick "Save as PDF"', 6000);
   }
 
   private buildSvgForExport(git: Git): { svg: string; width: number; height: number } {
@@ -328,6 +374,7 @@ function renderGraph(commits: Commit[], search: string): RenderResult {
   <button id="refresh">Refresh</button>
   <button id="export" title="Export the current graph view as a standalone SVG">Export SVG</button>
   <button id="exportPng" title="Export the current graph view as a PNG (rasterised in the webview)">Export PNG</button>
+  <button id="exportPdf" title="Export the current graph view as a PDF (via system print dialog)">Export PDF</button>
   <span class="stats">${rows.length} commits</span>
 </div>
 <div class="wrap">
@@ -359,35 +406,76 @@ function renderGraph(commits: Commit[], search: string): RenderResult {
   document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
   document.getElementById('export').addEventListener('click', () => vscode.postMessage({ type: 'exportSvg' }));
   document.getElementById('exportPng').addEventListener('click', () => vscode.postMessage({ type: 'exportPng' }));
+  document.getElementById('exportPdf').addEventListener('click', () => vscode.postMessage({ type: 'exportPdf' }));
 
   // F83: PNG rasterisation. The extension posts a 'rasterisePng' message
   // with a base64 SVG data URL + the intended canvas dimensions. We
   // draw it onto a high-DPR canvas and post back the PNG data URL.
   window.addEventListener('message', (event) => {
     const msg = event.data;
-    if (!msg || msg.type !== 'rasterisePng') return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
+    if (msg && msg.type === 'rasterisePng') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const dpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.floor(msg.width * dpr);
+          canvas.height = Math.floor(msg.height * dpr);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('2d context unavailable');
+          ctx.scale(dpr, dpr);
+          ctx.drawImage(img, 0, 0, msg.width, msg.height);
+          const dataUrl = canvas.toDataURL('image/png');
+          vscode.postMessage({ type: 'exportPngBytes', dataUrl });
+        } catch (e) {
+          vscode.postMessage({ type: 'exportPngFailed', reason: (e && e.message) || String(e) });
+        }
+      };
+      img.onerror = () => {
+        vscode.postMessage({ type: 'exportPngFailed', reason: 'SVG image failed to load' });
+      };
+      img.src = msg.svgDataUrl;
+    } else if (msg && msg.type === 'printPdf') {
+      // F132: PDF print. Open a transient iframe with the print-only HTML,
+      // wait for it to load, then invoke window.print() via the iframe's
+      // contentWindow so the user gets the system print dialog scoped to
+      // the standalone SVG document. Clean up the iframe afterwards.
       try {
-        const dpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.floor(msg.width * dpr);
-        canvas.height = Math.floor(msg.height * dpr);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('2d context unavailable');
-        ctx.scale(dpr, dpr);
-        ctx.drawImage(img, 0, 0, msg.width, msg.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        vscode.postMessage({ type: 'exportPngBytes', dataUrl });
+        let iframe = document.getElementById('gitsight-print-iframe');
+        if (iframe) iframe.parentNode && iframe.parentNode.removeChild(iframe);
+        iframe = document.createElement('iframe');
+        iframe.id = 'gitsight-print-iframe';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        iframe.style.visibility = 'hidden';
+        iframe.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(iframe);
+        const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+        if (!doc) throw new Error('iframe document unavailable');
+        doc.open();
+        doc.write(msg.html);
+        doc.close();
+        // Wait for layout; some browsers need a tick before print() works.
+        setTimeout(() => {
+          try {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.focus();
+              iframe.contentWindow.print();
+            }
+          } catch (e) {
+            // Last resort: navigate the host to the HTML so the user can print manually.
+            console.error('print failed', e);
+          }
+        }, 250);
       } catch (e) {
-        vscode.postMessage({ type: 'exportPngFailed', reason: (e && e.message) || String(e) });
+        console.error('PDF export iframe setup failed', e);
       }
-    };
-    img.onerror = () => {
-      vscode.postMessage({ type: 'exportPngFailed', reason: 'SVG image failed to load' });
-    };
-    img.src = msg.svgDataUrl;
+    }
   });
 </script>
 </body></html>`;

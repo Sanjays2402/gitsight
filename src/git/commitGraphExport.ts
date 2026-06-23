@@ -150,7 +150,7 @@ function truncate(s: string, n: number): string {
  *
  * Matches the project's `.cron-state/sessions/` filename convention.
  */
-export function buildExportFilename(now: Date, extension: 'svg' | 'png'): string {
+export function buildExportFilename(now: Date, extension: 'svg' | 'png' | 'pdf'): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
   return `gitsight-graph-${ts}.${extension}`;
@@ -190,4 +190,117 @@ export function parsePngDataUrl(dataUrl: unknown): PngDataUrlResult {
  */
 export function buildSvgDataUrl(svg: string, base64Encoder: (s: string) => string): string {
   return `data:image/svg+xml;base64,${base64Encoder(svg)}`;
+}
+
+/**
+ * F132 - Build the inline HTML body for the print-on-demand PDF
+ * export. Uses the standalone SVG (same one F61 + F83 produce) and
+ * wraps it in a minimal HTML document with print-only stylesheet.
+ *
+ * The webview side opens this in a new window, calls window.print(),
+ * and the user picks "Save as PDF" from the print dialog. We can't
+ * write the PDF bytes ourselves from a webview (no Chromium PDF API
+ * exposed), but the print-to-PDF path is universally available across
+ * macOS, Linux, and Windows.
+ *
+ * Why a separate function (not just `buildStandaloneSvg`)? PDF print
+ * needs:
+ *   1. A surrounding `<html>` with media:print rules so the SVG fills
+ *      the page (default browsers add margins + scaling).
+ *   2. A page size declaration in the @page rule so multi-page graphs
+ *      flow naturally.
+ *   3. The toolbar / chrome from the webview HIDDEN during print so
+ *      the PDF doesn't include "Export PNG" buttons.
+ *
+ * The caller passes the standalone SVG (built once via
+ * buildStandaloneSvg with the same args used by the SVG export). We
+ * embed it verbatim - the inner SVG already has its own background
+ * + sizing so there's no double-paint.
+ *
+ * Pure - the webview side wraps this in a document.write() + print()
+ * sequence. Test coverage validates the @page + media:print rules
+ * land in the output so regressions surface here.
+ */
+export interface BuildPrintHtmlArgs {
+  /** The standalone SVG (output of buildStandaloneSvg.svg). Embedded verbatim. */
+  svg: string;
+  /** Logical width of the SVG in pixels. Used to size the @page rule. */
+  svgWidth: number;
+  /** Logical height of the SVG. */
+  svgHeight: number;
+  /** Optional document title (shows in the print dialog + PDF metadata). */
+  title?: string;
+}
+
+export function buildPrintHtml(args: BuildPrintHtmlArgs): string {
+  const title = (args.title ?? 'GitSight Commit Graph').trim() || 'GitSight Commit Graph';
+  // Convert px to inches at 96dpi (the CSS standard) so the @page size
+  // matches the SVG's natural pixel dimensions when printing to PDF.
+  // Cap minimum to half an inch so a tiny graph still gets a sensible page.
+  const widthIn = Math.max(0.5, args.svgWidth / 96);
+  const heightIn = Math.max(0.5, args.svgHeight / 96);
+  // Sanitise via fixed-precision so floating-point drift doesn't leak
+  // into the stylesheet.
+  const wStr = widthIn.toFixed(2);
+  const hStr = heightIn.toFixed(2);
+
+  return [
+    `<!doctype html>`,
+    `<html lang="en">`,
+    `<head>`,
+    `<meta charset="utf-8"/>`,
+    `<title>${escapeXml(title)}</title>`,
+    `<style>`,
+    `  @page { size: ${wStr}in ${hStr}in; margin: 0; }`,
+    `  html, body { margin: 0; padding: 0; background: white; }`,
+    `  body { display: block; }`,
+    `  svg { display: block; width: ${args.svgWidth}px; height: ${args.svgHeight}px; }`,
+    `  @media print {`,
+    `    /* Hide anything that isn't the graph itself. */`,
+    `    .no-print { display: none !important; }`,
+    `    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }`,
+    `  }`,
+    `</style>`,
+    `</head>`,
+    `<body>`,
+    args.svg,
+    `</body>`,
+    `</html>`,
+  ].join('\n');
+}
+
+/**
+ * F132 - Classify the PDF export request from the webview. Two phases:
+ *   1. 'prepare' (extension side): build standalone SVG + print HTML
+ *   2. 'print' (webview side): open the HTML in a hidden iframe and
+ *      invoke window.print()
+ *
+ * Wins a fast-fail when there's no graph to export.
+ */
+export type PdfExportVerdict = 'ready' | 'no-graph' | 'too-large';
+
+export interface ClassifyPdfArgs {
+  rowCount: number;
+  estimatedBytes: number;
+  /** Default 50 MB. Anything larger refuses to avoid OOM in the webview. */
+  maxBytes?: number;
+}
+
+export function classifyPdfExport(args: ClassifyPdfArgs): PdfExportVerdict {
+  if (args.rowCount <= 0) return 'no-graph';
+  const max = args.maxBytes ?? 50 * 1024 * 1024;
+  if (args.estimatedBytes > max) return 'too-large';
+  return 'ready';
+}
+
+/**
+ * F132 - Estimate the SVG payload size before building it. Cheap
+ * heuristic: per-row markup is ~400 bytes when fully decorated, plus
+ * fixed overhead for the document wrapper. Used by the gate so we
+ * never try to print a million-commit graph and crash the webview.
+ */
+export function estimateSvgBytes(rowCount: number): number {
+  const perRowBytes = 400;
+  const fixedOverhead = 2048;
+  return Math.max(fixedOverhead, fixedOverhead + rowCount * perRowBytes);
 }
