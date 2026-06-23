@@ -112,7 +112,8 @@
     "src/git/testImpact.ts",
     "src/git/prReviewSubmit.ts",
     "src/git/reviewerLoadBalancer.ts",
-    "src/git/testImpactPrBody.ts"
+    "src/git/testImpactPrBody.ts",
+    "src/git/branchProtectionSuggest.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

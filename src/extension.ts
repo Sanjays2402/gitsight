@@ -132,6 +132,7 @@ import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 import { showReviewerLoadReport } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr } from './views/testImpactPrBody';
+import { suggestBranchProtection } from './views/branchProtectionSuggest';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1331,6 +1332,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Test-Impact -> PR Body (F125) ───────────────────────────────
   reg('gitsight.injectTestImpactIntoPr', () => errorWrap(async () => {
     await injectTestImpactIntoPr(repos);
+  }));
+
+  // ── Branch Protection Rule Auto-Suggester (F126) ────────────────
+  reg('gitsight.suggestBranchProtection', (branch?: string) => errorWrap(async () => {
+    await suggestBranchProtection(repos, typeof branch === 'string' ? branch : undefined);
   }));
 }
 
