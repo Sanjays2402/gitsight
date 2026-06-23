@@ -125,6 +125,7 @@ import { DcoSignoffController } from './views/dcoSignoffController';
 import { runReleaseSinceLastTag } from './views/releaseSinceLastTag';
 import { summarisePrComments, normalisePrArg as normaliseReviewSummaryArg } from './views/reviewSummaryAi';
 import { runMergeQueueStatus } from './views/mergeQueue';
+import { showBranchProtectionOverview } from './views/branchProtectionOverview';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1283,6 +1284,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── GitHub Merge Queue Surface (F115) ───────────────────────────
   reg('gitsight.mergeQueueStatus', () => errorWrap(async () => {
     await runMergeQueueStatus(repos);
+  }));
+
+  // ── Branch Protection Overview (F119) ───────────────────────────
+  reg('gitsight.branchProtectionOverview', () => errorWrap(async () => {
+    await showBranchProtectionOverview(repos);
   }));
 }
 

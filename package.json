@@ -772,6 +772,11 @@
         "icon": "$(list-ordered)"
       },
       {
+        "command": "gitsight.branchProtectionOverview",
+        "title": "GitSight: Branch Protection Overview\u2026",
+        "icon": "$(lock)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2438,6 +2443,13 @@
           "minimum": 30,
           "maximum": 1800,
           "description": "How often the merge queue pill auto-refreshes (seconds). Lower = fresher position; higher = less gh API load."
+        },
+        "gitsight.branchProtectionOverview.probeLimit": {
+          "type": "number",
+          "default": 20,
+          "minimum": 3,
+          "maximum": 100,
+          "description": "Maximum number of local branches to probe for protection rules per invocation. Higher values mean more gh API round-trips but a fuller picture."
         }
       }
     },
