@@ -2591,6 +2591,18 @@
           "type": "string",
           "default": ".gitsight/stash-patches",
           "description": "Workspace-relative directory where exported stash .patch files are saved. Absolute paths also accepted. Created if missing."
+        },
+        "gitsight.stashPatchDiscovery.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "F133: when ON, GitSight watches the workspace root + the configured stash patch directory for new .patch / .diff files and offers to apply them via the F131 import flow. Per-file dismissal is session-only."
+        },
+        "gitsight.stashPatchDiscovery.freshnessWindowMinutes": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "F133: only offer to apply patches whose mtime is within this many minutes. Files older than the window are assumed to be stale workspace fixtures rather than a fresh drop."
         }
       }
     },

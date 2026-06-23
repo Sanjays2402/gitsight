@@ -89,6 +89,7 @@ import { showWorktreePruner } from './views/worktreePruner';
 import { scoutAndCherryPick } from './views/cherryPickScout';
 import { showStashTrashBin, exportStashPatches } from './views/stashTrashBin';
 import { importStashPatch } from './views/stashPatchImport';
+import { StashPatchDiscoveryController } from './views/stashPatchDiscovery';
 import { showReflogExplorer } from './views/reflogExplorer';
 import { registerOpenAtLastTouched } from './views/openAtLastTouched';
 import { forcePush, checkBranchProtection } from './views/forcePushGuard';
@@ -1352,9 +1353,16 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
 
   // ── Stash Patch Import (F131) ───────────────────────────────────
-  reg('gitsight.importStashPatch', () => errorWrap(async () => {
-    await importStashPatch(repos);
+  reg('gitsight.importStashPatch', (arg?: any) => errorWrap(async () => {
+    const opts = arg && typeof arg === 'object' && typeof arg.preselectPath === 'string'
+      ? { preselectPath: arg.preselectPath }
+      : undefined;
+    await importStashPatch(repos, opts);
   }));
+
+  // ── Stash Patch Auto-Discovery (F133) ───────────────────────────
+  const patchDiscovery = new StashPatchDiscoveryController(repos);
+  ctx.subscriptions.push(patchDiscovery);
 }
 
 export function deactivate() {}

@@ -115,7 +115,8 @@
     "src/git/testImpactPrBody.ts",
     "src/git/branchProtectionSuggest.ts",
     "src/git/stashPatchExport.ts",
-    "src/git/stashPatchImport.ts"
+    "src/git/stashPatchImport.ts",
+    "src/git/stashPatchDiscovery.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

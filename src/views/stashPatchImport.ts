@@ -35,15 +35,28 @@ import {
 
 const pexec = promisify(execFile);
 
-export async function importStashPatch(repos: RepoManager): Promise<void> {
+export async function importStashPatch(repos: RepoManager, opts?: { preselectPath?: string }): Promise<void> {
   const git = repos.primary();
   if (!git) {
     vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
     return;
   }
 
-  const candidates = await collectPatchCandidates(git);
-  const picked = await pickCandidate(git, candidates);
+  // F133 - if discovery passed a preselected path, jump straight to load+confirm.
+  let picked: PickResult | undefined;
+  if (opts?.preselectPath) {
+    try {
+      const body = await fs.readFile(opts.preselectPath, 'utf8');
+      const info = inspectPatchPayload(body, opts.preselectPath);
+      picked = { filename: opts.preselectPath, info };
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`GitSight: could not read patch: ${e?.message ?? e}`);
+      return;
+    }
+  } else {
+    const candidates = await collectPatchCandidates(git);
+    picked = await pickCandidate(git, candidates);
+  }
   if (!picked) return;
 
   const info = picked.info;
