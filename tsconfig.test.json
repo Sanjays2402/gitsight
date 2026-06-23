@@ -99,7 +99,8 @@
     "src/git/prThreadResolve.ts",
     "src/git/stashOnPull.ts",
     "src/git/branchNamer.ts",
-    "src/git/complexityBadge.ts"
+    "src/git/complexityBadge.ts",
+    "src/git/conflictAutoResolve.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

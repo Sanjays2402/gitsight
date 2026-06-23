@@ -747,6 +747,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "gitsight.autoResolveTrivialConflicts",
+        "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
+        "icon": "$(wand)"
+      },
+      {
         "command": "gitsight.secretAudit.show",
         "title": "GitSight: Show Missing Workflow Secrets\u2026",
         "icon": "$(warning)"

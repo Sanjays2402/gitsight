@@ -116,6 +116,7 @@ import { resolvePrCommentThreads } from './views/prThreadResolve';
 import { runGuardedPull } from './views/stashOnPull';
 import { createBranchWithAssistant } from './views/branchNamer';
 import { ComplexityBadgeProvider } from './views/complexityBadge';
+import { runAutoResolveTrivialConflicts } from './views/conflictAutoResolve';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
@@ -1152,6 +1153,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   for (const d of registerConflictCoach(repos)) ctx.subscriptions.push(d);
   reg('gitsight.conflictCoach', () => errorWrap(async () => {
     await runConflictCoach(repos);
+  }));
+
+  // ── Auto-Resolve Trivial Conflicts (F113) ───────────────────────
+  reg('gitsight.autoResolveTrivialConflicts', () => errorWrap(async () => {
+    await runAutoResolveTrivialConflicts(repos);
   }));
 
   // ── GitHub Releases Companion (F74) ─────────────────────────────
