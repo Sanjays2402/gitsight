@@ -812,6 +812,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "gitsight.injectTestImpactIntoPr",
+        "title": "GitSight: Inject Test-Impact into PR Body\u2026",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2527,6 +2532,25 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Restrict the reviewer-load report to these specific GitHub handles (no leading @). When empty, the report falls back to CODEOWNERS handles + recent committer handles."
+        },
+        "gitsight.testImpactPrBody.maxRows": {
+          "type": "number",
+          "default": 12,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Cap on test rows in the managed test-impact block inserted into the PR body."
+        },
+        "gitsight.testImpactPrBody.maxOrphans": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Cap on orphan-source rows in the collapsible <details> section of the PR test-impact block."
+        },
+        "gitsight.testImpactPrBody.includeOrphans": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, append a collapsible orphan-sources <details> block listing source files that had no suggested tests."
         }
       }
     },
