@@ -2567,6 +2567,11 @@
           "default": true,
           "description": "When true, append a collapsible orphan-sources <details> block listing source files that had no suggested tests."
         },
+        "gitsight.testImpactPrBody.autoSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "F129: when ON, after every `gitsight.push` GitSight refreshes the test-impact block in the current branch's open PR IF the body already contains the F125 managed block. Branches without the block stay untouched (run `Inject Test-Impact into PR Body` once to opt in). Set OFF to keep the block static between manual refreshes."
+        },
         "gitsight.stashTrash.exportPatchesByDefault": {
           "type": "boolean",
           "default": false,

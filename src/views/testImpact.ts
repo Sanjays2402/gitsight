@@ -70,13 +70,14 @@ export async function showTestImpactForCurrentPr(repos: RepoManager): Promise<vo
  */
 export async function computeTestImpactSummary(
   git: Git,
-  token: vscode.CancellationToken,
+  token?: vscode.CancellationToken,
 ): Promise<TestImpactSummary | undefined> {
+  const safeToken: vscode.CancellationToken = token ?? { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) };
   const cfg = vscode.workspace.getConfiguration('gitsight.testImpact');
   const sourceCap = Math.max(5, Math.min(500, cfg.get<number>('sourceCap', 100)));
   const includeNamingSiblings = cfg.get<boolean>('includeNamingSiblings', true);
 
-  const changed = await loadChangedFiles(git, token);
+  const changed = await loadChangedFiles(git, safeToken);
   if (!changed) return undefined;
   const sourceFiles = changed.filter(isSourceFile).slice(0, sourceCap);
   const testFilesChanged = changed.filter(isTestFile);
@@ -87,9 +88,9 @@ export async function computeTestImpactSummary(
     });
   }
   const [importMatches, coLocated, namingSiblings] = await Promise.all([
-    scanImports(git, sourceFiles, token),
-    scanCoLocated(git, sourceFiles, token),
-    includeNamingSiblings ? scanNamingSiblings(git, sourceFiles, token) : Promise.resolve({}),
+    scanImports(git, sourceFiles, safeToken),
+    scanCoLocated(git, sourceFiles, safeToken),
+    includeNamingSiblings ? scanNamingSiblings(git, sourceFiles, safeToken) : Promise.resolve({}),
   ]);
   return composeImpact({ sourceFiles, testFilesChanged, importMatches, coLocated, namingSiblings });
 }

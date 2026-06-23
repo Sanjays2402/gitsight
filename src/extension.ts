@@ -131,7 +131,7 @@ import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 import { showReviewerLoadReport } from './views/reviewerLoadBalancer';
-import { injectTestImpactIntoPr } from './views/testImpactPrBody';
+import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
 import { suggestBranchProtection } from './views/branchProtectionSuggest';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -450,6 +450,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     // DRAFT PR on GitHub, refresh its body from <base>..HEAD. Fire-and-
     // forget so a transient gh failure never blocks the push.
     runPrDraftSyncFireAndForget(git, branch);
+    // Test-Impact Auto-Sync (F129): if the just-pushed branch has an open
+    // PR whose body already contains the F125 managed block, refresh it.
+    // Same fire-and-forget contract as F77 - never blocks the push.
+    runTestImpactAutoSyncFireAndForget(repos, branch);
     refreshAll();
   }));
   reg('gitsight.addRemote', () => errorWrap(async () => {

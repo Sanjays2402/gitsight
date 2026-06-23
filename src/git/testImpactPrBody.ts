@@ -208,3 +208,69 @@ export function classifyTestImpactSync(currentBody: string, freshBlock: string):
   if (open < 0 || close < open) return 'insert';
   return needsTestImpactRewrite(currentBody, freshBlock) ? 'replace' : 'no-change';
 }
+
+/**
+ * F129 - Detect whether a body ALREADY has a managed test-impact block.
+ *
+ * Used by the auto-sync hook to decide whether to run at all - we
+ * auto-refresh ONLY when the user has already opted in by inserting
+ * the block once via F125. Mirrors how F77 PR-draft sync only fires
+ * on actual draft PRs (it's an explicit "you wanted this" signal).
+ *
+ * Tolerates partial / malformed marker pairs: returns true only when
+ * both markers are present AND in the correct order. A lone open
+ * marker (e.g. left over from a manual edit gone wrong) reads as
+ * absent so we don't get into a half-block append loop.
+ */
+export function hasTestImpactBlock(body: string): boolean {
+  if (!body) return false;
+  const open = body.indexOf(TEST_IMPACT_OPEN_MARKER);
+  if (open < 0) return false;
+  const close = body.indexOf(TEST_IMPACT_CLOSE_MARKER);
+  return close > open;
+}
+
+/**
+ * F129 - End-state result reported back from the fire-and-forget hook.
+ *
+ * The status-bar uses this to render ONE concise line:
+ *   - 'no-pr'         -> silent (the branch may legitimately not have a PR yet)
+ *   - 'no-block'      -> silent (user hasn't opted in via F125)
+ *   - 'no-change'     -> silent (block already up to date)
+ *   - 'refreshed'     -> show "GitSight: refreshed test-impact in PR #N"
+ *   - 'failed'        -> show "GitSight: test-impact sync failed (reason)"
+ *   - 'skipped'       -> silent (disabled in settings, gh missing, etc.)
+ */
+export type TestImpactAutoSyncOutcome =
+  | 'no-pr'
+  | 'no-block'
+  | 'no-change'
+  | 'refreshed'
+  | 'failed'
+  | 'skipped';
+
+/**
+ * Pure verdict helper - the view layer feeds (currentBody, freshBlock)
+ * and gets back the auto-sync verdict + an optional reason. Decouples
+ * the decision logic from the gh + fs side effects so it's easy to
+ * unit-test the fire-and-forget gate independently.
+ */
+export interface ClassifyAutoSyncArgs {
+  currentBody: string | undefined;
+  freshBlock: string;
+  /** When true, the hook will skip even if a block exists (e.g. user
+   *  flipped the auto-sync config off). */
+  enabled: boolean;
+}
+
+export function classifyAutoSync(args: ClassifyAutoSyncArgs): {
+  outcome: TestImpactAutoSyncOutcome;
+  reason?: string;
+} {
+  if (!args.enabled) return { outcome: 'skipped', reason: 'auto-sync disabled' };
+  if (args.currentBody == null) return { outcome: 'no-pr' };
+  if (!hasTestImpactBlock(args.currentBody)) return { outcome: 'no-block' };
+  const decision = classifyTestImpactSync(args.currentBody, args.freshBlock);
+  if (decision === 'no-change') return { outcome: 'no-change' };
+  return { outcome: 'refreshed' };
+}

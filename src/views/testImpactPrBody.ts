@@ -35,7 +35,10 @@ import {
   injectTestImpactBlock,
   stripTestImpactBlock,
   classifyTestImpactSync,
+  hasTestImpactBlock,
+  classifyAutoSync,
   TestImpactSyncDecision,
+  TestImpactAutoSyncOutcome,
   TEST_IMPACT_OPEN_MARKER,
 } from '../git/testImpactPrBody';
 import * as fs from 'fs/promises';
@@ -242,3 +245,163 @@ function clamp(n: number, lo: number, hi: number): number {
 
 // Re-export for testing convenience.
 export { TEST_IMPACT_OPEN_MARKER };
+
+/**
+ * F129 - Test-Impact -> PR body auto-sync.
+ *
+ * After `gitsight.push`, if the just-pushed branch has an open PR on
+ * GitHub AND its body already contains the F125 managed block, refresh
+ * the block to reflect the new tip. Fire-and-forget so a transient gh
+ * failure never blocks the push.
+ *
+ * The "already has the block" gate is intentional: this is an opt-in
+ * surface. The user expressed intent the first time they ran F125 +
+ * picked "Insert"; afterwards they expect the block to stay current
+ * without an extra command. Branches WITHOUT the block stay untouched
+ * (the user can run F125 manually when they're ready).
+ *
+ * Returns a structured outcome (rather than throwing) so the status
+ * bar can render ONE concise line per push. Errors are demoted to
+ * 'failed' with a short reason.
+ */
+export interface AutoSyncResult {
+  outcome: TestImpactAutoSyncOutcome;
+  prNumber?: number;
+  reason?: string;
+}
+
+export async function runTestImpactAutoSync(repos: RepoManager, branch?: string): Promise<AutoSyncResult> {
+  const cfg = vscode.workspace.getConfiguration('gitsight.testImpactPrBody');
+  const enabled = cfg.get<boolean>('autoSync', true);
+  if (!enabled) return { outcome: 'skipped', reason: 'auto-sync disabled' };
+
+  const git = repos.primary();
+  if (!git) return { outcome: 'skipped', reason: 'no git repo' };
+  if (!(await ghAvailable())) return { outcome: 'skipped', reason: 'gh CLI missing' };
+  const repo = await resolveGitHubRepo(git);
+  if (!repo) return { outcome: 'skipped', reason: 'non-GitHub remote' };
+
+  // Bail FAST if there's no PR or no block yet - both are cheap probes
+  // that don't require a full test-impact scan.
+  let head = (branch ?? '').trim();
+  if (!head) {
+    try { head = (await git.raw(['rev-parse', '--abbrev-ref', 'HEAD'])).trim(); } catch { /* ignore */ }
+  }
+  if (!head || head === 'HEAD') return { outcome: 'skipped', reason: 'detached HEAD' };
+
+  const pr = await findOpenPrForBranchOpportunistic(repo, head);
+  if (!pr) return { outcome: 'no-pr' };
+  if (!hasTestImpactBlock(pr.body)) return { outcome: 'no-block', prNumber: pr.number };
+
+  // The block is here - compute the fresh impact only NOW.
+  const maxRows = clamp(cfg.get<number>('maxRows', 12), 1, 50);
+  const maxOrphans = clamp(cfg.get<number>('maxOrphans', 10), 0, 100);
+  const includeOrphans = cfg.get<boolean>('includeOrphans', true);
+
+  let summary;
+  try {
+    summary = await computeTestImpactSummary(git);
+  } catch (e: any) {
+    return { outcome: 'failed', prNumber: pr.number, reason: `scan failed (${shortError(e)})` };
+  }
+  if (!summary) return { outcome: 'no-pr', prNumber: pr.number, reason: 'could not determine PR range' };
+
+  const block = buildTestImpactBlock({
+    summary,
+    syncedAt: formatLocalTime(new Date()),
+    maxRows,
+    maxOrphans,
+    includeOrphans,
+  });
+  const verdict = classifyAutoSync({ currentBody: pr.body, freshBlock: block, enabled: true });
+  if (verdict.outcome === 'no-change') return { outcome: 'no-change', prNumber: pr.number };
+  if (verdict.outcome !== 'refreshed') return { outcome: verdict.outcome, prNumber: pr.number, reason: verdict.reason };
+
+  const next = injectTestImpactBlock(pr.body, block);
+  try {
+    await editPrBodyForSync(repo, pr.number, next);
+    return { outcome: 'refreshed', prNumber: pr.number };
+  } catch (e: any) {
+    return { outcome: 'failed', prNumber: pr.number, reason: shortError(e) };
+  }
+}
+
+/**
+ * Fire-and-forget wrapper. Surfaces one quiet status-bar line on
+ * success, a short warning on failure, and stays silent otherwise.
+ * Never throws - the underlying push already succeeded.
+ */
+export function runTestImpactAutoSyncFireAndForget(repos: RepoManager, branch?: string): void {
+  void (async () => {
+    try {
+      const r = await runTestImpactAutoSync(repos, branch);
+      switch (r.outcome) {
+        case 'refreshed':
+          vscode.window.setStatusBarMessage(
+            `GitSight: refreshed test-impact in PR #${r.prNumber}`,
+            4000,
+          );
+          break;
+        case 'failed':
+          vscode.window.setStatusBarMessage(
+            `GitSight: test-impact sync failed (${truncate(r.reason ?? 'unknown', 60)})`,
+            5000,
+          );
+          break;
+        // no-pr / no-block / no-change / skipped are quiet - the user
+        // either hasn't opted in (no block) or there's literally nothing
+        // to do.
+        default:
+          break;
+      }
+    } catch {
+      // Never surface as a modal - the push succeeded.
+    }
+  })();
+}
+
+async function findOpenPrForBranchOpportunistic(repo: RepoSlug, head: string): Promise<OpenPr | undefined> {
+  try {
+    const { stdout } = await pexec('gh', [
+      'pr', 'view', head,
+      '--repo', `${repo.owner}/${repo.repo}`,
+      '--json', 'number,url,body,isDraft,headRefName',
+    ], { timeout: 12000, maxBuffer: 4 * 1024 * 1024 });
+    const obj = JSON.parse(stdout);
+    if (!obj || typeof obj.number !== 'number') return undefined;
+    return {
+      number: obj.number,
+      url: String(obj.url ?? ''),
+      body: String(obj.body ?? ''),
+      isDraft: !!obj.isDraft,
+      headRefName: String(obj.headRefName ?? ''),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function editPrBodyForSync(repo: RepoSlug, prNumber: number, body: string): Promise<void> {
+  const tmp = path.join(os.tmpdir(), `gitsight-testimpact-autosync-${process.pid}-${Date.now()}.md`);
+  await fs.writeFile(tmp, body, 'utf8');
+  try {
+    await pexec('gh', [
+      'pr', 'edit', String(prNumber),
+      '--repo', `${repo.owner}/${repo.repo}`,
+      '--body-file', tmp,
+    ], { timeout: 30000, maxBuffer: 4 * 1024 * 1024 });
+  } finally {
+    await fs.unlink(tmp).catch(() => {});
+  }
+}
+
+function shortError(e: any): string {
+  const msg = (e?.message ?? e?.stderr ?? String(e)).toString().split('\n')[0];
+  return truncate(msg, 80);
+}
+
+function truncate(s: string, n: number): string {
+  if (!s) return '';
+  if (s.length <= n) return s;
+  return `${s.slice(0, Math.max(0, n - 1))}\u2026`;
+}
