@@ -752,6 +752,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "gitsight.dcoSignoff.addToScm",
+        "title": "GitSight: Add Signed-off-by Trailer to Commit Message",
+        "icon": "$(check)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2382,6 +2387,16 @@
           "type": "string",
           "default": "",
           "description": "Workspace-relative directory to write exported commit-graph SVGs into. Empty (default) writes to the workspace root. Created if missing. Filenames are timestamped (`gitsight-graph-YYYY-MM-DD-HHmm.svg`)."
+        },
+        "gitsight.dcoSignoff.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight detects DCO (Developer Certificate of Origin) sign-off requirements by walking the candidate file list (DCO, CONTRIBUTING.md, etc.) and watches the SCM input box for a missing `Signed-off-by:` trailer. Required projects surface an error pill, suggested projects surface a warning pill. Click -> picker offering one-click append, open source file, or disable for this workspace."
+        },
+        "gitsight.dcoSignoff.alwaysEnforce": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force the sign-off check to behave as `required` even when CONTRIBUTING.md is silent on DCO. Useful for personal repos where you've decided to always sign off but don't want to maintain a DCO file."
         }
       }
     },

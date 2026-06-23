@@ -101,7 +101,8 @@
     "src/git/branchNamer.ts",
     "src/git/complexityBadge.ts",
     "src/git/conflictAutoResolve.ts",
-    "src/git/complexityForPr.ts"
+    "src/git/complexityForPr.ts",
+    "src/git/dcoSignoff.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

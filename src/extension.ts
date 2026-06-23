@@ -121,6 +121,7 @@ import { runAutoResolveTrivialConflicts } from './views/conflictAutoResolve';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
+import { DcoSignoffController } from './views/dcoSignoffController';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1257,6 +1258,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.complexityBadge.showForPr', () => errorWrap(async () => {
     await showComplexityForPrCommand(repos);
   }));
+
+  // ── DCO Signed-off-by Enforcement (F116) ────────────────────────
+  const dcoSignoff = new DcoSignoffController(repos);
+  ctx.subscriptions.push(dcoSignoff);
+  ctx.subscriptions.push(...dcoSignoff.registerCommands());
 }
 
 export function deactivate() {}
