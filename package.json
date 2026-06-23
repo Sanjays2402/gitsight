@@ -767,6 +767,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "gitsight.mergeQueueStatus",
+        "title": "GitSight: Merge Queue Status\u2026",
+        "icon": "$(list-ordered)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2412,6 +2417,27 @@
           "type": "boolean",
           "default": false,
           "description": "Force the sign-off check to behave as `required` even when CONTRIBUTING.md is silent on DCO. Useful for personal repos where you've decided to always sign off but don't want to maintain a DCO file."
+        },
+        "gitsight.mergeQueue.averageMinutesPerPr": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "maximum": 240,
+          "description": "Average minutes-per-PR used to estimate ETA in the merge queue pill (`queue #3 (~18m)` for position 3 with 6 min/PR). Bumps to match your team's CI runtime."
+        },
+        "gitsight.mergeQueue.floorMinutes": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Minimum ETA shown in the merge queue pill - so position=1 still surfaces a non-zero number rather than `~0m`."
+        },
+        "gitsight.mergeQueue.refreshSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 30,
+          "maximum": 1800,
+          "description": "How often the merge queue pill auto-refreshes (seconds). Lower = fresher position; higher = less gh API load."
         }
       }
     },

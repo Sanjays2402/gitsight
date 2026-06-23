@@ -124,6 +124,7 @@ import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
 import { DcoSignoffController } from './views/dcoSignoffController';
 import { runReleaseSinceLastTag } from './views/releaseSinceLastTag';
 import { summarisePrComments, normalisePrArg as normaliseReviewSummaryArg } from './views/reviewSummaryAi';
+import { runMergeQueueStatus } from './views/mergeQueue';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1277,6 +1278,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (!git) return vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
     const num = normaliseReviewSummaryArg(arg);
     await summarisePrComments(ctx, git, num);
+  }));
+
+  // ── GitHub Merge Queue Surface (F115) ───────────────────────────
+  reg('gitsight.mergeQueueStatus', () => errorWrap(async () => {
+    await runMergeQueueStatus(repos);
   }));
 }
 
