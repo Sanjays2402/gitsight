@@ -4,7 +4,7 @@ import * as fs from 'fs/promises';
 import { Git, Commit } from '../git/git';
 import { timeAgo, colorForAuthor } from '../git/format';
 import { activePalette } from '../views/graphThemes';
-import { buildStandaloneSvg, buildExportFilename, ExportRow } from '../git/commitGraphExport';
+import { buildStandaloneSvg, buildExportFilename, buildSvgDataUrl, parsePngDataUrl, ExportRow } from '../git/commitGraphExport';
 
 export class CommitGraphPanel {
   private static current?: CommitGraphPanel;
@@ -55,6 +55,12 @@ export class CommitGraphPanel {
         await this.refresh(git, msg.q);
       } else if (msg.type === 'exportSvg') {
         await this.exportSvg(git);
+      } else if (msg.type === 'exportPng') {
+        await this.exportPng(git);
+      } else if (msg.type === 'exportPngBytes') {
+        await this.writePngBytes(git, msg.dataUrl);
+      } else if (msg.type === 'exportPngFailed') {
+        vscode.window.showErrorMessage(`GitSight: PNG export failed: ${msg.reason ?? 'unknown'}`);
       }
     });
     this.refresh(git);
@@ -75,7 +81,7 @@ export class CommitGraphPanel {
   }
 
   /**
-   * F61 — export the current graph as a standalone SVG file written to
+   * F61 - export the current graph as a standalone SVG file written to
    * the workspace root with a timestamped filename. Shows a "Reveal in
    * Finder" / "Open" follow-up.
    */
@@ -84,36 +90,110 @@ export class CommitGraphPanel {
       vscode.window.showInformationMessage('GitSight: nothing to export \u2014 no commits in the current view.');
       return;
     }
-    const cfg = vscode.workspace.getConfiguration('gitsight.graphExport');
-    const dirRaw = cfg.get<string>('directory', '').trim();
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? git.cwd;
-    const outDir = dirRaw ? path.resolve(folder, dirRaw) : folder;
-    await fs.mkdir(outDir, { recursive: true }).catch(() => {});
+    const built = this.buildSvgForExport(git);
     const filename = buildExportFilename(new Date(), 'svg');
-    const target = path.join(outDir, filename);
-    const built = buildStandaloneSvg({
-      rowsSvg: this.lastRender.rowsSvg,
-      graphWidth: this.lastRender.graphWidth,
-      rowHeight: this.lastRender.rowHeight,
-      rowCount: this.lastRender.rowCount,
-      rows: this.lastRender.rows,
-      title: `GitSight \u2014 ${path.basename(git.cwd)}`,
-    });
+    const target = await this.resolveExportTarget(git, filename);
+    if (!target) return;
     try {
       await fs.writeFile(target, built.svg, 'utf8');
     } catch (e: any) {
       vscode.window.showErrorMessage(`GitSight: export failed: ${e.message ?? e}`);
       return;
     }
+    await this.surfaceExportSuccess(target, filename, built.width, built.height);
+  }
+
+  /**
+   * F83 - export the current graph as a PNG. Two-phase:
+   *   1. Extension builds the standalone SVG and posts it to the webview.
+   *   2. Webview draws the SVG into a canvas, calls toDataURL('image/png'),
+   *      posts the data URL back via `exportPngBytes`.
+   *   3. Extension decodes the base64 portion and writes the file.
+   *
+   * The webview path is mandatory: Node has no canvas implementation
+   * without a binary dep, and we don't want to ship `canvas` as a
+   * package dependency. The webview already runs a Chromium-grade DOM.
+   */
+  private async exportPng(_git: Git): Promise<void> {
+    if (!this.lastRender || this.lastRender.rowCount === 0) {
+      vscode.window.showInformationMessage('GitSight: nothing to export \u2014 no commits in the current view.');
+      return;
+    }
+    const built = this.buildSvgForExport(this.git);
+    // Post the SVG to the webview so it can rasterise. Use a base64-encoded
+    // data URL (rather than a raw string) to dodge transport quoting issues.
+    const dataUrl = buildSvgDataUrl(built.svg, s => Buffer.from(s, 'utf8').toString('base64'));
+    void this.panel.webview.postMessage({
+      type: 'rasterisePng',
+      svgDataUrl: dataUrl,
+      width: built.width,
+      height: built.height,
+    });
+    // The webview will reply with `exportPngBytes` (success) or
+    // `exportPngFailed` (failure); both are handled in onDidReceiveMessage.
+    vscode.window.setStatusBarMessage('GitSight: rasterising commit graph PNG\u2026', 4000);
+  }
+
+  private async writePngBytes(git: Git, dataUrl: unknown): Promise<void> {
+    const decoded = parsePngDataUrl(dataUrl);
+    if (!decoded.ok) {
+      vscode.window.showErrorMessage(`GitSight: PNG export returned an unexpected payload: ${decoded.reason}`);
+      return;
+    }
+    const filename = buildExportFilename(new Date(), 'png');
+    const target = await this.resolveExportTarget(git, filename);
+    if (!target) return;
+    try {
+      const buf = Buffer.from(decoded.base64, 'base64');
+      await fs.writeFile(target, buf);
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`GitSight: PNG export failed: ${e.message ?? e}`);
+      return;
+    }
+    await this.surfaceExportSuccess(target, filename);
+  }
+
+  private buildSvgForExport(git: Git): { svg: string; width: number; height: number } {
+    return buildStandaloneSvg({
+      rowsSvg: this.lastRender!.rowsSvg,
+      graphWidth: this.lastRender!.graphWidth,
+      rowHeight: this.lastRender!.rowHeight,
+      rowCount: this.lastRender!.rowCount,
+      rows: this.lastRender!.rows,
+      title: `GitSight \u2014 ${path.basename(git.cwd)}`,
+    });
+  }
+
+  private async resolveExportTarget(git: Git, filename: string): Promise<string | undefined> {
+    const cfg = vscode.workspace.getConfiguration('gitsight.graphExport');
+    const dirRaw = cfg.get<string>('directory', '').trim();
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? git.cwd;
+    const outDir = dirRaw ? path.resolve(folder, dirRaw) : folder;
+    try {
+      await fs.mkdir(outDir, { recursive: true });
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`GitSight: could not create export dir ${outDir}: ${e.message ?? e}`);
+      return undefined;
+    }
+    return path.join(outDir, filename);
+  }
+
+  private async surfaceExportSuccess(target: string, filename: string, width?: number, height?: number): Promise<void> {
+    const dims = (width && height) ? ` (${width}\u00d7${height})` : '';
     const choice = await vscode.window.showInformationMessage(
-      `GitSight: exported ${filename} (${built.width}\u00d7${built.height})`,
+      `GitSight: exported ${filename}${dims}`,
       'Reveal in OS', 'Open',
     );
     if (choice === 'Reveal in OS') {
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(target));
     } else if (choice === 'Open') {
-      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
-      vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+      try {
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
+        await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+      } catch {
+        // PNG can't be opened as a text doc - reveal instead.
+        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(target));
+      }
     }
   }
 
@@ -247,6 +327,7 @@ function renderGraph(commits: Commit[], search: string): RenderResult {
   <input id="search" placeholder="Search commits by message…" value="${escape(search)}"/>
   <button id="refresh">Refresh</button>
   <button id="export" title="Export the current graph view as a standalone SVG">Export SVG</button>
+  <button id="exportPng" title="Export the current graph view as a PNG (rasterised in the webview)">Export PNG</button>
   <span class="stats">${rows.length} commits</span>
 </div>
 <div class="wrap">
@@ -277,6 +358,37 @@ function renderGraph(commits: Commit[], search: string): RenderResult {
   });
   document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
   document.getElementById('export').addEventListener('click', () => vscode.postMessage({ type: 'exportSvg' }));
+  document.getElementById('exportPng').addEventListener('click', () => vscode.postMessage({ type: 'exportPng' }));
+
+  // F83: PNG rasterisation. The extension posts a 'rasterisePng' message
+  // with a base64 SVG data URL + the intended canvas dimensions. We
+  // draw it onto a high-DPR canvas and post back the PNG data URL.
+  window.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (!msg || msg.type !== 'rasterisePng') return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const dpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.floor(msg.width * dpr);
+        canvas.height = Math.floor(msg.height * dpr);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('2d context unavailable');
+        ctx.scale(dpr, dpr);
+        ctx.drawImage(img, 0, 0, msg.width, msg.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        vscode.postMessage({ type: 'exportPngBytes', dataUrl });
+      } catch (e) {
+        vscode.postMessage({ type: 'exportPngFailed', reason: (e && e.message) || String(e) });
+      }
+    };
+    img.onerror = () => {
+      vscode.postMessage({ type: 'exportPngFailed', reason: 'SVG image failed to load' });
+    };
+    img.src = msg.svgDataUrl;
+  });
 </script>
 </body></html>`;
 

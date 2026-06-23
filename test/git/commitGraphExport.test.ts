@@ -3,6 +3,8 @@ import { strict as assert } from 'node:assert';
 import {
   buildStandaloneSvg,
   buildExportFilename,
+  parsePngDataUrl,
+  buildSvgDataUrl,
 } from '../../src/git/commitGraphExport';
 
 const sampleRows = [
@@ -159,4 +161,75 @@ test('buildExportFilename uses a stable timestamp pattern', () => {
 test('buildExportFilename zero-pads single-digit fields', () => {
   const ts = new Date('2026-01-05T03:09:00');
   assert.equal(buildExportFilename(ts, 'svg'), 'gitsight-graph-2026-01-05-0309.svg');
+});
+
+// ── F83 PNG support ────────────────────────────────────────────────────
+test('parsePngDataUrl: ok for canonical png data URL', () => {
+  const r = parsePngDataUrl('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA==');
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.base64, 'iVBORw0KGgoAAAANSUhEUgAAAA==');
+});
+
+test('parsePngDataUrl: rejects non-string payload', () => {
+  const r = parsePngDataUrl(undefined);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /not a string/);
+});
+
+test('parsePngDataUrl: rejects empty payload', () => {
+  const r = parsePngDataUrl('');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /empty/);
+});
+
+test('parsePngDataUrl: rejects wrong prefix (svg instead of png)', () => {
+  const r = parsePngDataUrl('data:image/svg+xml;base64,abc=');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /prefix/);
+});
+
+test('parsePngDataUrl: rejects wrong prefix (raw text)', () => {
+  const r = parsePngDataUrl('iVBORw0KGgo');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /prefix/);
+});
+
+test('parsePngDataUrl: rejects empty base64 portion', () => {
+  const r = parsePngDataUrl('data:image/png;base64,');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /empty base64/);
+});
+
+test('parsePngDataUrl: rejects payload with non-base64 chars', () => {
+  const r = parsePngDataUrl('data:image/png;base64,!!! bad payload !!!');
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.reason, /non-base64/);
+});
+
+test('parsePngDataUrl: tolerates whitespace inside the base64 payload', () => {
+  const r = parsePngDataUrl('data:image/png;base64,iVBOR\nw0KGgo=');
+  assert.equal(r.ok, true);
+});
+
+test('buildSvgDataUrl: round-trips through the supplied base64 encoder', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2"/></svg>';
+  const encoder = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+  const out = buildSvgDataUrl(svg, encoder);
+  assert.ok(out.startsWith('data:image/svg+xml;base64,'));
+  const decoded = Buffer.from(out.slice('data:image/svg+xml;base64,'.length), 'base64').toString('utf8');
+  assert.equal(decoded, svg);
+});
+
+test('buildSvgDataUrl: lets the caller substitute a different base64 encoder', () => {
+  const svg = 'hi';
+  const fake = (_s: string) => 'FAKE==';
+  assert.equal(buildSvgDataUrl(svg, fake), 'data:image/svg+xml;base64,FAKE==');
+});
+
+test('buildSvgDataUrl: handles unicode bytes correctly via the encoder', () => {
+  const svg = '<svg>\u2026 ellipsis</svg>';
+  const encoder = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+  const out = buildSvgDataUrl(svg, encoder);
+  const decoded = Buffer.from(out.slice('data:image/svg+xml;base64,'.length), 'base64').toString('utf8');
+  assert.equal(decoded, svg);
 });

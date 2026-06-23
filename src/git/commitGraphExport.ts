@@ -155,3 +155,39 @@ export function buildExportFilename(now: Date, extension: 'svg' | 'png'): string
   const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
   return `gitsight-graph-${ts}.${extension}`;
 }
+
+/**
+ * F83 - decode a `data:image/png;base64,...` data URL into a binary
+ * buffer-ready string. Returns:
+ *   - { ok: true, base64: '...' } on success
+ *   - { ok: false, reason: '...' } when the input doesn't look like a
+ *     PNG data URL (wrong prefix, missing comma, empty payload).
+ *
+ * Pure - no Buffer/Uint8Array allocation; the caller decodes the
+ * base64 portion. Keeps this helper testable in Node + browser.
+ */
+export type PngDataUrlResult =
+  | { ok: true; base64: string }
+  | { ok: false; reason: string };
+
+export function parsePngDataUrl(dataUrl: unknown): PngDataUrlResult {
+  if (typeof dataUrl !== 'string') return { ok: false, reason: 'payload is not a string' };
+  if (!dataUrl) return { ok: false, reason: 'empty payload' };
+  const prefix = 'data:image/png;base64,';
+  if (!dataUrl.startsWith(prefix)) return { ok: false, reason: 'wrong data-URL prefix' };
+  const base64 = dataUrl.slice(prefix.length);
+  if (!base64) return { ok: false, reason: 'empty base64 payload' };
+  // Quick shape check: base64 alphabet only.
+  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(base64)) return { ok: false, reason: 'payload contains non-base64 characters' };
+  return { ok: true, base64 };
+}
+
+/**
+ * F83 - build the `data:image/svg+xml;base64,...` URL the webview's
+ * `new Image()` consumes. base64 encoding is mandatory (rather than
+ * `;utf8`) so embedded angle brackets + quotes survive the data URL
+ * parser even when the SVG has whitespace inside attribute values.
+ */
+export function buildSvgDataUrl(svg: string, base64Encoder: (s: string) => string): string {
+  return `data:image/svg+xml;base64,${base64Encoder(svg)}`;
+}
