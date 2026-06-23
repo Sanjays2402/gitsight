@@ -2316,6 +2316,11 @@
           "maximum": 1095,
           "description": "Stashes newer than this many days are tagged `aging`; older ones are `old`. Must be \u2265 `freshDays`."
         },
+        "gitsight.stashOnPull.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, `gitsight.pull` intercepts the `Your local changes would be overwritten by merge` failure and offers a guided stash + pull + re-apply recovery. Falls back to a plain `git pull` failure toast for non-recoverable cases (untracked overwrite, in-progress merge/rebase, missing upstream). Composes with F43 stash naming and F48 / F80 auto-stash flows."
+        },
         "gitsight.recentContributors.enabled": {
           "type": "boolean",
           "default": true,

@@ -113,6 +113,7 @@ import { showBisectFromCiFailure } from './views/bisectFromCi';
 import { showPrCommentsInbox } from './views/prComments';
 import { composeAndPostPrComment } from './views/prCommentCompose';
 import { resolvePrCommentThreads } from './views/prThreadResolve';
+import { runGuardedPull } from './views/stashOnPull';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
@@ -403,7 +404,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   reg('gitsight.pull', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
-    await withAuthSanityCheck(git, 'origin', () => git.pull());
+    // F109: wrap pull in a guard that classifies the "local changes
+    // would be overwritten" failure into a stash + pull + pop recovery.
+    // The guard runs the auth sanity check internally when the underlying
+    // pull is invoked, so we still get the F54 behaviour on auth failures.
+    await withAuthSanityCheck(git, 'origin', async () => {
+      await runGuardedPull(git);
+    });
     refreshAll();
   }));
   reg('gitsight.push', () => errorWrap(async () => {
