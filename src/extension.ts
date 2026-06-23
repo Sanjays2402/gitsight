@@ -115,6 +115,7 @@ import { composeAndPostPrComment } from './views/prCommentCompose';
 import { resolvePrCommentThreads } from './views/prThreadResolve';
 import { runGuardedPull } from './views/stashOnPull';
 import { createBranchWithAssistant } from './views/branchNamer';
+import { ComplexityBadgeProvider } from './views/complexityBadge';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
@@ -1239,6 +1240,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const diffSize = new DiffSizeHeuristicController(repos);
   ctx.subscriptions.push(diffSize);
   ctx.subscriptions.push(...diffSize.registerCommands());
+
+  // ── Per-File Complexity Badge (F111) ────────────────────────────
+  const complexityBadge = new ComplexityBadgeProvider(repos);
+  ctx.subscriptions.push(complexityBadge.register());
+  ctx.subscriptions.push(...complexityBadge.registerCommands());
 }
 
 export function deactivate() {}

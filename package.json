@@ -742,6 +742,11 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "gitsight.complexityBadge.show",
+        "title": "GitSight: Show File Complexity Report",
+        "icon": "$(graph)"
+      },
+      {
         "command": "gitsight.secretAudit.show",
         "title": "GitSight: Show Missing Workflow Secrets\u2026",
         "icon": "$(warning)"
@@ -2331,6 +2336,18 @@
           "enum": ["slash", "kebab", "none"],
           "default": "slash",
           "description": "Separator between conventional type and slug. `slash` gives `feat/add-logout` (default, matches GitHub flow conventions); `kebab` gives `feat-add-logout`; `none` drops the type prefix entirely."
+        },
+        "gitsight.complexityBadge.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When ON, GitSight stamps a one-letter badge in the explorer for files whose complexity exceeds the `medium` threshold (M / H / X for medium / high / extreme). Tooltip shows the per-axis breakdown: decision points, max nesting, logical lines, function count. Heuristic only -- a real linter does this properly; this is for `huh, that file is dense` at a glance."
+        },
+        "gitsight.complexityBadge.maxFileBytes": {
+          "type": "number",
+          "default": 200000,
+          "minimum": 1024,
+          "maximum": 5000000,
+          "description": "Files larger than this many bytes are skipped (their score loses meaning past a few thousand lines, and the read is wasteful on generated bundles)."
         },
         "gitsight.recentContributors.enabled": {
           "type": "boolean",
