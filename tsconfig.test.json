@@ -102,7 +102,8 @@
     "src/git/complexityBadge.ts",
     "src/git/conflictAutoResolve.ts",
     "src/git/complexityForPr.ts",
-    "src/git/dcoSignoff.ts"
+    "src/git/dcoSignoff.ts",
+    "src/git/releaseSinceLastTag.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

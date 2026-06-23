@@ -122,6 +122,7 @@ import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
 import { DcoSignoffController } from './views/dcoSignoffController';
+import { runReleaseSinceLastTag } from './views/releaseSinceLastTag';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1263,6 +1264,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const dcoSignoff = new DcoSignoffController(repos);
   ctx.subscriptions.push(dcoSignoff);
   ctx.subscriptions.push(...dcoSignoff.registerCommands());
+
+  // ── Release-since-last-tag CHANGELOG Preview (F117) ─────────────
+  reg('gitsight.releaseSinceLastTag', () => errorWrap(async () => {
+    await runReleaseSinceLastTag(repos);
+  }));
 }
 
 export function deactivate() {}

@@ -757,6 +757,11 @@
         "icon": "$(check)"
       },
       {
+        "command": "gitsight.releaseSinceLastTag",
+        "title": "GitSight: Last Release vs HEAD - CHANGELOG Preview\u2026",
+        "icon": "$(notebook)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
