@@ -807,6 +807,11 @@
         "icon": "$(check)"
       },
       {
+        "command": "gitsight.reviewerLoadReport",
+        "title": "GitSight: Reviewer Load Report\u2026",
+        "icon": "$(graph)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2509,6 +2514,19 @@
           "enum": ["ask", "always", "never"],
           "default": "ask",
           "description": "When submitting an approve review, whether to prompt for an optional body. ask = quick-pick between with/without; always = always open the body editor; never = approve without a body."
+        },
+        "gitsight.reviewerLoadBalancer.lookbackDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 7,
+          "maximum": 180,
+          "description": "How far back the reviewer-load report looks for completed reviews. Larger windows give a steadier signal, smaller windows surface recent activity changes faster."
+        },
+        "gitsight.reviewerLoadBalancer.handles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Restrict the reviewer-load report to these specific GitHub handles (no leading @). When empty, the report falls back to CODEOWNERS handles + recent committer handles."
         }
       }
     },

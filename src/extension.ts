@@ -130,6 +130,7 @@ import { showWhatsStaleDashboard } from './views/whatsStale';
 import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
+import { showReviewerLoadReport } from './views/reviewerLoadBalancer';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1319,6 +1320,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   }));
   reg('gitsight.submitPrReviewApprove', (arg: any) => errorWrap(async () => {
     await approvePrQuick(repos, arg);
+  }));
+
+  // ── Reviewer Load Balancer (F124) ───────────────────────────────
+  reg('gitsight.reviewerLoadReport', () => errorWrap(async () => {
+    await showReviewerLoadReport(repos);
   }));
 }
 
