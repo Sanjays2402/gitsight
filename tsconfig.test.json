@@ -106,7 +106,8 @@
     "src/git/releaseSinceLastTag.ts",
     "src/git/reviewSummaryAi.ts",
     "src/git/mergeQueue.ts",
-    "src/git/branchProtectionOverview.ts"
+    "src/git/branchProtectionOverview.ts",
+    "src/git/whatsStale.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

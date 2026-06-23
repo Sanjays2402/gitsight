@@ -126,6 +126,7 @@ import { runReleaseSinceLastTag } from './views/releaseSinceLastTag';
 import { summarisePrComments, normalisePrArg as normaliseReviewSummaryArg } from './views/reviewSummaryAi';
 import { runMergeQueueStatus } from './views/mergeQueue';
 import { showBranchProtectionOverview } from './views/branchProtectionOverview';
+import { showWhatsStaleDashboard } from './views/whatsStale';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1289,6 +1290,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Branch Protection Overview (F119) ───────────────────────────
   reg('gitsight.branchProtectionOverview', () => errorWrap(async () => {
     await showBranchProtectionOverview(repos);
+  }));
+
+  // ── "What's Stale?" Dashboard (F120) ────────────────────────────
+  reg('gitsight.whatsStale', () => errorWrap(async () => {
+    await showWhatsStaleDashboard(repos);
   }));
 }
 

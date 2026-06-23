@@ -777,6 +777,11 @@
         "icon": "$(lock)"
       },
       {
+        "command": "gitsight.whatsStale",
+        "title": "GitSight: What's Stale? (rot report)\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2450,6 +2455,11 @@
           "minimum": 3,
           "maximum": 100,
           "description": "Maximum number of local branches to probe for protection rules per invocation. Higher values mean more gh API round-trips but a fuller picture."
+        },
+        "gitsight.whatsStale.includeStaleWorktrees": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, include worktrees whose only rot signal is age (existsOnDisk + upstream both fine) in the What's Stale picker. Otherwise only missing-on-disk + upstream-gone worktrees surface."
         }
       }
     },
