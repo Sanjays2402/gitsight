@@ -747,6 +747,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "gitsight.complexityBadge.showForPr",
+        "title": "GitSight: PR Complexity Breakdown\u2026",
+        "icon": "$(graph)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"

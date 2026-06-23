@@ -116,6 +116,7 @@ import { resolvePrCommentThreads } from './views/prThreadResolve';
 import { runGuardedPull } from './views/stashOnPull';
 import { createBranchWithAssistant } from './views/branchNamer';
 import { ComplexityBadgeProvider } from './views/complexityBadge';
+import { showComplexityForPrCommand } from './views/complexityForPr';
 import { runAutoResolveTrivialConflicts } from './views/conflictAutoResolve';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
@@ -1251,6 +1252,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   const complexityBadge = new ComplexityBadgeProvider(repos);
   ctx.subscriptions.push(complexityBadge.register());
   ctx.subscriptions.push(...complexityBadge.registerCommands());
+
+  // ── PR Complexity Aggregate (F114) ──────────────────────────────
+  reg('gitsight.complexityBadge.showForPr', () => errorWrap(async () => {
+    await showComplexityForPrCommand(repos);
+  }));
 }
 
 export function deactivate() {}

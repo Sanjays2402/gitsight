@@ -114,7 +114,7 @@ export class PrTimelinePill implements vscode.Disposable {
       vscode.window.showInformationMessage('GitSight: no open PR for the current branch.');
       return;
     }
-    type Pk = vscode.QuickPickItem & { _action: 'open' | 'inactive' | 'commits' | 'comments' | 'refresh' };
+    type Pk = vscode.QuickPickItem & { _action: 'open' | 'inactive' | 'commits' | 'comments' | 'complexity' | 'refresh' };
     const items: Pk[] = [];
     items.push({
       label: `PR #${timeline.number}  -  ${summary.pillLabel.replace(/^#\d+\s*/, '')}`,
@@ -136,6 +136,7 @@ export class PrTimelinePill implements vscode.Disposable {
       });
     }
     items.push({ label: '$(comment-discussion) Open PR comments inbox', _action: 'comments' });
+    items.push({ label: '$(graph) PR complexity breakdown', _action: 'complexity' });
     items.push({ label: '$(sync) Refresh now', _action: 'refresh' });
 
     const picked = await vscode.window.showQuickPick(items, {
@@ -156,6 +157,9 @@ export class PrTimelinePill implements vscode.Disposable {
         return;
       case 'comments':
         await vscode.commands.executeCommand('gitsight.prCommentsInbox', { number: timeline.number });
+        return;
+      case 'complexity':
+        await vscode.commands.executeCommand('gitsight.complexityBadge.showForPr');
         return;
       case 'refresh':
         await this.refresh();
