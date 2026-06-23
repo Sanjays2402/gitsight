@@ -119,7 +119,8 @@
     "src/git/stashPatchDiscovery.ts",
     "src/git/testImpactPrBodyDelta.ts",
     "src/git/branchProtectionSuggestDelta.ts",
-    "src/git/reviewerLoadTrend.ts"
+    "src/git/reviewerLoadTrend.ts",
+    "src/git/prFromDiff.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

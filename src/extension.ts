@@ -135,6 +135,7 @@ import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
 import { suggestBranchProtection, suggestBranchProtectionDelta } from './views/branchProtectionSuggest';
+import { generatePrDescriptionFromDiff } from './views/prFromDiff';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1373,6 +1374,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Stash Patch Auto-Discovery (F133) ───────────────────────────
   const patchDiscovery = new StashPatchDiscoveryController(repos);
   ctx.subscriptions.push(patchDiscovery);
+
+  // ── PR Description from Active Diff (F118) ──────────────────────
+  reg('gitsight.prDescriptionFromDiff', () => errorWrap(async () => {
+    const git = primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    await generatePrDescriptionFromDiff(ctx, git);
+  }));
 }
 
 export function deactivate() {}
