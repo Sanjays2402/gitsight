@@ -123,6 +123,7 @@ import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
 import { DcoSignoffController } from './views/dcoSignoffController';
 import { runReleaseSinceLastTag } from './views/releaseSinceLastTag';
+import { summarisePrComments, normalisePrArg as normaliseReviewSummaryArg } from './views/reviewSummaryAi';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1268,6 +1269,14 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Release-since-last-tag CHANGELOG Preview (F117) ─────────────
   reg('gitsight.releaseSinceLastTag', () => errorWrap(async () => {
     await runReleaseSinceLastTag(repos);
+  }));
+
+  // ── PR Comment AI Summary (F112) ────────────────────────────────
+  reg('gitsight.summarisePrComments', (arg: any) => errorWrap(async () => {
+    const git = primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    const num = normaliseReviewSummaryArg(arg);
+    await summarisePrComments(ctx, git, num);
   }));
 }
 

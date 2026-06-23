@@ -762,6 +762,11 @@
         "icon": "$(notebook)"
       },
       {
+        "command": "gitsight.summarisePrComments",
+        "title": "GitSight: Summarise PR Discussion with AI\u2026",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -1151,6 +1156,11 @@
           "command": "gitsight.resolvePrCommentThreads",
           "when": "viewItem =~ /^pr-(open|draft)$/",
           "group": "1_actions@7"
+        },
+        {
+          "command": "gitsight.summarisePrComments",
+          "when": "viewItem =~ /^pr-(open|draft|merged|closed)$/",
+          "group": "1_actions@8"
         },
         {
           "command": "gitsight.openHistoryForRecentFile",
