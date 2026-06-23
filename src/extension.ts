@@ -112,6 +112,7 @@ import { generatePrDescriptionFromSelection } from './views/prFromSelection';
 import { showBisectFromCiFailure } from './views/bisectFromCi';
 import { showPrCommentsInbox } from './views/prComments';
 import { composeAndPostPrComment } from './views/prCommentCompose';
+import { resolvePrCommentThreads } from './views/prThreadResolve';
 import { SecretAuditPill } from './views/secretAudit';
 import { showWorkspaceSecretAudit } from './views/workspaceSecretAudit';
 import { DiffSizeHeuristicController } from './views/diffSizeHeuristic';
@@ -1205,6 +1206,16 @@ export function activate(ctx: vscode.ExtensionContext) {
       : typeof arg?.number === 'number' ? arg.number
       : undefined;
     await composeAndPostPrComment(git, prNumber);
+  }));
+
+  // ── PR Comment Thread Resolver (F108) ───────────────────────────
+  reg('gitsight.resolvePrCommentThreads', (arg?: any) => errorWrap(async () => {
+    const git = primary(); if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    const prNumber = typeof arg === 'number' ? arg
+      : typeof arg?.pr?.number === 'number' ? arg.pr.number
+      : typeof arg?.number === 'number' ? arg.number
+      : undefined;
+    await resolvePrCommentThreads(git, prNumber);
   }));
 
   // ── Secret Audit Pill (F89) ─────────────────────────────────────

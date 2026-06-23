@@ -737,6 +737,11 @@
         "icon": "$(comment-add)"
       },
       {
+        "command": "gitsight.resolvePrCommentThreads",
+        "title": "GitSight: Resolve PR Comment Threads\u2026",
+        "icon": "$(check-all)"
+      },
+      {
         "command": "gitsight.secretAudit.show",
         "title": "GitSight: Show Missing Workflow Secrets\u2026",
         "icon": "$(warning)"
@@ -1116,6 +1121,11 @@
           "command": "gitsight.composePrComment",
           "when": "viewItem =~ /^pr-(open|draft)$/",
           "group": "1_actions@6"
+        },
+        {
+          "command": "gitsight.resolvePrCommentThreads",
+          "when": "viewItem =~ /^pr-(open|draft)$/",
+          "group": "1_actions@7"
         },
         {
           "command": "gitsight.openHistoryForRecentFile",

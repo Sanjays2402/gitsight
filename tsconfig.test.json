@@ -95,7 +95,8 @@
     "src/git/issueFromSelection.ts",
     "src/git/inactiveReviewers.ts",
     "src/git/prTimeline.ts",
-    "src/git/conflictCoach.ts"
+    "src/git/conflictCoach.ts",
+    "src/git/prThreadResolve.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
