@@ -31,15 +31,24 @@ import {
   describeSuggestion,
   describeSuggestionDetail,
   describeSuggestionWithLoad,
+  describeSuggestionWithLoadScore,
   buildGhAddReviewerArgs,
   parseChangedPaths,
-  rerankRoundRobin,
+  composeReviewerRanking,
   countReviewerLoad,
   GhPrLoadEntry,
+  LoadScoreEntry,
   ReviewerSuggestion,
   AuthorIdentity,
 } from '../git/defaultReviewers';
 import { buildFromShortlog, classifySelfReview, buildSelfReviewHint } from '../git/reviewersFromShortlog';
+import {
+  parsePendingFromGhJson,
+  parseAckLatencySamples,
+  parseThroughputCounts,
+  buildReviewerLoadStats,
+  scoreReviewerLoad,
+} from '../git/reviewerLoadBalancer';
 
 const pexec = promisify(execFile);
 
@@ -142,20 +151,36 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     return;
   }
 
-  // 5b. Round-robin: re-rank within each coverage tier by recent request load.
-  let ranked = suggestions;
-  let loadByHandle = new Map<string, number>();
-  if (roundRobin) {
-    loadByHandle = await loadRecentReviewerLoad(git, roundRobinWindow);
-    ranked = rerankRoundRobin({ suggestions, loadByHandle });
-  }
+  // 5b. Compose ranking. F128: prefer load-score (F124 composite — queue,
+  // throughput, ack latency) when available, fall back to F85 round-robin
+  // open-request count, fall back again to plain coverage. The two gh
+  // round-trips are issued in parallel (and skipped when their config flag
+  // is off) so the picker still feels snappy.
+  const loadBalancerEnabled = roundRobin && cfg.get<boolean>('loadBalancer', true);
+  const lbCfg = vscode.workspace.getConfiguration('gitsight.reviewerLoadBalancer');
+  const lookbackDays = clampInt(lbCfg.get<number>('lookbackDays', 30), 7, 180);
+
+  const [loadByHandle, scoresByHandle] = await Promise.all([
+    roundRobin ? loadRecentReviewerLoad(git, roundRobinWindow) : Promise.resolve(new Map<string, number>()),
+    loadBalancerEnabled ? loadReviewerScores(git, suggestions, lookbackDays) : Promise.resolve(new Map<string, LoadScoreEntry>()),
+  ]);
+
+  const composition = composeReviewerRanking({
+    suggestions,
+    loadByHandle: roundRobin ? loadByHandle : undefined,
+    scoresByHandle: loadBalancerEnabled ? scoresByHandle : undefined,
+  });
+  const ranked = composition.ranked;
 
   // 6. Picker.
   const items: Pk[] = ranked.map(s => ({
     label: `${s.kind === 'team' ? '$(organization) ' : '$(account) '}${s.displayHandle}`,
-    description: roundRobin
-      ? describeSuggestionWithLoad(s, changed.length, loadByHandle)
-      : describeSuggestion(s, changed.length),
+    description:
+      composition.source === 'load-score'
+        ? describeSuggestionWithLoadScore(s, changed.length, scoresByHandle)
+        : composition.source === 'round-robin'
+          ? describeSuggestionWithLoad(s, changed.length, loadByHandle)
+          : describeSuggestion(s, changed.length),
     detail: describeSuggestionDetail(s),
     picked: true,
     _suggestion: s,
@@ -166,10 +191,15 @@ export async function showDefaultReviewersPicker(git: Git): Promise<void> {
     : `Suggest reviewers (${changed.length} file${changed.length === 1 ? '' : 's'} changed)`;
 
   const sourceWord = suggestionsSource === 'codeowners' ? 'CODEOWNERS' : 'recent committers (no CODEOWNERS)';
+  const rankWord = composition.source === 'load-score'
+    ? 'load-balanced'
+    : composition.source === 'round-robin'
+      ? 'round-robin'
+      : 'coverage';
   const picked = await vscode.window.showQuickPick(items, {
     canPickMany: true,
     title,
-    placeHolder: `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} from ${sourceWord} \u00b7 base=${base}`,
+    placeHolder: `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} from ${sourceWord} \u00b7 ranked by ${rankWord} \u00b7 base=${base}`,
     matchOnDescription: true,
     matchOnDetail: true,
   });
@@ -349,4 +379,139 @@ async function loadShortlog(git: Git, days: number, paths: string[]): Promise<Re
   ];
   const out = await safe(git, args);
   return parseShortlog(out);
+}
+
+/**
+ * F128 - Fetch per-handle load scores for the current suggestion set.
+ *
+ * Mirrors the F124 reviewer-load-report fetch logic, but scoped to the
+ * suggestion set so we only do work for handles the picker is about to
+ * show. Falls back to an empty map (which the composition treats as
+ * "no scores") on any failure - gh missing, network hiccup, non-GitHub
+ * remote. The picker silently degrades to F85 round-robin in those cases.
+ *
+ * Bounded by a 12-second timeout so an unresponsive gh doesn't make the
+ * picker feel stuck; the worst case is reverting to round-robin.
+ */
+async function loadReviewerScores(
+  git: Git,
+  suggestions: ReviewerSuggestion[],
+  lookbackDays: number,
+): Promise<Map<string, LoadScoreEntry>> {
+  const out = new Map<string, LoadScoreEntry>();
+  if (!suggestions.length) return out;
+  if (!(await ghAvailable())) return out;
+
+  // We only score USER handles - team handles have no review queue of
+  // their own (the underlying users do). Teams stay in the picker but
+  // sort by tier + alphabetical when scores are partial.
+  const userHandles = suggestions
+    .filter(s => s.kind === 'user')
+    .map(s => s.handle.toLowerCase().replace(/^@/, ''));
+  if (!userHandles.length) return out;
+
+  const handleSet = new Set(userHandles);
+  const repoUrl = await safe(git, ['config', '--get', 'remote.origin.url']);
+  const slug = extractGitHubSlug(repoUrl);
+
+  try {
+    const pendingByHandle = new Map<string, number>();
+    // Fan-out for pending requests (cheap one-call-per-handle search).
+    // Bounded by Promise.all with a 12s outer race so a slow gh doesn't
+    // hold the picker.
+    const pendingPromise = (async () => {
+      for (const handle of userHandles) {
+        pendingByHandle.set(handle, await fetchPendingRequests(handle, slug));
+      }
+      return pendingByHandle;
+    })();
+    const since = isoDateNDaysAgo(lookbackDays);
+    const reviewsRaw = await raceWithTimeout(
+      fetchMergedReviewsForScoring(slug, since),
+      12_000,
+      '',
+    );
+    await raceWithTimeout(pendingPromise, 12_000, pendingByHandle);
+
+    const ackSamples = parseAckLatencySamples({ raw: reviewsRaw, handles: handleSet });
+    const throughputAll = parseThroughputCounts(reviewsRaw);
+    const throughputByHandle = new Map<string, number>();
+    for (const [k, v] of throughputAll) {
+      if (handleSet.has(k)) throughputByHandle.set(k, v);
+    }
+    const stats = buildReviewerLoadStats({
+      handles: userHandles,
+      pendingByHandle,
+      ackSamplesByHandle: ackSamples,
+      throughputByHandle,
+    });
+    for (const s of stats) {
+      const score = scoreReviewerLoad(s);
+      out.set(s.handle, { handle: s.handle, score: score.score });
+    }
+  } catch {
+    // Swallow - the picker has a safe fallback.
+  }
+  return out;
+}
+
+async function fetchPendingRequests(handle: string, slug: { owner: string; repo: string } | undefined): Promise<number> {
+  try {
+    const args = [
+      'pr', 'list',
+      '--search', `review-requested:${handle} state:open`,
+      '--json', 'number,url',
+      '--limit', '50',
+    ];
+    if (slug) args.splice(2, 0, '--repo', `${slug.owner}/${slug.repo}`);
+    const { stdout } = await pexec('gh', args, { timeout: 8000, maxBuffer: 1024 * 1024 });
+    return parsePendingFromGhJson(stdout);
+  } catch {
+    return 0;
+  }
+}
+
+async function fetchMergedReviewsForScoring(slug: { owner: string; repo: string } | undefined, sinceIso: string): Promise<string> {
+  try {
+    const args = [
+      'pr', 'list',
+      '--state', 'merged',
+      '--search', `merged:>=${sinceIso}`,
+      '--json', 'number,createdAt,reviews',
+      '--limit', '150',
+    ];
+    if (slug) args.splice(2, 0, '--repo', `${slug.owner}/${slug.repo}`);
+    const { stdout } = await pexec('gh', args, { timeout: 15000, maxBuffer: 8 * 1024 * 1024 });
+    return stdout;
+  } catch {
+    return '';
+  }
+}
+
+function isoDateNDaysAgo(days: number): string {
+  const d = new Date(Date.now() - days * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
+function extractGitHubSlug(url: string): { owner: string; repo: string } | undefined {
+  if (!url) return undefined;
+  // Match common github URL shapes; same heuristic the rest of the codebase uses.
+  const trimmed = url.trim();
+  const m =
+    /github\.com[:/]([\w.\-]+)\/([\w.\-]+?)(?:\.git)?$/i.exec(trimmed) ||
+    /^https?:\/\/github\.com\/([\w.\-]+)\/([\w.\-]+?)(?:\.git)?$/i.exec(trimmed);
+  if (!m) return undefined;
+  return { owner: m[1], repo: m[2] };
+}
+
+function clampInt(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo;
+  return Math.max(lo, Math.min(hi, Math.floor(n)));
+}
+
+async function raceWithTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return await Promise.race([
+    promise.catch(() => fallback),
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+  ]);
 }

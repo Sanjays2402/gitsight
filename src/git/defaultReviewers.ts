@@ -324,3 +324,135 @@ export function describeSuggestionWithLoad(
   const word = load === 1 ? 'request' : 'requests';
   return `${base} \u00b7 ${load} recent ${word}`;
 }
+
+// F128 — Reviewer load-balancer integration with F57 picker.
+//
+// Today the F57 picker re-ranks suggestions inside each CODEOWNERS coverage
+// tier by `rerankRoundRobin` (an open-request count). F124 ships a richer
+// score (queue + median ack + recent throughput) but lives only in the
+// standalone reviewer-load report. F128 composes the two so the picker
+// ORDER reflects the load profile when scores are available, and falls
+// back to round-robin counts when they aren't.
+//
+// Composition rules (in priority order):
+//   1. If `scoresByHandle` is provided AND covers at least one handle in the
+//      suggestion set, sort within each tier by score ASC. Unknown-handle
+//      scores sit at a configurable neutral midpoint (see
+//      reviewerLoadBalancer.scoreReviewerLoad) so they don't trump known-fast
+//      reviewers or be permanently buried under known-slow ones.
+//   2. Else if `loadByHandle` is provided, fall back to rerankRoundRobin
+//      (legacy F85 behaviour).
+//   3. Else return the input order (coverage-sorted).
+//
+// Tier order is always preserved — high-coverage owners never get demoted
+// under low-coverage owners, regardless of score. This matches the F85
+// invariant and is what the CODEOWNERS file is fundamentally about.
+
+export interface LoadScoreEntry {
+  /** Lowercase handle (no leading `@`). */
+  handle: string;
+  /** Composite score (lower = preferred). */
+  score: number;
+}
+
+export interface ComposeReviewerRankingArgs {
+  suggestions: ReviewerSuggestion[];
+  /** Round-robin signal (F85). Used when scores aren't available. */
+  loadByHandle?: Map<string, number>;
+  /** F124 load scores. Highest-priority signal. */
+  scoresByHandle?: Map<string, LoadScoreEntry>;
+}
+
+export interface ComposeReviewerRankingResult {
+  ranked: ReviewerSuggestion[];
+  /** Which signal won the composition. The view layer uses this to render
+   *  the picker's placeholder + the per-row detail line. */
+  source: 'load-score' | 'round-robin' | 'coverage-only';
+}
+
+export function composeReviewerRanking(args: ComposeReviewerRankingArgs): ComposeReviewerRankingResult {
+  const { suggestions, loadByHandle, scoresByHandle } = args;
+  if (!suggestions.length) {
+    return { ranked: [], source: 'coverage-only' };
+  }
+
+  // Prefer load-score when at least one suggestion has a score. We don't
+  // require coverage to be 100% — the score helper assigns a neutral
+  // midpoint for unknown handles so partial coverage is fine.
+  if (scoresByHandle && scoresByHandle.size > 0) {
+    const anyMatch = suggestions.some(s => scoresByHandle.has(s.handle.toLowerCase()));
+    if (anyMatch) {
+      return {
+        ranked: rerankByScores({ suggestions, scoresByHandle }),
+        source: 'load-score',
+      };
+    }
+  }
+
+  if (loadByHandle && loadByHandle.size > 0) {
+    return {
+      ranked: rerankRoundRobin({ suggestions, loadByHandle }),
+      source: 'round-robin',
+    };
+  }
+
+  return { ranked: suggestions.slice(), source: 'coverage-only' };
+}
+
+interface RerankByScoresArgs {
+  suggestions: ReviewerSuggestion[];
+  scoresByHandle: Map<string, LoadScoreEntry>;
+}
+
+// Inlined here (rather than imported from reviewerLoadBalancer.ts) to keep
+// the composition helper free of the larger F124 dependency surface — the
+// view layer is the integration point that brings them together.
+function rerankByScores(args: RerankByScoresArgs): ReviewerSuggestion[] {
+  const { suggestions, scoresByHandle } = args;
+  const tiers = new Map<number, ReviewerSuggestion[]>();
+  for (const s of suggestions) {
+    const tier = s.ownedPaths.length;
+    let bucket = tiers.get(tier);
+    if (!bucket) {
+      bucket = [];
+      tiers.set(tier, bucket);
+    }
+    bucket.push(s);
+  }
+  const tiersSorted = [...tiers.keys()].sort((a, b) => b - a);
+  const out: ReviewerSuggestion[] = [];
+  for (const tier of tiersSorted) {
+    const bucket = tiers.get(tier)!;
+    bucket.sort((a, b) => {
+      const sa = scoresByHandle.get(a.handle.toLowerCase())?.score ?? Number.POSITIVE_INFINITY;
+      const sb = scoresByHandle.get(b.handle.toLowerCase())?.score ?? Number.POSITIVE_INFINITY;
+      if (sa !== sb) return sa - sb;
+      // Tiebreakers match rerankRoundRobin: user before team, then handle.
+      if (a.kind !== b.kind) return a.kind === 'user' ? -1 : 1;
+      return a.handle.localeCompare(b.handle);
+    });
+    for (const s of bucket) out.push(s);
+  }
+  return out;
+}
+
+/**
+ * Render a one-line load-score summary for the picker's `description` line:
+ *
+ *   "owns 3/5 (60%) · load 12.4"
+ *   "owns 1/5 (20%) · load — (no signal)"
+ *
+ * The view layer flips between this and describeSuggestionWithLoad based on
+ * the composition source returned by composeReviewerRanking.
+ */
+export function describeSuggestionWithLoadScore(
+  s: ReviewerSuggestion,
+  totalFiles: number,
+  scoresByHandle: Map<string, LoadScoreEntry>,
+): string {
+  const base = describeSuggestion(s, totalFiles);
+  const entry = scoresByHandle.get(s.handle.toLowerCase());
+  if (!entry) return `${base} \u00b7 load \u2014 (no signal)`;
+  const rounded = (Math.round(entry.score * 10) / 10).toFixed(1);
+  return `${base} \u00b7 load ${rounded}`;
+}

@@ -2019,6 +2019,11 @@
           "maximum": 50,
           "description": "F91: maximum committers per coverage tier in the shortlog fallback. Default 5 keeps the picker focused; raise to 10+ for very large teams where the round-robin needs more rotation room."
         },
+        "gitsight.defaultReviewers.loadBalancer": {
+          "type": "boolean",
+          "default": true,
+          "description": "F128: when ON, the reviewer picker composes the F124 load-balancer score (queue + median ack + recent throughput) on top of the F85 round-robin signal so the suggested order reflects actual reviewer throughput. Requires `gh` CLI; degrades to round-robin when scores can't be fetched. Disable to keep the picker on round-robin only."
+        },
         "gitsight.commitScaffold.enabled": {
           "type": "boolean",
           "default": true,
