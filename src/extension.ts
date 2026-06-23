@@ -132,7 +132,7 @@ import { showWhatsStaleDashboard } from './views/whatsStale';
 import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
-import { showReviewerLoadReport } from './views/reviewerLoadBalancer';
+import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
 import { suggestBranchProtection, suggestBranchProtectionDelta } from './views/branchProtectionSuggest';
 
@@ -1333,6 +1333,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Reviewer Load Balancer (F124) ───────────────────────────────
   reg('gitsight.reviewerLoadReport', () => errorWrap(async () => {
     await showReviewerLoadReport(repos);
+  }));
+
+  // ── Reviewer Load Trend Report (F137) ───────────────────────────
+  reg('gitsight.reviewerLoadTrend', () => errorWrap(async () => {
+    await showReviewerLoadTrend(repos);
   }));
 
   // ── Test-Impact -> PR Body (F125) ───────────────────────────────

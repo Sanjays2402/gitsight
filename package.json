@@ -812,6 +812,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "gitsight.reviewerLoadTrend",
+        "title": "GitSight: Reviewer Load Trend Report\u2026",
+        "icon": "$(graph-line)"
+      },
+      {
         "command": "gitsight.injectTestImpactIntoPr",
         "title": "GitSight: Inject Test-Impact into PR Body\u2026",
         "icon": "$(beaker)"

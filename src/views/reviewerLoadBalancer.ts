@@ -41,6 +41,14 @@ import {
   ReviewerLoadScore,
   LoadVerdict,
 } from '../git/reviewerLoadBalancer';
+import {
+  parseAckSamplesWithTimestamps,
+  parseThroughputSamples,
+  buildWeeklyTrend,
+  buildTrendReport,
+  classifyTrendVerdict,
+  describeHandleTrend,
+} from '../git/reviewerLoadTrend';
 
 const pexec = promisify(execFile);
 
@@ -287,5 +295,141 @@ function detailFor(verdict: LoadVerdict): string | undefined {
     case 'slow': return 'median acknowledgement is 2+ days';
     case 'neutral': return undefined;
     case 'unknown': return 'no recent activity in the lookback window';
+  }
+}
+
+/**
+ * F137 - Reviewer Load Trend command.
+ *
+ * Reuses the F124 handle-gathering path (CODEOWNERS -> shortlog fallback,
+ * or explicit gitsight.reviewerLoadBalancer.handles), pulls the same
+ * merged-PR review window, but emits a per-week trend table per
+ * handle instead of the snapshot report.
+ *
+ * Output is a markdown report opened in a scratch buffer; also offers
+ * a quick-pick verdict summary per handle so the user can pick one to
+ * drill into.
+ */
+export async function showReviewerLoadTrend(repos: RepoManager): Promise<void> {
+  const git = repos.primary();
+  if (!git) {
+    vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    return;
+  }
+  if (!(await ghAvailable())) {
+    vscode.window.showWarningMessage('GitSight: gh CLI not found - cannot compute reviewer trend.');
+    return;
+  }
+  const repo = await resolveGitHubRepo(git);
+  if (!repo) {
+    vscode.window.showInformationMessage('GitSight: origin is not a GitHub remote.');
+    return;
+  }
+
+  const cfg = vscode.workspace.getConfiguration('gitsight.reviewerLoadBalancer');
+  const lookbackDays = Math.max(7, Math.min(180, cfg.get<number>('lookbackDays', 30)));
+  const configHandles = cfg.get<string[]>('handles', []) ?? [];
+
+  const handles = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Window, title: 'GitSight: gathering reviewer handles\u2026' },
+    async () => configHandles.length > 0 ? configHandles : await defaultHandles(git),
+  );
+  if (!handles.length) {
+    vscode.window.showInformationMessage('GitSight: no reviewer handles detected. Set `gitsight.reviewerLoadBalancer.handles` to track specific reviewers.');
+    return;
+  }
+
+  const handleSet = new Set(handles.map(h => h.toLowerCase().replace(/^@/, '')));
+  const trend = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GitSight: trending ${handleSet.size} reviewer${handleSet.size === 1 ? '' : 's'} (last ${lookbackDays}d)\u2026`,
+    },
+    async () => {
+      const since = isoDateNDaysAgo(lookbackDays);
+      const raw = await fetchMergedReviews(repo.owner, repo.repo, since);
+      const ack = parseAckSamplesWithTimestamps(raw, handleSet);
+      const tp = parseThroughputSamples(raw, handleSet);
+      return buildWeeklyTrend({ ackSamples: ack, throughputSamples: tp, handles: handleSet });
+    },
+  );
+
+  if (trend.size === 0) {
+    vscode.window.showInformationMessage(
+      `GitSight: no reviewer activity in the last ${lookbackDays} days for the tracked handles.`,
+    );
+    return;
+  }
+
+  const lookbackWeeks = Math.max(1, Math.round(lookbackDays / 7));
+  await renderTrendPicker(repo, lookbackWeeks, trend);
+}
+
+async function renderTrendPicker(
+  repo: { owner: string; repo: string },
+  lookbackWeeks: number,
+  trend: Map<string, import('../git/reviewerLoadTrend').WeekBucket[]>,
+): Promise<void> {
+  type Pk = vscode.QuickPickItem & { _handle?: string; _action?: 'open-report' };
+  const items: Pk[] = [];
+  items.push({
+    label: `Reviewer trend - ${trend.size} reviewer${trend.size === 1 ? '' : 's'} - last ${lookbackWeeks} week${lookbackWeeks === 1 ? '' : 's'}`,
+    kind: vscode.QuickPickItemKind.Separator,
+  } as any);
+
+  // Sort by verdict priority then handle: improving first, then steady, then regressing, then sparse.
+  const verdictOrder: Record<string, number> = { improving: 0, steady: 1, regressing: 2, 'sparse-data': 3 };
+  const handles = [...trend.keys()].sort((a, b) => {
+    const va = verdictOrder[classifyTrendVerdict(trend.get(a)!)] ?? 4;
+    const vb = verdictOrder[classifyTrendVerdict(trend.get(b)!)] ?? 4;
+    if (va !== vb) return va - vb;
+    return a.localeCompare(b);
+  });
+
+  for (const handle of handles) {
+    const buckets = trend.get(handle)!;
+    const verdict = classifyTrendVerdict(buckets);
+    items.push({
+      label: `$(${trendGlyph(verdict)}) @${handle}`,
+      description: verdict,
+      detail: describeHandleTrend(handle, buckets),
+      _handle: handle,
+    });
+  }
+  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  items.push({ label: '$(notebook) Open full trend report', _action: 'open-report' });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: `Reviewer load trend (${repo.owner}/${repo.repo})`,
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+  if (!picked) return;
+  if (picked._action === 'open-report') {
+    await openTrendReport(trend, lookbackWeeks);
+    return;
+  }
+  if (picked._handle) {
+    // Drill into single handle - open a report scoped to that handle.
+    const singleton = new Map([[picked._handle, trend.get(picked._handle)!]]);
+    await openTrendReport(singleton, lookbackWeeks);
+  }
+}
+
+async function openTrendReport(
+  trend: Map<string, import('../git/reviewerLoadTrend').WeekBucket[]>,
+  lookbackWeeks: number,
+): Promise<void> {
+  const md = buildTrendReport({ trend, lookbackWeeks });
+  const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+  await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+}
+
+function trendGlyph(verdict: 'improving' | 'regressing' | 'steady' | 'sparse-data'): string {
+  switch (verdict) {
+    case 'improving': return 'arrow-down';
+    case 'regressing': return 'arrow-up';
+    case 'steady': return 'dash';
+    case 'sparse-data': return 'question';
   }
 }
