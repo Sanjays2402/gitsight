@@ -2630,6 +2630,11 @@
           "minimum": 1,
           "maximum": 1440,
           "description": "F133: only offer to apply patches whose mtime is within this many minutes. Files older than the window are assumed to be stale workspace fixtures rather than a fresh drop."
+        },
+        "gitsight.stashPatchImport.dryRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "F141: when ON (default), GitSight runs `git apply --check` + `git apply --stat` before the F131 confirm dialog and shows the verdict (clean / conflicts / rejected / invalid) plus a per-file change preview. Set OFF to skip the probes and go straight to the confirm + apply step."
         }
       }
     },

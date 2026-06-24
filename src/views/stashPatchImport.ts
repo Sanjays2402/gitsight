@@ -32,6 +32,16 @@ import {
   PatchPayloadInfo,
   ApplyClassification,
 } from '../git/stashPatchImport';
+import {
+  classifyDryRunCheck,
+  parseDryRunStat,
+  describeDryRun,
+  buildDryRunReport,
+  defaultApplyButton,
+  shouldOfferApply,
+  DryRunCheckResult,
+  DryRunStatSummary,
+} from '../git/stashPatchDryRun';
 
 const pexec = promisify(execFile);
 
@@ -69,7 +79,7 @@ export async function importStashPatch(repos: RepoManager, opts?: { preselectPat
     if (choice !== 'Apply anyway') return;
   }
 
-  const confirmed = await confirmApply(picked, info);
+  const confirmed = await confirmApply(git, picked, info);
   if (!confirmed) return;
 
   const result = await runGitApply(git, picked.filename);
@@ -161,22 +171,146 @@ async function browseAndLoad(): Promise<PickResult | undefined> {
   }
 }
 
-async function confirmApply(pick: PickResult, info: PatchPayloadInfo): Promise<boolean> {
+async function confirmApply(git: Git, pick: PickResult, info: PatchPayloadInfo): Promise<boolean> {
   const base = path.basename(pick.filename);
-  const lines = [
+  const cfg = vscode.workspace.getConfiguration('gitsight.stashPatchImport');
+  const dryRunEnabled = cfg.get<boolean>('dryRun', true);
+
+  let dryRun: { check: DryRunCheckResult; stat: DryRunStatSummary } | undefined;
+  if (dryRunEnabled) {
+    dryRun = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `GitSight: dry-running ${base}\u2026`,
+      },
+      () => runDryRun(git, pick.filename),
+    );
+  }
+
+  const summaryLines: string[] = [
     `File: ${base}`,
     info.fileCount > 0 ? `Files in patch: ${info.fileCount}` : '',
     info.hasBinary ? 'Contains binary files - 3-way merge may not apply cleanly' : '',
     info.gitsightMeta?.sourceBranch ? `Source branch: ${info.gitsightMeta.sourceBranch}` : '',
     info.gitsightMeta?.subject ? `Subject: ${info.gitsightMeta.subject}` : '',
-  ].filter(Boolean);
-  const detail = lines.join('\n');
-  const ans = await vscode.window.showWarningMessage(
-    `GitSight: apply patch \`${base}\` to the working tree?`,
-    { modal: true, detail },
-    'Apply (--3way)',
-  );
-  return ans === 'Apply (--3way)';
+  ];
+
+  let proceedButton: string = 'Apply (--3way)';
+  let secondaryButton: string | undefined;
+  let modalSeverity: 'info' | 'warning' | 'error' = 'warning';
+  if (dryRun) {
+    const headline = describeDryRun({
+      verdict: dryRun.check.verdict,
+      stat: dryRun.stat,
+      conflictedFiles: dryRun.check.conflictedFiles,
+      reason: dryRun.check.reason,
+    });
+    summaryLines.push('');
+    summaryLines.push(headline);
+    if (dryRun.stat.rows.length > 0) {
+      const totals = `+${dryRun.stat.totalInsertions} -${dryRun.stat.totalDeletions}`;
+      summaryLines.push(`Lines: ${totals}`);
+    }
+    secondaryButton = 'Open dry-run preview';
+    if (!shouldOfferApply(dryRun.check.verdict)) {
+      const choice = await vscode.window.showErrorMessage(
+        `GitSight: \`${base}\` looks invalid (${dryRun.check.reason}). Apply blocked.`,
+        { modal: true, detail: summaryLines.filter(Boolean).join('\n') },
+        secondaryButton,
+      );
+      if (choice === secondaryButton) {
+        await openDryRunPreview(pick, info, dryRun.check, dryRun.stat);
+      }
+      return false;
+    }
+    modalSeverity = dryRun.check.verdict === 'clean' ? 'info' : 'warning';
+    if (dryRun.check.verdict !== 'clean') {
+      proceedButton = 'Apply anyway (--3way)';
+    }
+  }
+
+  const detail = summaryLines.filter(Boolean).join('\n');
+  // When dry-run says cancel-is-default we present the Apply as the
+  // ONLY non-Cancel button - the user has to read the warning to act.
+  const buttons = secondaryButton ? [proceedButton, secondaryButton] : [proceedButton];
+  const ans = dryRun && defaultApplyButton(dryRun.check.verdict) === 'apply'
+    ? await vscode.window.showInformationMessage(
+        `GitSight: apply patch \`${base}\` to the working tree?`,
+        { modal: true, detail },
+        ...buttons,
+      )
+    : modalSeverity === 'warning'
+      ? await vscode.window.showWarningMessage(
+          `GitSight: apply patch \`${base}\` to the working tree?`,
+          { modal: true, detail },
+          ...buttons,
+        )
+      : await vscode.window.showErrorMessage(
+          `GitSight: apply patch \`${base}\`?`,
+          { modal: true, detail },
+          ...buttons,
+        );
+
+  if (ans === secondaryButton && dryRun) {
+    await openDryRunPreview(pick, info, dryRun.check, dryRun.stat);
+    // Loop back through the confirm so the user can act after reading the preview.
+    return await confirmApply(git, pick, info);
+  }
+  return ans === proceedButton;
+}
+
+async function runDryRun(git: Git, filename: string): Promise<{ check: DryRunCheckResult; stat: DryRunStatSummary }> {
+  const [check, stat] = await Promise.all([
+    runApplyCheck(git, filename),
+    runApplyStat(git, filename),
+  ]);
+  return { check, stat };
+}
+
+async function runApplyCheck(git: Git, filename: string): Promise<DryRunCheckResult> {
+  try {
+    await pexec('git', ['apply', '--check', filename], {
+      cwd: git.cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: 15000,
+    });
+    return classifyDryRunCheck({ exitCode: 0, stderr: '' });
+  } catch (e: any) {
+    const exitCode = typeof e?.code === 'number' ? e.code : 1;
+    const stderr = `${e?.stdout ?? ''}\n${e?.stderr ?? ''}\n${e?.message ?? ''}`;
+    return classifyDryRunCheck({ exitCode, stderr });
+  }
+}
+
+async function runApplyStat(git: Git, filename: string): Promise<DryRunStatSummary> {
+  try {
+    const { stdout } = await pexec('git', ['apply', '--stat', filename], {
+      cwd: git.cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: 15000,
+    });
+    return parseDryRunStat(stdout);
+  } catch (e: any) {
+    // --stat tends to fail for invalid bodies; we surface that via check
+    // anyway, so an empty stat is a fine fallback here.
+    return parseDryRunStat(typeof e?.stdout === 'string' ? e.stdout : '');
+  }
+}
+
+async function openDryRunPreview(
+  pick: PickResult,
+  info: PatchPayloadInfo,
+  check: DryRunCheckResult,
+  stat: DryRunStatSummary,
+): Promise<void> {
+  const md = buildDryRunReport({
+    filename: pick.filename,
+    check,
+    stat,
+    meta: info.gitsightMeta,
+  });
+  const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+  await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 }
 
 async function runGitApply(git: Git, filename: string): Promise<ApplyClassification> {
