@@ -123,7 +123,8 @@
     "src/git/prFromDiff.ts",
     "src/git/stashPatchDryRun.ts",
     "src/git/branchProtectionTemplates.ts",
-    "src/git/preMergeChecklist.ts"
+    "src/git/preMergeChecklist.ts",
+    "src/git/testImpactPrBodyInsertOffer.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

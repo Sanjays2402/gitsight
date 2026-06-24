@@ -134,6 +134,7 @@ import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
+import { runTestImpactInsertOfferFireAndForget } from './views/testImpactPrBodyInsertOffer';
 import { suggestBranchProtection, suggestBranchProtectionDelta, applyBranchProtectionTemplate } from './views/branchProtectionSuggest';
 import { generatePrDescriptionFromDiff } from './views/prFromDiff';
 import { runPreMergeChecklist_View } from './views/preMergeChecklist';
@@ -458,6 +459,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     // PR whose body already contains the F125 managed block, refresh it.
     // Same fire-and-forget contract as F77 - never blocks the push.
     runTestImpactAutoSyncFireAndForget(repos, branch);
+    // Test-Impact INSERT Auto-Offer (F139): if the just-pushed branch
+    // has an open PR that does NOT yet have the block AND the PR is
+    // big enough to be worth annotating, surface a one-time toast
+    // offering to insert it. Composes with F129 (the auto-sync above)
+    // to give first-time users a path INTO the F125 workflow.
+    runTestImpactInsertOfferFireAndForget(repos, branch);
     refreshAll();
   }));
   reg('gitsight.addRemote', () => errorWrap(async () => {

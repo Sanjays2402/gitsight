@@ -2652,6 +2652,18 @@
           "minimum": 1,
           "maximum": 1000,
           "description": "F138: minimum number of commits the PR head must be behind its base for the pre-merge checklist to surface a base-divergence warning. Lower = warn earlier; higher = tolerate more drift. The warning reminds reviewers that the diff they looked at may not be exactly what gets merged."
+        },
+        "gitsight.testImpactPrBody.insertAutoOffer": {
+          "type": "boolean",
+          "default": true,
+          "description": "F139: when ON (default), after a `gitsight.push` GitSight checks the just-pushed branch's open PR and, IF the body has no F125 test-impact block AND the PR touches more than `insertAutoOfferMinFiles` files, surfaces a one-time toast offering to insert the block (gateway into the F125 workflow). The toast remembers per-PR dismissal for the session. Set OFF to never offer."
+        },
+        "gitsight.testImpactPrBody.insertAutoOfferMinFiles": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "F139: minimum number of files the PR must touch before the insert auto-offer fires. Lower = offer for smaller PRs (more friction); higher = offer only for substantive PRs."
         }
       }
     },
