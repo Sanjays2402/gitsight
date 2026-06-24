@@ -2674,6 +2674,11 @@
           "default": true,
           "description": "F147: when ON (default), surface a status-bar pill showing 'Pages: N docs changes' whenever the current branch has uncommitted/unpushed edits under the configured Pages source directories AND the repo has a Pages config (or a Pages-related workflow). Click opens the F79 preview command."
         },
+        "gitsight.branchProtectionSuggest.autoOfferTemplate": {
+          "type": "boolean",
+          "default": true,
+          "description": "F146: when ON (default), the protection suggester offers the recommended canned template (open-source-friendly / internal-strict / release-only) as a one-click default before walking the per-rule picker. The verdict picks the template from branch role + repo visibility; users can still pick \"Choose individual rules instead\" to fall through to the per-rule picker."
+        },
         "gitsight.testImpactPrBody.insertAutoOffer": {
           "type": "boolean",
           "default": true,

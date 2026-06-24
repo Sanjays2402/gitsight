@@ -61,6 +61,10 @@ import {
   describeTemplateDelta,
   classifyTemplateCoverage,
 } from '../git/branchProtectionTemplates';
+import {
+  buildAutoSuggestPayload,
+  listAlternativeTemplates,
+} from '../git/branchProtectionTemplateAutoSuggest';
 
 const pexec = promisify(execFile);
 
@@ -114,6 +118,20 @@ export async function suggestBranchProtection(repos: RepoManager, branchHint?: s
   const previewMd = buildSuggestionPreview({
     branch, role: result.role, suggestions: result.suggestions, signals: result.signals,
   });
+  // F146 - on first-time setup (decision is unprotected/unknown OR
+  // protection has zero enabled rules), offer the recommended canned
+  // template as a one-click default before walking the per-rule picker.
+  const autoSuggest = await maybeAutoSuggestTemplate({
+    repo,
+    git,
+    branch,
+    role: result.role,
+    decision: result.decision,
+    signals: result.signals,
+  });
+  if (autoSuggest === 'applied') return; // user accepted the template path
+  if (autoSuggest === 'cancelled') return;
+  // Otherwise fall through to the standard rule-picker.
   const action = await vscode.window.showInformationMessage(
     describeSuggestionVerdict({ branch, suggestions: result.suggestions }),
     'Open preview', 'Pick rules to apply', 'Open settings page',
@@ -304,6 +322,131 @@ async function applyProtection(owner: string, repo: string, branch: string, body
     vscode.window.showErrorMessage(`GitSight: gh api failed: ${first}`);
   } finally {
     await fs.unlink(tmp).catch(() => {});
+  }
+}
+
+/**
+ * F146 - Surface the recommended canned template as a one-click default
+ * before the per-rule picker. Returns:
+ *   - 'applied'    : user accepted the template path (DON'T fall through
+ *                    to per-rule picker)
+ *   - 'cancelled'  : user explicitly cancelled (DON'T fall through)
+ *   - 'fall-through': caller should show the standard per-rule picker
+ *                     (user picked "Choose individual rules" OR the
+ *                     verdict was 'suppress')
+ */
+async function maybeAutoSuggestTemplate(args: {
+  repo: { owner: string; repo: string };
+  git: Git;
+  branch: string;
+  role: BranchRole;
+  decision: ProtectionDecision;
+  signals: EnvironmentSignals;
+}): Promise<'applied' | 'cancelled' | 'fall-through'> {
+  const cfg = vscode.workspace.getConfiguration('gitsight.branchProtectionSuggest');
+  if (!cfg.get<boolean>('autoOfferTemplate', true)) return 'fall-through';
+  const isOpenSource = await probeIsOpenSource(args.repo.owner, args.repo.repo).catch(() => undefined);
+  const payload = buildAutoSuggestPayload({
+    decision: args.decision,
+    role: args.role,
+    isOpenSource,
+  });
+  if (!payload) return 'fall-through';
+
+  type Pk = vscode.QuickPickItem & { _action: 'apply' | 'preview' | 'rules' | 'cancel' };
+  const items: Pk[] = [];
+  items.push({
+    label: payload.headline,
+    description: payload.template.id,
+    detail: payload.detail,
+    _action: 'apply',
+    picked: payload.prePick,
+  });
+  items.push({ label: '$(eye) Preview template before applying', _action: 'preview' });
+  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator } as any);
+  items.push({ label: '$(list-tree) Choose individual rules instead', _action: 'rules' });
+  items.push({ label: '$(close) Cancel', _action: 'cancel' });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: `Protect ${args.branch}: pick a template or walk individual rules`,
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+  if (!picked) return 'cancelled';
+  if (picked._action === 'cancel') return 'cancelled';
+  if (picked._action === 'rules') return 'fall-through';
+  if (picked._action === 'preview') {
+    const suggestions = buildTemplateSuggestions({
+      template: payload.template,
+      currentlyEnabled: enabledRuleSet(args.decision) as Set<any>,
+    });
+    const preview = buildTemplatePreview({
+      template: payload.template,
+      branch: args.branch,
+      suggestions,
+    });
+    const doc = await vscode.workspace.openTextDocument({ content: preview, language: 'markdown' });
+    await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+    // Loop back: ask whether to apply.
+    const confirm = await vscode.window.showWarningMessage(
+      `Apply "${payload.template.label}" template to \`${args.branch}\`?`,
+      { modal: true, detail: payload.detail },
+      'Apply template', 'Pick individual rules', 'Cancel',
+    );
+    if (confirm === 'Apply template') {
+      await applyTemplate(args, payload.template);
+      return 'applied';
+    }
+    if (confirm === 'Pick individual rules') return 'fall-through';
+    return 'cancelled';
+  }
+  // 'apply' - confirm + send.
+  const confirm = await vscode.window.showWarningMessage(
+    `Apply "${payload.template.label}" template to \`${args.branch}\` on ${args.repo.owner}/${args.repo.repo}?`,
+    { modal: true, detail: payload.detail + '\n\nThis sends a PUT to the GitHub branch-protection API and requires admin access.' },
+    'Apply', 'Cancel',
+  );
+  if (confirm !== 'Apply') return 'cancelled';
+  await applyTemplate(args, payload.template);
+  return 'applied';
+}
+
+async function applyTemplate(
+  args: { repo: { owner: string; repo: string }; branch: string; decision: ProtectionDecision; signals: EnvironmentSignals },
+  template: TemplateDefinition,
+): Promise<void> {
+  const suggestions = buildTemplateSuggestions({
+    template,
+    currentlyEnabled: enabledRuleSet(args.decision) as Set<any>,
+  });
+  const body = buildProtectionPutBody({
+    picked: suggestions.map(s => s.id),
+    currentlyEnabled: enabledRuleSet(args.decision) as Set<any>,
+    statusCheckContexts: args.signals.workflowJobNames,
+  });
+  await applyProtection(args.repo.owner, args.repo.repo, args.branch, body);
+}
+
+function enabledRuleSet(decision: ProtectionDecision): Set<string> {
+  const out = new Set<string>();
+  if (decision && decision.kind === 'protected' && Array.isArray(decision.rules)) {
+    for (const r of decision.rules) if (r.enabled) out.add(r.id);
+  }
+  return out;
+}
+
+async function probeIsOpenSource(owner: string, repo: string): Promise<boolean | undefined> {
+  try {
+    const { stdout } = await pexec('gh', [
+      'api', `repos/${owner}/${repo}`,
+      '--jq', '.visibility',
+    ], { timeout: 8000, maxBuffer: 64 * 1024 });
+    const v = (stdout ?? '').trim().toLowerCase();
+    if (v === 'public') return true;
+    if (v === 'private' || v === 'internal') return false;
+    return undefined;
+  } catch {
+    return undefined;
   }
 }
 
