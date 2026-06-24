@@ -138,6 +138,7 @@ import { runTestImpactInsertOfferFireAndForget } from './views/testImpactPrBodyI
 import { suggestBranchProtection, suggestBranchProtectionDelta, applyBranchProtectionTemplate } from './views/branchProtectionSuggest';
 import { generatePrDescriptionFromDiff } from './views/prFromDiff';
 import { runPreMergeChecklist_View } from './views/preMergeChecklist';
+import { showGhPagesPreview } from './views/ghPagesPreview';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1398,6 +1399,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Pre-Merge Readiness Checklist (F138) ────────────────────────
   reg('gitsight.preMergeChecklist', (arg?: any) => errorWrap(async () => {
     await runPreMergeChecklist_View({ primary }, arg);
+  }));
+
+  // ── GitHub Pages preview (F79) ──────────────────────────────────
+  reg('gitsight.ghPagesPreview', () => errorWrap(async () => {
+    await showGhPagesPreview(repos);
   }));
 }
 

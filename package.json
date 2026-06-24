@@ -857,6 +857,11 @@
         "icon": "$(rocket)"
       },
       {
+        "command": "gitsight.ghPagesPreview",
+        "title": "GitSight: GitHub Pages Preview\u2026",
+        "icon": "$(preview)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2664,6 +2669,19 @@
           "minimum": 1,
           "maximum": 1000,
           "description": "F139: minimum number of files the PR must touch before the insert auto-offer fires. Lower = offer for smaller PRs (more friction); higher = offer only for substantive PRs."
+        },
+        "gitsight.ghPagesPreview.docsDirs": {
+          "type": "array",
+          "default": ["docs", "_site", "site", "public", "build", "dist", "content"],
+          "items": { "type": "string" },
+          "description": "F79: top-level directories considered as GitHub Pages docs sources. A branch is flagged as having docs changes when any changed file lives under one of these (compared via prefix match). Override to add custom dirs (e.g. `blog/`) or to narrow the set."
+        },
+        "gitsight.ghPagesPreview.matchedPathCap": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "F79: maximum number of matched docs paths surfaced in the picker + report. Higher = more deep-links rendered but slower picker render on very large doc PRs."
         }
       }
     },
