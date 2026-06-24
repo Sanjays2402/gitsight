@@ -134,7 +134,7 @@ import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
 import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
-import { suggestBranchProtection, suggestBranchProtectionDelta } from './views/branchProtectionSuggest';
+import { suggestBranchProtection, suggestBranchProtectionDelta, applyBranchProtectionTemplate } from './views/branchProtectionSuggest';
 import { generatePrDescriptionFromDiff } from './views/prFromDiff';
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -1354,6 +1354,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Branch Protection Delta-Only Picker (F135) ──────────────────
   reg('gitsight.suggestBranchProtectionDelta', (branch?: string) => errorWrap(async () => {
     await suggestBranchProtectionDelta(repos, typeof branch === 'string' ? branch : undefined);
+  }));
+
+  // ── Branch Protection Template (F142) ───────────────────────────
+  reg('gitsight.applyBranchProtectionTemplate', (branch?: string) => errorWrap(async () => {
+    await applyBranchProtectionTemplate(repos, typeof branch === 'string' ? branch : undefined);
   }));
 
   // ── Stash Patch Export (F127) ───────────────────────────────────

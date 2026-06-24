@@ -51,6 +51,16 @@ import {
   pickAllChanges,
   ProtectionRuleDelta,
 } from '../git/branchProtectionSuggestDelta';
+import {
+  TEMPLATES,
+  TemplateDefinition,
+  TemplateId,
+  getTemplate,
+  buildTemplateSuggestions,
+  buildTemplatePreview,
+  describeTemplateDelta,
+  classifyTemplateCoverage,
+} from '../git/branchProtectionTemplates';
 
 const pexec = promisify(execFile);
 
@@ -445,3 +455,122 @@ async function openDeltaReport(branch: string, deltas: ProtectionRuleDelta[]): P
   const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
   await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 }
+
+/**
+ * F142 - Apply a canned branch-protection template.
+ *
+ * Sibling command to suggestBranchProtection / suggestBranchProtectionDelta.
+ * Where those derive suggestions from branch role + repo signals, this
+ * one offers a fast path: pick a named template (open-source-friendly /
+ * internal-strict / release-only) and apply it in one click.
+ */
+export async function applyBranchProtectionTemplate(repos: RepoManager, branchHint?: string): Promise<void> {
+  const git = repos.primary();
+  if (!git) {
+    vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    return;
+  }
+  if (!(await ghAvailable())) {
+    vscode.window.showWarningMessage('GitSight: gh CLI not found - cannot probe or set branch protection.');
+    return;
+  }
+  const repo = await resolveGitHubRepo(git);
+  if (!repo) {
+    vscode.window.showInformationMessage('GitSight: origin is not a GitHub remote.');
+    return;
+  }
+  const branch = await resolveBranch(git, branchHint);
+  if (!branch) {
+    vscode.window.showInformationMessage('GitSight: no branch selected (detached HEAD?).');
+    return;
+  }
+
+  const decision = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GitSight: probing protection for \`${branch}\`\u2026`,
+    },
+    () => probeBranch(repo.owner, repo.repo, branch),
+  );
+  const currentlyEnabled = new Set<string>();
+  if (decision.kind === 'protected') {
+    for (const r of decision.rules) if (r.enabled) currentlyEnabled.add(r.id);
+  }
+
+  const template = await pickTemplate(currentlyEnabled as Set<any>);
+  if (!template) return;
+
+  const suggestions = buildTemplateSuggestions({
+    template,
+    currentlyEnabled: currentlyEnabled as Set<any>,
+  });
+  if (suggestions.length === 0) {
+    vscode.window.showInformationMessage(
+      `GitSight: \`${branch}\` already has every rule in the "${template.label}" template enabled.`,
+    );
+    return;
+  }
+
+  const action = await vscode.window.showInformationMessage(
+    describeTemplateDelta({ template, suggestions }),
+    'Open preview', 'Apply template', 'Cancel',
+  );
+  if (!action || action === 'Cancel') return;
+  if (action === 'Open preview') {
+    const md = buildTemplatePreview({ template, branch, suggestions });
+    const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+    await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+    const next = await vscode.window.showInformationMessage(
+      `Apply "${template.label}" to \`${branch}\`?`,
+      'Apply', 'Cancel',
+    );
+    if (next !== 'Apply') return;
+  }
+
+  const ok = await vscode.window.showWarningMessage(
+    `Apply ${suggestions.length} rule${suggestions.length === 1 ? '' : 's'} from "${template.label}" to \`${branch}\` on ${repo.owner}/${repo.repo}?`,
+    {
+      modal: true,
+      detail: suggestions.map(s => `\u2022 ${s.label}`).join('\n')
+        + '\n\nThis sends a PUT to the GitHub branch-protection API. Existing enabled rules are preserved.',
+    },
+    'Apply',
+  );
+  if (ok !== 'Apply') return;
+
+  const body = buildProtectionPutBody({
+    picked: suggestions.map(s => s.id),
+    currentlyEnabled: currentlyEnabled as Set<any>,
+    requiredApprovingReviewCount: template.requiredApprovingReviewCount,
+    // Status-check rule in a template applies generically - we don't
+    // pre-fill workflow contexts here because the template is meant to
+    // be portable across repos. The user can refine via F126 after.
+  });
+  await applyProtection(repo.owner, repo.repo, branch, body);
+}
+
+async function pickTemplate(currentlyEnabled: Set<any>): Promise<TemplateDefinition | undefined> {
+  type Pk = vscode.QuickPickItem & { _t: TemplateDefinition };
+  const items: Pk[] = TEMPLATES.map(t => {
+    const verdict = classifyTemplateCoverage({ template: t, currentlyEnabled });
+    const glyph = verdict === 'already-covered' ? 'check'
+                : verdict === 'partial' ? 'tools'
+                : 'shield';
+    const suffix = verdict === 'already-covered' ? ' (already covered)'
+                 : verdict === 'partial' ? ' (partial)'
+                 : '';
+    return {
+      label: `$(${glyph}) ${t.label}${suffix}`,
+      description: t.description,
+      detail: t.rationale,
+      _t: t,
+    };
+  });
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Pick a branch-protection template to apply',
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+  return picked?._t;
+}
+

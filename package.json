@@ -832,6 +832,11 @@
         "icon": "$(diff)"
       },
       {
+        "command": "gitsight.applyBranchProtectionTemplate",
+        "title": "GitSight: Apply Branch Protection Template\u2026",
+        "icon": "$(shield)"
+      },
+      {
         "command": "gitsight.exportStashPatches",
         "title": "GitSight: Export Stash Patches\u2026",
         "icon": "$(save)"
