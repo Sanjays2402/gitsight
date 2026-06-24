@@ -2669,6 +2669,11 @@
           "default": "merge",
           "description": "F144: default merge strategy for `gh pr merge --auto`. The pre-merge checklist surfaces this strategy as the pre-picked option in the auto-merge picker; the user can still pick a different one from the list. Use 'squash' for repos that enforce squash-and-merge."
         },
+        "gitsight.ghPagesPreviewPill.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "F147: when ON (default), surface a status-bar pill showing 'Pages: N docs changes' whenever the current branch has uncommitted/unpushed edits under the configured Pages source directories AND the repo has a Pages config (or a Pages-related workflow). Click opens the F79 preview command."
+        },
         "gitsight.testImpactPrBody.insertAutoOffer": {
           "type": "boolean",
           "default": true,

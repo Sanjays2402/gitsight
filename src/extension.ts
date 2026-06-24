@@ -102,6 +102,7 @@ import { PrTemplateLintController, runPrTemplateLintCommand } from './views/prTe
 import { runOpenIssueFromSelection, OpenIssueCodeActionProvider } from './views/openIssueFromSelection';
 import { runFindInactiveReviewers } from './views/inactiveReviewers';
 import { PrTimelinePill } from './views/prTimelinePill';
+import { GhPagesPreviewPill } from './views/ghPagesPreviewPill';
 import { runConflictCoach, registerConflictCoach } from './views/conflictCoach';
 import { showReleasesCompanion } from './views/githubReleases';
 import { showPrReviewInbox } from './views/prReviewInbox';
@@ -1176,6 +1177,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(prTimelinePill);
   reg('gitsight.prTimelinePill.refresh', () => errorWrap(async () => {
     await prTimelinePill.refresh();
+  }));
+
+  // ── GitHub Pages preview pill (F147) ────────────────────────────
+  const pagesPreviewPill = new GhPagesPreviewPill(repos);
+  ctx.subscriptions.push(pagesPreviewPill);
+  reg('gitsight.ghPagesPreviewPill.refresh', () => errorWrap(async () => {
+    await pagesPreviewPill.refresh();
   }));
 
   // ── Conflict resolution coach (F107) ────────────────────────────
