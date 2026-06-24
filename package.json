@@ -1258,6 +1258,11 @@
           "group": "1_actions@8"
         },
         {
+          "command": "gitsight.preMergeChecklist",
+          "when": "viewItem =~ /^pr-(open|draft)$/",
+          "group": "1_actions@9"
+        },
+        {
           "command": "gitsight.openHistoryForRecentFile",
           "when": "viewItem == recentFile",
           "group": "1_actions@1"
