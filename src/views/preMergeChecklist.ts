@@ -41,6 +41,16 @@ import {
   TEST_IMPACT_CLOSE_MARKER,
 } from '../git/testImpactPrBody';
 import { computeTestImpactSummary } from './testImpact';
+import {
+  classifyAutoMergeOffer,
+  decideAutoMergeRow,
+  buildAutoMergeArgs,
+  describeAutoMergeCommand,
+  normaliseAutoMergeStrategy,
+  describeAutoMergeBreadcrumb,
+  AutoMergeStrategy,
+  AutoMergeOfferVerdict,
+} from '../git/preMergeAutoMerge';
 
 const pexec = promisify(execFile);
 
@@ -57,6 +67,8 @@ interface PrSnapshot {
   reviews: Array<{ author?: { login?: string }; state?: string; submittedAt?: string }>;
   isDraft: boolean;
   statusCheckRollup?: Array<{ conclusion?: string; status?: string; name?: string }>;
+  /** F144: gh JSON `autoMergeRequest` field - present when --auto is on. */
+  autoMergeRequest?: { mergeMethod?: string } | null;
 }
 
 export async function runPreMergeChecklist_View(repos: { primary(): Git | undefined }, arg?: any): Promise<void> {
@@ -101,8 +113,16 @@ export async function runPreMergeChecklist_View(repos: { primary(): Git | undefi
 
 async function showResult(pr: PrSnapshot, report: MergeReport): Promise<void> {
   const display = `PR #${pr.number} ${pr.title}`;
-  type Pk = vscode.QuickPickItem & { _act?: 'preview' | 'open' | 'merge' };
+  type Pk = vscode.QuickPickItem & { _act?: 'preview' | 'open' | 'merge' | 'auto-merge' | 'auto-disable' };
   const items: Pk[] = [];
+  const pendingCheckCount = countPendingChecks(pr);
+  const autoMergeEnabled = !!pr.autoMergeRequest;
+  const autoMergeOffer = decideAutoMergeRow(report, {
+    mergeStateStatus: normaliseMergeStateStatus(pr.mergeStateStatus),
+    pendingCheckCount,
+    autoMergeEnabled,
+    isDraft: pr.isDraft,
+  });
   items.push({
     label: `$(${glyphForVerdict(report.verdict)}) ${describeMergeReport(report)}`,
     description: display,
@@ -126,6 +146,18 @@ async function showResult(pr: PrSnapshot, report: MergeReport): Promise<void> {
     items.push({ label: '$(warning) Merge anyway (override caution)', _act: 'merge' });
   } else if (report.verdict === 'ready') {
     items.push({ label: '$(check) Merge now', _act: 'merge' });
+  }
+  // F144: surface --auto when applicable.
+  if (autoMergeOffer.shown) {
+    const glyph = autoMergeOffer.verdict === 'auto-already-on' ? 'circle-slash'
+                : autoMergeOffer.verdict === 'offer' ? 'sync'
+                : 'lightbulb';
+    items.push({
+      label: `$(${glyph}) ${autoMergeOffer.copy.label}`,
+      description: autoMergeOffer.verdict,
+      detail: autoMergeOffer.copy.detail,
+      _act: autoMergeOffer.verdict === 'auto-already-on' ? 'auto-disable' : 'auto-merge',
+    });
   }
 
   const picked = await vscode.window.showQuickPick(items, {
@@ -156,6 +188,38 @@ async function showResult(pr: PrSnapshot, report: MergeReport): Promise<void> {
       );
       if (ok !== 'Run merge') return;
       await runMerge(pr.number);
+      break;
+    }
+    case 'auto-merge': {
+      const strategy = await pickAutoMergeStrategy();
+      if (!strategy) return;
+      const argv = buildAutoMergeArgs({ prNumber: pr.number, strategy });
+      const cmd = describeAutoMergeCommand(argv);
+      const detail = describeAutoMergeBreadcrumb({
+        verdict: report.verdict,
+        mergeStateStatus: normaliseMergeStateStatus(pr.mergeStateStatus),
+        pendingCheckCount: countPendingChecks(pr),
+        isDraft: pr.isDraft,
+      });
+      const ok = await vscode.window.showWarningMessage(
+        `Enable auto-merge on PR #${pr.number} with --${strategy}?`,
+        { modal: true, detail: `${cmd}\n\n${detail}` },
+        'Enable auto-merge', 'Cancel',
+      );
+      if (ok !== 'Enable auto-merge') return;
+      await runAutoMerge(argv);
+      break;
+    }
+    case 'auto-disable': {
+      const argv = buildAutoMergeArgs({ prNumber: pr.number, strategy: 'merge', disable: true });
+      const cmd = describeAutoMergeCommand(argv);
+      const ok = await vscode.window.showWarningMessage(
+        `Disable auto-merge on PR #${pr.number}?`,
+        { modal: true, detail: cmd },
+        'Disable auto-merge', 'Cancel',
+      );
+      if (ok !== 'Disable auto-merge') return;
+      await runAutoMerge(argv);
       break;
     }
   }
@@ -220,7 +284,7 @@ async function fetchPrSnapshot(slug: RepoSlug, prNumber: number): Promise<PrSnap
     const { stdout } = await pexec('gh', [
       'pr', 'view', String(prNumber),
       '--repo', `${slug.owner}/${slug.repo}`,
-      '--json', 'number,url,title,body,baseRefName,headRefName,mergeable,mergeStateStatus,reviewDecision,reviews,isDraft,statusCheckRollup',
+      '--json', 'number,url,title,body,baseRefName,headRefName,mergeable,mergeStateStatus,reviewDecision,reviews,isDraft,statusCheckRollup,autoMergeRequest',
     ], { timeout: 15000, maxBuffer: 4 * 1024 * 1024 });
     const obj = JSON.parse(stdout);
     if (!obj || typeof obj.number !== 'number') return undefined;
@@ -237,6 +301,7 @@ async function fetchPrSnapshot(slug: RepoSlug, prNumber: number): Promise<PrSnap
       reviews: Array.isArray(obj.reviews) ? obj.reviews : [],
       isDraft: !!obj.isDraft,
       statusCheckRollup: Array.isArray(obj.statusCheckRollup) ? obj.statusCheckRollup : undefined,
+      autoMergeRequest: obj.autoMergeRequest ?? null,
     };
   } catch {
     return undefined;
@@ -376,6 +441,70 @@ async function runMerge(prNumber: number): Promise<void> {
   const term = vscode.window.createTerminal('GitSight: pre-merge');
   term.show();
   term.sendText(`gh pr merge ${prNumber}`, false);
+}
+
+/**
+ * F144 - drop the user into a terminal preloaded with the chosen
+ * `gh pr merge --auto / --disable-auto` command. Same handoff pattern
+ * as runMerge above - the user reviews the command and hits Enter.
+ */
+async function runAutoMerge(argv: string[]): Promise<void> {
+  const cmd = describeAutoMergeCommand(argv);
+  if (!cmd) return;
+  const term = vscode.window.createTerminal('GitSight: auto-merge');
+  term.show();
+  term.sendText(cmd, false);
+}
+
+/**
+ * F144 - pick the merge strategy for `--auto`. Defaults to 'merge'
+ * since that's the safest baseline; users with squash/rebase repos
+ * can pick from the list. Returns undefined on cancel.
+ */
+async function pickAutoMergeStrategy(): Promise<AutoMergeStrategy | undefined> {
+  const cfg = vscode.workspace.getConfiguration('gitsight.autoMerge');
+  const defaultStrategy = normaliseAutoMergeStrategy(cfg.get<string>('defaultStrategy', 'merge')).strategy;
+  type Pk = vscode.QuickPickItem & { _strategy: AutoMergeStrategy };
+  const items: Pk[] = [
+    { label: '$(git-merge) merge', description: defaultStrategy === 'merge' ? '(default)' : '', _strategy: 'merge' },
+    { label: '$(git-pull-request-create) squash', description: defaultStrategy === 'squash' ? '(default)' : '', _strategy: 'squash' },
+    { label: '$(git-pull-request-go-to-changes) rebase', description: defaultStrategy === 'rebase' ? '(default)' : '', _strategy: 'rebase' },
+  ];
+  // Move the default to the top of the picker so Enter picks it.
+  items.sort((a, b) => (a._strategy === defaultStrategy ? -1 : 0) - (b._strategy === defaultStrategy ? -1 : 0));
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Pick a merge strategy for --auto',
+  });
+  return picked?._strategy;
+}
+
+/**
+ * F144 - derive the pending-check count from the gh statusCheckRollup
+ * field. Pending here means "still running" (QUEUED / PENDING /
+ * IN_PROGRESS conclusion is null OR status is in-progress shapes).
+ *
+ * Failing checks DON'T count as pending - they're already-decided
+ * blockers, and our classifier handles them separately.
+ */
+function countPendingChecks(pr: PrSnapshot): number {
+  if (!pr.statusCheckRollup?.length) return 0;
+  let n = 0;
+  for (const c of pr.statusCheckRollup) {
+    const conclusion = (c.conclusion ?? '').toUpperCase();
+    const status = (c.status ?? '').toUpperCase();
+    // Failed conclusions are NOT pending.
+    if (conclusion === 'FAILURE' || conclusion === 'TIMED_OUT' || conclusion === 'STARTUP_FAILURE' || conclusion === 'CANCELLED') continue;
+    // Successful conclusions are NOT pending either.
+    if (conclusion === 'SUCCESS' || conclusion === 'NEUTRAL' || conclusion === 'SKIPPED') continue;
+    // Anything else with a "running" status counts.
+    if (status === 'QUEUED' || status === 'PENDING' || status === 'IN_PROGRESS' || status === 'WAITING') n++;
+    else if (!conclusion && !status) {
+      // Edge case: gh returns blank both fields on legacy commit-status checks.
+      // Treat as pending so we err on the side of offering --auto.
+      n++;
+    }
+  }
+  return n;
 }
 
 async function ghAvailable(): Promise<boolean> {

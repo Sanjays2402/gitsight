@@ -125,7 +125,8 @@
     "src/git/branchProtectionTemplates.ts",
     "src/git/preMergeChecklist.ts",
     "src/git/testImpactPrBodyInsertOffer.ts",
-    "src/git/ghPagesPreview.ts"
+    "src/git/ghPagesPreview.ts",
+    "src/git/preMergeAutoMerge.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

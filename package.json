@@ -2663,6 +2663,12 @@
           "maximum": 1000,
           "description": "F138: minimum number of commits the PR head must be behind its base for the pre-merge checklist to surface a base-divergence warning. Lower = warn earlier; higher = tolerate more drift. The warning reminds reviewers that the diff they looked at may not be exactly what gets merged."
         },
+        "gitsight.autoMerge.defaultStrategy": {
+          "type": "string",
+          "enum": ["merge", "squash", "rebase"],
+          "default": "merge",
+          "description": "F144: default merge strategy for `gh pr merge --auto`. The pre-merge checklist surfaces this strategy as the pre-picked option in the auto-merge picker; the user can still pick a different one from the list. Use 'squash' for repos that enforce squash-and-merge."
+        },
         "gitsight.testImpactPrBody.insertAutoOffer": {
           "type": "boolean",
           "default": true,
