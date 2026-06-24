@@ -122,7 +122,8 @@
     "src/git/reviewerLoadTrend.ts",
     "src/git/prFromDiff.ts",
     "src/git/stashPatchDryRun.ts",
-    "src/git/branchProtectionTemplates.ts"
+    "src/git/branchProtectionTemplates.ts",
+    "src/git/preMergeChecklist.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

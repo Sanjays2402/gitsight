@@ -136,6 +136,7 @@ import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerL
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
 import { suggestBranchProtection, suggestBranchProtectionDelta, applyBranchProtectionTemplate } from './views/branchProtectionSuggest';
 import { generatePrDescriptionFromDiff } from './views/prFromDiff';
+import { runPreMergeChecklist_View } from './views/preMergeChecklist';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const repos = new RepoManager();
@@ -1385,6 +1386,11 @@ export function activate(ctx: vscode.ExtensionContext) {
     const git = primary();
     if (!git) return vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
     await generatePrDescriptionFromDiff(ctx, git);
+  }));
+
+  // ── Pre-Merge Readiness Checklist (F138) ────────────────────────
+  reg('gitsight.preMergeChecklist', (arg?: any) => errorWrap(async () => {
+    await runPreMergeChecklist_View({ primary }, arg);
   }));
 }
 

@@ -852,6 +852,11 @@
         "icon": "$(book)"
       },
       {
+        "command": "gitsight.preMergeChecklist",
+        "title": "GitSight: Pre-Merge Checklist\u2026",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "gitsight.autoResolveTrivialConflicts",
         "title": "GitSight: Auto-Resolve Trivial Conflicts (active file)",
         "icon": "$(wand)"
@@ -2640,6 +2645,13 @@
           "type": "boolean",
           "default": true,
           "description": "F141: when ON (default), GitSight runs `git apply --check` + `git apply --stat` before the F131 confirm dialog and shows the verdict (clean / conflicts / rejected / invalid) plus a per-file change preview. Set OFF to skip the probes and go straight to the confirm + apply step."
+        },
+        "gitsight.preMergeChecklist.baseDivergenceThreshold": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "F138: minimum number of commits the PR head must be behind its base for the pre-merge checklist to surface a base-divergence warning. Lower = warn earlier; higher = tolerate more drift. The warning reminds reviewers that the diff they looked at may not be exactly what gets merged."
         }
       }
     },
