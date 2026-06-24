@@ -817,6 +817,11 @@
         "icon": "$(graph-line)"
       },
       {
+        "command": "gitsight.reviewerLoadTeamTrend",
+        "title": "GitSight: Reviewer Load Trend (per Team)\u2026",
+        "icon": "$(organization)"
+      },
+      {
         "command": "gitsight.injectTestImpactIntoPr",
         "title": "GitSight: Inject Test-Impact into PR Body\u2026",
         "icon": "$(beaker)"
@@ -2592,6 +2597,12 @@
           "items": { "type": "string" },
           "default": [],
           "description": "Restrict the reviewer-load report to these specific GitHub handles (no leading @). When empty, the report falls back to CODEOWNERS handles + recent committer handles."
+        },
+        "gitsight.reviewerLoadBalancer.teamSlugs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "F140: GitHub team slugs (no `org/` prefix) the per-team trend report should track. When empty, the report enumerates ALL teams in the origin org (up to 30) - which requires the gh token to have the `read:org` scope. Use this config to scope to a specific reviewer cohort and skip the enumeration."
         },
         "gitsight.testImpactPrBody.maxRows": {
           "type": "number",

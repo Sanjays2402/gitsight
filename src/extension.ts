@@ -133,7 +133,7 @@ import { showWhatsStaleDashboard } from './views/whatsStale';
 import { enqueueCurrentPr, dequeueCurrentPr } from './views/mergeQueueActions';
 import { showTestImpactForCurrentPr } from './views/testImpact';
 import { submitPrReview, approvePrQuick } from './views/prReviewSubmit';
-import { showReviewerLoadReport, showReviewerLoadTrend } from './views/reviewerLoadBalancer';
+import { showReviewerLoadReport, showReviewerLoadTrend, showReviewerLoadTeamTrend } from './views/reviewerLoadBalancer';
 import { injectTestImpactIntoPr, runTestImpactAutoSyncFireAndForget } from './views/testImpactPrBody';
 import { runTestImpactInsertOfferFireAndForget } from './views/testImpactPrBodyInsertOffer';
 import { suggestBranchProtection, suggestBranchProtectionDelta, applyBranchProtectionTemplate } from './views/branchProtectionSuggest';
@@ -1356,6 +1356,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ── Reviewer Load Trend Report (F137) ───────────────────────────
   reg('gitsight.reviewerLoadTrend', () => errorWrap(async () => {
     await showReviewerLoadTrend(repos);
+  }));
+
+  // ── Reviewer Load Per-Team Trend Report (F140) ──────────────────
+  reg('gitsight.reviewerLoadTeamTrend', () => errorWrap(async () => {
+    await showReviewerLoadTeamTrend(repos);
   }));
 
   // ── Test-Impact -> PR Body (F125) ───────────────────────────────

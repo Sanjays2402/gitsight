@@ -128,7 +128,8 @@
     "src/git/ghPagesPreview.ts",
     "src/git/preMergeAutoMerge.ts",
     "src/git/ghPagesPreviewPill.ts",
-    "src/git/branchProtectionTemplateAutoSuggest.ts"
+    "src/git/branchProtectionTemplateAutoSuggest.ts",
+    "src/git/reviewerLoadTeamTrend.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

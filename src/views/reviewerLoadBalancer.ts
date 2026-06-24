@@ -49,6 +49,14 @@ import {
   classifyTrendVerdict,
   describeHandleTrend,
 } from '../git/reviewerLoadTrend';
+import {
+  buildTeamWeeklyTrend,
+  classifyTeamTrendVerdict,
+  describeTeamTrend,
+  buildTeamTrendReport,
+  parseTeamMembersJson,
+  TeamWeekBucket,
+} from '../git/reviewerLoadTeamTrend';
 
 const pexec = promisify(execFile);
 
@@ -432,4 +440,217 @@ function trendGlyph(verdict: 'improving' | 'regressing' | 'steady' | 'sparse-dat
     case 'steady': return 'dash';
     case 'sparse-data': return 'question';
   }
+}
+
+/**
+ * F140 - Reviewer Load Balancer per-Team Trend report.
+ *
+ * Companion to F137 (per-handle weekly trend). Where F137 surfaces
+ * per-individual ack latency trends, F140 rolls those samples up by
+ * GitHub TEAM so a manager can see team-wide trends.
+ *
+ * Flow:
+ *   1. Resolve GitHub origin org slug (`org/repo` -> `org`).
+ *   2. Enumerate teams via `gh api orgs/:o/teams --paginate`.
+ *   3. For each team, fetch members via `gh api orgs/:o/teams/:slug/members`.
+ *      Optional per-team include-list config.
+ *   4. Reuse F137's merged-PR sample fetch.
+ *   5. Aggregate samples by team via buildTeamWeeklyTrend.
+ *   6. Show a picker + markdown report.
+ */
+export async function showReviewerLoadTeamTrend(repos: RepoManager): Promise<void> {
+  const git = repos.primary();
+  if (!git) {
+    vscode.window.showWarningMessage('GitSight: no git repo in workspace.');
+    return;
+  }
+  if (!(await ghAvailable())) {
+    vscode.window.showWarningMessage('GitSight: gh CLI not found - cannot compute team trend.');
+    return;
+  }
+  const repo = await resolveGitHubRepo(git);
+  if (!repo) {
+    vscode.window.showInformationMessage('GitSight: origin is not a GitHub remote.');
+    return;
+  }
+
+  const cfg = vscode.workspace.getConfiguration('gitsight.reviewerLoadBalancer');
+  const lookbackDays = Math.max(7, Math.min(180, cfg.get<number>('lookbackDays', 30)));
+  const configTeams = cfg.get<string[]>('teamSlugs', []) ?? [];
+
+  const teams = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GitSight: enumerating teams in ${repo.owner}\\u2026`,
+    },
+    async () => fetchTeamMembers(repo.owner, configTeams).catch(() => new Map<string, Set<string>>()),
+  );
+  if (teams.size === 0) {
+    vscode.window.showInformationMessage(
+      `GitSight: no team data found for ${repo.owner}. Set \`gitsight.reviewerLoadBalancer.teamSlugs\` to track specific teams, or grant the gh token \`read:org\` scope to enumerate them automatically.`,
+    );
+    return;
+  }
+
+  // Build the handle universe from every team member (so we don't
+  // fetch reviews for unrelated reviewers).
+  const handleUnion = new Set<string>();
+  for (const set of teams.values()) for (const h of set) handleUnion.add(h);
+
+  const trend = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GitSight: trending ${teams.size} team${teams.size === 1 ? '' : 's'} (${handleUnion.size} reviewers, last ${lookbackDays}d)\\u2026`,
+    },
+    async () => {
+      const since = isoDateNDaysAgo(lookbackDays);
+      const raw = await fetchMergedReviews(repo.owner, repo.repo, since);
+      const ack = parseAckSamplesWithTimestamps(raw, handleUnion);
+      const tp = parseThroughputSamples(raw, handleUnion);
+      return buildTeamWeeklyTrend({ ackSamples: ack, throughputSamples: tp, teams });
+    },
+  );
+
+  if (trend.size === 0) {
+    vscode.window.showInformationMessage(
+      `GitSight: no team activity in the last ${lookbackDays} days.`,
+    );
+    return;
+  }
+
+  const lookbackWeeks = Math.max(1, Math.round(lookbackDays / 7));
+  await renderTeamTrendPicker(repo, lookbackWeeks, trend);
+}
+
+async function fetchTeamMembers(org: string, configTeams: string[]): Promise<Map<string, Set<string>>> {
+  // When the user supplied team slugs explicitly, fetch their members directly.
+  if (configTeams.length > 0) {
+    const out = new Map<string, Set<string>>();
+    for (const slug of configTeams) {
+      try {
+        const { stdout } = await pexec('gh', [
+          'api', `orgs/${org}/teams/${encodeURIComponent(slug)}/members`,
+          '--paginate',
+        ], { timeout: 15000, maxBuffer: 4 * 1024 * 1024 });
+        // gh --paginate emits concatenated JSON arrays (one per page); parse
+        // each separately and union the members.
+        const members = parsePaginatedMembers(stdout);
+        if (members.size > 0) out.set(slug.toLowerCase(), members);
+      } catch { /* skip team on failure */ }
+    }
+    return out;
+  }
+  // Otherwise enumerate all teams in the org (requires read:org scope).
+  try {
+    const { stdout: teamsRaw } = await pexec('gh', [
+      'api', `orgs/${org}/teams`, '--paginate',
+    ], { timeout: 15000, maxBuffer: 8 * 1024 * 1024 });
+    const slugs = parsePaginatedTeams(teamsRaw);
+    if (slugs.length === 0) return new Map();
+    // Cap to 30 teams to avoid running away on huge orgs.
+    const limited = slugs.slice(0, 30);
+    const out = new Map<string, Set<string>>();
+    await Promise.all(limited.map(async slug => {
+      try {
+        const { stdout } = await pexec('gh', [
+          'api', `orgs/${org}/teams/${encodeURIComponent(slug)}/members`, '--paginate',
+        ], { timeout: 15000, maxBuffer: 4 * 1024 * 1024 });
+        const members = parsePaginatedMembers(stdout);
+        if (members.size > 0) out.set(slug.toLowerCase(), members);
+      } catch { /* skip */ }
+    }));
+    return out;
+  } catch {
+    return new Map();
+  }
+}
+
+function parsePaginatedTeams(raw: string): string[] {
+  const slugs: string[] = [];
+  for (const chunk of raw.split(/(?<=\])\s*(?=\[)/)) {
+    try {
+      const arr = JSON.parse(chunk);
+      if (Array.isArray(arr)) {
+        for (const t of arr) {
+          const slug = (t?.slug ?? t?.name ?? '').toString();
+          if (slug) slugs.push(slug);
+        }
+      }
+    } catch { /* skip malformed chunk */ }
+  }
+  return slugs;
+}
+
+function parsePaginatedMembers(raw: string): Set<string> {
+  const out = new Set<string>();
+  for (const chunk of raw.split(/(?<=\])\s*(?=\[)/)) {
+    try {
+      const arr = JSON.parse(chunk);
+      if (Array.isArray(arr)) {
+        for (const m of arr) {
+          const login = (m?.login ?? '').toString().toLowerCase();
+          if (login) out.add(login);
+        }
+      }
+    } catch { /* skip malformed chunk */ }
+  }
+  return out;
+}
+
+async function renderTeamTrendPicker(
+  repo: { owner: string; repo: string },
+  lookbackWeeks: number,
+  trend: Map<string, TeamWeekBucket[]>,
+): Promise<void> {
+  type Pk = vscode.QuickPickItem & { _team?: string; _action?: 'open-report' };
+  const items: Pk[] = [];
+  items.push({
+    label: `Team trend - ${trend.size} team${trend.size === 1 ? '' : 's'} - last ${lookbackWeeks} week${lookbackWeeks === 1 ? '' : 's'}`,
+    kind: vscode.QuickPickItemKind.Separator,
+  } as any);
+
+  const verdictOrder: Record<string, number> = { regressing: 0, improving: 1, steady: 2, 'sparse-data': 3 };
+  const teams = [...trend.keys()].sort((a, b) => {
+    const va = verdictOrder[classifyTeamTrendVerdict(trend.get(a)!)] ?? 4;
+    const vb = verdictOrder[classifyTeamTrendVerdict(trend.get(b)!)] ?? 4;
+    if (va !== vb) return va - vb;
+    return a.localeCompare(b);
+  });
+
+  for (const team of teams) {
+    const buckets = trend.get(team)!;
+    const verdict = classifyTeamTrendVerdict(buckets);
+    items.push({
+      label: `$(${trendGlyph(verdict)}) ${team}`,
+      description: verdict,
+      detail: describeTeamTrend(team, buckets),
+      _team: team,
+    });
+  }
+  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  items.push({ label: '$(notebook) Open full team trend report', _action: 'open-report' });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: `Reviewer team trend (${repo.owner})`,
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+  if (!picked) return;
+  if (picked._action === 'open-report') {
+    await openTeamTrendReport(trend, lookbackWeeks);
+    return;
+  }
+  if (picked._team) {
+    const singleton = new Map([[picked._team, trend.get(picked._team)!]]);
+    await openTeamTrendReport(singleton, lookbackWeeks);
+  }
+}
+
+async function openTeamTrendReport(
+  trend: Map<string, TeamWeekBucket[]>,
+  lookbackWeeks: number,
+): Promise<void> {
+  const md = buildTeamTrendReport({ trend, lookbackWeeks });
+  const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+  await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 }
