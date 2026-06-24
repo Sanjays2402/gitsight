@@ -352,6 +352,53 @@
   preview can warn the user when the result is a placeholder
   — a confident-looking command that doesn't exist locally
   would silently `exit 127` and bisect every commit as BAD.
+- For `gh --paginate` JSON-array endpoints (orgs/.../teams,
+  /teams/.../members), the stdout is concatenated JSON arrays
+  (one per page), NOT a single merged array. Split with
+  `(?<=\])\s*(?=\[)` and JSON.parse each chunk. Trying to parse
+  the whole stdout fails on page boundaries. The pattern also
+  works for `gh pr list --paginate` which has the same shape.
+- For status-bar pill click-through that opens a *picker* (vs
+  external URL), prefer registering a dedicated command that
+  invokes the picker instead of wiring `command:` to the picker
+  command directly — keeps the pill controller decoupled from the
+  picker's argument shape and lets the controller add fast-path
+  logic (e.g. open the URL directly when there's no ambiguity).
+- For 5-state offer classifiers (F144 auto-merge offer/unnecessary/
+  blocked/unsupported/auto-already-on), KEEP the explicit
+  shouldShowAutoMergeRow predicate decoupled from
+  classifyAutoMergeOffer — dropping `blocked` and `unsupported`
+  rows entirely (rather than greying them out) makes the picker
+  cleaner, AND the predicate becomes the one place to tweak
+  visibility without touching the classifier.
+- For `autoMergeRequest` detection on GitHub PRs, gh JSON's field
+  is truthy when auto is on (an object), falsy/null otherwise.
+  Don't try to parse the inner `mergeMethod` for the verdict —
+  the field's PRESENCE is what matters; the inner method is
+  only useful when surfacing the disable command.
+- For F147-style pills that probe an external API (gh api pages),
+  cache the probe result per-repo with a TTL (10-15 min is the
+  sweet spot) — the surface rarely changes and per-tick network
+  calls are wasteful. Cache key MUST include git.cwd so a switch
+  between workspaces doesn't return the wrong verdict.
+- For first-time-setup auto-suggest UX (F146 template, F147 pill),
+  the verdict-tiered approach (recommend / show-secondary /
+  suppress) is the right shape: PRE-PICK only on the first tier,
+  surface-but-not-pre-pick on the second, hide entirely on the
+  third. Mixing pre-pick logic with visibility creates two-axis
+  decisions that get tangled fast.
+- For `vscode.window.showInformationMessage` quick-pick chaining
+  after a "Preview" action (F146 maybeAutoSuggestTemplate), use
+  a separate modal showWarningMessage AFTER the preview document
+  opens — re-asking via the picker UI feels jumpy. The modal
+  pattern: "Apply / Pick individual rules / Cancel" reads as a
+  natural follow-up question.
+- For pure-helper compose patterns where the caller needs both
+  the classifier verdict AND the human copy (F144 decideAutoMergeRow),
+  return a tagged-union payload with all three pieces (verdict,
+  shown, copy). Caller code becomes one-liner: `if (offer.shown)
+  items.push({ label: offer.copy.label, ... })`. Beats reading
+  the classifier's three booleans separately.
 
 ## ROADMAP (chronological, ≥15 fat slices)
 
@@ -630,17 +677,31 @@
 - [x] **F139**: PR-body test-impact INSERT auto-offer (fire-and-forget hook wired after push alongside F129 auto-sync; 7-state classifyInsertOffer with deliberate skip priority enabled>no-pr>already-present>dismissed>draft>too-small; dismissalCacheKey URL normaliser; 3-button toast Insert now / Not now / Stop offering; shouldRememberDismissal distinguishes structural skips (no remember) from actionable skips (session-remember to avoid pestering on every push)) — `0a0fe90`
 - [x] **F79**: GitHub Pages preview command (gh api repos/.../pages probe with 404-as-pages-disabled vs other-error-as-unknown; classifyDocsImpact across configurable docs dirs with leading-./ normaliser + literal-vs-prefix match so `docsy.md` doesn't false-hit `docs/`; buildDocDeepLink strips dir prefix + .md/.html/.mdx extension + collapses /index -> /, returns undefined for assets + Jekyll partials; per-doc deep-link picker rows + full markdown report) — `1b955cd`
 
-### Tick 27 candidates (drafted now so future ticks don't restart cold)
+### Tick 27 candidates (drafted now so future ticks don't restart cold) — RESOLVED
+- [x] F143: Pre-merge checklist as PR-tree-item context menu action — DONE tick 27.
+- [x] F144: F138 + auto-merge integration — DONE tick 27.
+- [x] F147: Pages preview status-bar pill — DONE tick 27.
+- [x] F146: Template auto-suggestion on first protection-setup — DONE tick 27.
+- [x] F140: Reviewer load-balancer per-team trend — DONE tick 27.
+
+### Tick 27 (2026-06-23 23:02 PT) — SHIPPED
+- [x] **F143**: Pre-merge checklist as PR-tree-item context menu action — `52048ff`
+- [x] **F144**: gh pr merge --auto integration in the pre-merge checklist — `88a07d2`
+- [x] **F147**: Pages preview status-bar pill — `79e8f3b`
+- [x] **F146**: Template auto-suggestion on first protection-setup — `d5b1807`
+- [x] **F140**: Reviewer load-balancer per-team trend — `f9a4b63`
+
+### Tick 28 candidates (drafted now so future ticks don't restart cold)
 - [ ] F53: Commit-Detail Webview (multi-tick carry-over) — still pending; flat-diff scratch buffer is the gap.
-- [ ] F72: Worktree-graph webview — pairs with F64 pruner.
+- [ ] F72: Worktree-graph webview — pairs with F64 pruner; render every worktree as a node in a tree with HEAD shas + branch attachments + dirty status.
 - [ ] F82: Per-commit benchmark scorer — extends F55 with quantitative output.
 - [ ] F136: Commit graph PNG/SVG/PDF export keybindings — three default chords (Cmd+Alt+S/P/D) for the export buttons when CommitGraphPanel is focused.
-- [ ] F140: Reviewer load-balancer per-team trend — composes F137 trend with team-level aggregation (gh api orgs/:o/teams/:t/members + group by team).
-- [ ] F143: Pre-merge checklist as PR-tree-item context menu action — wire `gitsight.preMergeChecklist` from the `pr-(open|draft)` tree items in the PR Review Inbox so users can launch it without typing the PR number.
-- [ ] F144: F138 + auto-merge integration — when verdict is `ready`, offer to run `gh pr merge --auto` so the merge fires the moment the last status check completes (composes with F121 enqueue gate).
-- [ ] F145: Dry-run preview keybinding from the F131 picker — pressing Cmd+D on a discovered patch row jumps straight to the preview without going through the confirm modal.
-- [ ] F146: Template auto-suggestion on first protection-setup — when F126 detects an unprotected branch with the `default` role, offer the open-source-friendly template as the one-click default before walking the full role-derived picker.
-- [ ] F147: Pages preview - status-bar pill — surface "Pages: 4 docs changes on this branch (Open preview)" as a transient status-bar pill when the user opens a branch whose `docs/` directory has uncommitted edits.
+- [ ] F145: Dry-run preview keybinding from the F131 picker — pressing Cmd+D on a discovered patch row jumps straight to preview without going through confirm modal.
+- [ ] F148: Auto-merge enable-on-push hook — when push lands a PR-branched-from-main and verdict is `ready` with pending checks, offer F144 from the push-success toast (composes with F77 draft auto-sync).
+- [ ] F149: Pages preview pill click-through to the preview URL — when a deployed Pages URL exists, the pill's click could open the URL directly (bypass picker) for the common "I just want to see what shipped" case.
+- [ ] F150: Template auto-suggest preview-only mode — opt-in config to ALWAYS open the markdown preview before applying, even when verdict is 'recommend' with pre-pick. Slower path but lower-risk for users learning the surface.
+- [ ] F151: Reviewer team trend pill — a tiny status-bar pill that shows the slowest-degrading team in the org (composes with F140), click opens the trend report.
+- [ ] F152: F138 + F121 chain - when pre-merge verdict is ready AND the repo has a merge queue configured, offer "Enqueue" alongside "Merge now" + "Enable auto-merge".
 
 ### Tick 25 candidates (drafted now so future ticks don't restart cold) — REFRESH
 - [ ] F53: Commit-Detail Webview (multi-tick carry-over) — still pending; flat-diff scratch buffer is the gap. The existing showCommitDetail is functional; this is the polish counterpart matching CommitGraphPanel + StashVisualizer with per-file diff tabs + stats sidebar.
@@ -792,3 +853,4 @@ CAUGHT MID-TICK (tick 23): 2 test-only failures on first gate. (a) F124 scoreRev
 
 - 2026-06-23 19:01 PT — 5 features shipped: F141 `ed3b8ef`, F142 `10bd82e`, F138 `6ac2486`, F139 `0a0fe90`, F79 `1b955cd`. Gate: lint ok, compile ok, 2479/2479 tests green (2339 -> 2479, +140 new). New configs: 7 (stashPatchImport.dryRun, preMergeChecklist.baseDivergenceThreshold, testImpactPrBody.insertAutoOffer + insertAutoOfferMinFiles, ghPagesPreview.docsDirs + matchedPathCap, plus the F142 command takes no config since templates are encoded inline). New commands: 4 (applyBranchProtectionTemplate, preMergeChecklist, ghPagesPreview; F141 hooks into existing importStashPatch confirmApply flow in place; F139 hooks into the existing gitsight.push handler alongside F129). New pure helpers: 5 new files (stashPatchDryRun, branchProtectionTemplates, preMergeChecklist, testImpactPrBodyInsertOffer, ghPagesPreview; 8-11 exports each). New view-layer files: 3 fresh (preMergeChecklist, testImpactPrBodyInsertOffer, ghPagesPreview) + 2 in-place extensions (stashPatchImport gains dry-run probe + preview hooks; branchProtectionSuggest gains applyBranchProtectionTemplate + pickTemplate helpers). New tests: 140 across 5 files (F141:27 + F142:21 + F138:38 + F139:22 + F79:32). Notable patterns added this tick: (1) parallel dry-run probe via Promise.all so `--check` + `--stat` race together instead of serialising; (2) verdict-gated modal severity in F141 - `clean` -> info-toned default-Apply, conflicts/rejected -> warning-toned default-Cancel with "Apply anyway" button copy, invalid -> error-toned with Apply suppressed entirely; (3) recursive confirm loop in F141 - "Open dry-run preview" opens the buffer then loops back through confirmApply so the user can act after reading; (4) GraphQL+REST tolerant normalisers in F138 (normaliseMergeStateStatus + normaliseMergeable) collapse both shape variants into the same enum so caller code doesn't have to know which API path produced the value; (5) F138 review-approval gate hardened to require approvingReviews>0 for the warning path so a literal 0/N is always an error - the "one-short" warning is reserved for "you've started getting approvals, just need one more"; (6) skip-priority ordering in F139 classifyInsertOffer is deliberate so the most-actionable verdict surfaces first (enabled>no-pr>already-present>dismissed>draft>too-small); (7) F139 shouldRememberDismissal splits structural skips (no remember) from actionable skips (session-remember) so the user isn't pestered on every push while they're un-drafting or growing the PR; (8) F79 buildDocDeepLink handles 5 Pages-servable extensions (md/markdown/mdx/html/htm) + collapses /index -> / for Jekyll defaults + drops underscore-prefixed partials/includes/layouts + drops all common asset extensions. CAUGHT MID-TICK: 3 F138 tests failed on first run - checkReviewApprovals 0/1 case classified as 'warning' (one-short) instead of 'error' (zero-reviewed), checkReviewApprovals required=0 case had the same off-by-one, runPreMergeChecklist any-error count was off by one because of the same. Single source fix (tightened the warning guard to require approvingReviews>0) fixed all three. Re-ran tests: 38/38 green. All other features green on first build.
 
+- 2026-06-23 23:02 PT — 5 features shipped: F143 `52048ff`, F144 `88a07d2`, F147 `79e8f3b`, F146 `d5b1807`, F140 `f9a4b63`. Gate: lint ok, compile ok, 2607/2607 tests green (2479 -> 2607, +128 new). New configs: 4 (autoMerge.defaultStrategy, ghPagesPreviewPill.enabled, branchProtectionSuggest.autoOfferTemplate, reviewerLoadBalancer.teamSlugs). New commands: 3 (reviewerLoadTeamTrend, ghPagesPreviewPill.refresh, plus F143 wires existing preMergeChecklist into the PR-tree-item menu; F144 + F146 hook into existing commands in place). New pure helpers: 4 new files (preMergeAutoMerge - 8 exports; ghPagesPreviewPill - 5 exports; branchProtectionTemplateAutoSuggest - 7 exports; reviewerLoadTeamTrend - 8 exports including parseTeamMembersJson + buildBothTrends compose). New view-layer files: 1 fresh (ghPagesPreviewPill controller) + 2 in-place extensions (preMergeChecklist view gains decideAutoMergeRow + pickAutoMergeStrategy + runAutoMerge + countPendingChecks; branchProtectionSuggest gains maybeAutoSuggestTemplate + applyTemplate + probeIsOpenSource + enabledRuleSet; reviewerLoadBalancer gains showReviewerLoadTeamTrend + fetchTeamMembers + parsePaginatedTeams + parsePaginatedMembers + renderTeamTrendPicker + openTeamTrendReport). New tests: 128 across 4 files (F144:40 + F147:37 + F146:37 + F140:36; F143 ships as a package.json menu-entry only - the existing resolvePrNumber already routes arg.pr?.number). Notable patterns added this tick: (1) 5-state auto-merge offer classifier (offer/unnecessary/blocked/unsupported/auto-already-on) that gates the F138 picker row + drops blocked/unsupported entirely to avoid greyed-out noise; (2) 10-minute TTL cache on the gh-api Pages probe so the F147 pill doesn't hit the network every 60s; (3) `(?<=\\])\s*(?=\\[)` regex split for gh --paginate concatenated-JSON-array output - cleaner than parsing per-page; (4) verdict-tiered template auto-suggest with pre-pick gated on `recommend` only - secondary tier (partial protection) always opt-in; (5) `decideAutoMergeRow` compose helper that bundles classifier + visibility + row copy into one tagged-union output so the view layer doesn't have to assemble the three pieces by hand; (6) PrSnapshot extension picked up `autoMergeRequest` from gh JSON to drive the auto-already-on detection.
