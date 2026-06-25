@@ -45,6 +45,8 @@ export const icons = {
     '<rect x="2" y="3" width="12" height="10" rx="1.6"/>' +
       '<path d="M2 6h12M5 3v3"/>',
   ),
+  close: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  arrowRight: svg('<path d="M3 8h10M9 4l4 4-4 4"/>'),
 };
 
 export type IconName = keyof typeof icons;

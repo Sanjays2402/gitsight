@@ -133,7 +133,9 @@
     "src/shared/graphCore.ts",
     "src/shared/graphPalette.ts",
     "src/shared/graphSnapshot.ts",
-    "src/shared/graphSnapshotBuild.ts"
+    "src/shared/graphSnapshotBuild.ts",
+    "src/shared/commitDetail.ts",
+    "src/shared/commitQuery.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

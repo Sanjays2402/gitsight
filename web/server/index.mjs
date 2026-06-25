@@ -31,6 +31,10 @@ import {
   buildLogArgs,
   resolveHeadLabel,
 } from '../../src/shared/graphSnapshotBuild.ts';
+import {
+  buildCommitDetail,
+  COMMIT_DETAIL_FORMAT,
+} from '../../src/shared/commitDetail.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -96,6 +100,59 @@ export async function buildSnapshotForRepo(repo, max) {
   });
 }
 
+/**
+ * Validate that a string is a plausible git rev (sha, short sha, or a
+ * ref name) before we hand it to `git show`. Rejects flag-like and
+ * whitespace-bearing inputs so a crafted query can't smuggle an option
+ * into the argv. Allows the limited punctuation valid refs use (`/._-`).
+ */
+export function isSafeRev(rev) {
+  return typeof rev === 'string' && /^[0-9a-zA-Z][0-9a-zA-Z/._^~-]*$/.test(rev) && rev.length <= 200;
+}
+
+export async function buildCommitDetailForRepo(repo, rev) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  if (!isSafeRev(rev)) {
+    throw new Error(`invalid revision: ${rev}`);
+  }
+  // Three reads: meta+body, numstat (-z), name-status (-z). The `--` guard
+  // and `-m --first-parent` make merges show their first-parent diff.
+  const metaStdout = await git(repo, [
+    'show',
+    '--no-patch',
+    `--format=${COMMIT_DETAIL_FORMAT}`,
+    rev,
+  ]);
+  const numstatStdout = await git(repo, [
+    'show',
+    '-m',
+    '--first-parent',
+    '--numstat',
+    '-z',
+    '--format=',
+    rev,
+  ]);
+  const nameStatusStdout = await git(repo, [
+    'show',
+    '-m',
+    '--first-parent',
+    '--name-status',
+    '-z',
+    '--format=',
+    rev,
+  ]);
+  let refs = [];
+  try {
+    const decoration = (await git(repo, ['log', '-1', '--format=%D', rev])).trim();
+    refs = decoration.split(',').map(s => s.trim()).filter(Boolean);
+  } catch {
+    refs = [];
+  }
+  const detail = buildCommitDetail({ metaStdout, numstatStdout, nameStatusStdout, refs });
+  if (!detail) throw new Error(`could not read commit ${rev}`);
+  return detail;
+}
+
 function sendJson(res, code, body) {
   const payload = JSON.stringify(body);
   res.writeHead(code, {
@@ -149,6 +206,18 @@ export function createCompanionServer(opts) {
           sendJson(res, 200, snapshot);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
+      // GET /api/commit/<rev> -> CommitDetail JSON for one commit.
+      const commitMatch = /^\/api\/commit\/(.+)$/.exec(url.pathname);
+      if (commitMatch) {
+        const rev = decodeURIComponent(commitMatch[1]);
+        try {
+          const detail = await buildCommitDetailForRepo(opts.repo, rev);
+          sendJson(res, 200, detail);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), rev });
         }
         return;
       }

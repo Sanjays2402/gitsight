@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, isSafeRev } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -82,6 +82,75 @@ test('buildSnapshotForRepo rejects a non-git directory', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'gitsight-nogit-'));
   try {
     await assert.rejects(() => buildSnapshotForRepo(dir, 5));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── isSafeRev ────────────────────────────────────────────────────────
+
+test('isSafeRev accepts shas and ref names, rejects flags + whitespace', () => {
+  assert.equal(isSafeRev('a1b2c3d'), true);
+  assert.equal(isSafeRev('HEAD'), true);
+  assert.equal(isSafeRev('HEAD~3'), true);
+  assert.equal(isSafeRev('feature/foo-bar'), true);
+  assert.equal(isSafeRev('v1.2.0'), true);
+  assert.equal(isSafeRev('-rf'), false);
+  assert.equal(isSafeRev('--output=x'), false);
+  assert.equal(isSafeRev('a b'), false);
+  assert.equal(isSafeRev('a;rm'), false);
+  assert.equal(isSafeRev(''), false);
+  assert.equal(isSafeRev('x'.repeat(201)), false);
+});
+
+// ── buildCommitDetailForRepo (integration) ───────────────────────────
+
+test('buildCommitDetailForRepo reports adds, mods, deletes, renames + churn', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-detail-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'test@gitsight.local']);
+    await git(['config', 'user.name', 'GitSight Test']);
+    await pexec('bash', ['-c', 'printf "a\\nb\\nc\\n" > keep.txt; printf "old\\n" > rename-me.txt; printf "gone\\n" > del.txt'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'base: seed']);
+
+    await pexec('bash', ['-c', 'printf "a\\nB\\nc\\nd\\n" > keep.txt; printf "new\\nline2\\n" > added.txt'], { cwd: dir });
+    await git(['mv', 'rename-me.txt', 'renamed.txt']);
+    await git(['rm', '-q', 'del.txt']);
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'feat: mixed change\n\nBody line one.\nBody line two.']);
+
+    const detail = await buildCommitDetailForRepo(dir, 'HEAD');
+    assert.equal(detail.subject, 'feat: mixed change');
+    assert.equal(detail.body, 'Body line one.\nBody line two.');
+    assert.equal(detail.filesChanged, 4);
+
+    const byPath = Object.fromEntries(detail.files.map(f => [f.path, f]));
+    assert.equal(byPath['added.txt'].status, 'added');
+    assert.equal(byPath['del.txt'].status, 'deleted');
+    assert.equal(byPath['keep.txt'].status, 'modified');
+    assert.equal(byPath['renamed.txt'].status, 'renamed');
+    assert.equal(byPath['renamed.txt'].oldPath, 'rename-me.txt');
+    // keep.txt: one line changed (B) + one added (d) = +2 -1.
+    assert.equal(byPath['keep.txt'].insertions, 2);
+    assert.equal(byPath['keep.txt'].deletions, 1);
+    assert.ok(detail.insertions > 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildCommitDetailForRepo rejects an unsafe revision', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-detbad-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 't@x']);
+    await git(['config', 'user.name', 'T']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => buildCommitDetailForRepo(dir, '--output=/tmp/x'), /invalid revision/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

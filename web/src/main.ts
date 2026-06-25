@@ -13,9 +13,10 @@ import { renderGraph, selectRow } from './graph';
 import { icons } from './icons';
 import { el } from './format';
 import { DEMO_SNAPSHOT } from './demo';
-import { loadSnapshot } from './data';
+import { loadSnapshot, loadCommitDetail } from './data';
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
+import { CommitDetailPanel } from './detailPanel';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 
 interface AppState {
@@ -33,6 +34,23 @@ const state: AppState = {
 };
 
 const root = document.getElementById('app')!;
+
+/** Slide-in commit-detail panel (W6). Fed by /api/commit/<sha>. */
+const detailPanel = new CommitDetailPanel({
+  load: sha => loadCommitDetail(sha),
+  onCopySha: sha => void copySha(sha),
+  onOpenSha: sha => openDetailFor(sha),
+});
+
+/** Open the detail panel for a sha and mark its row active if present. */
+function openDetailFor(sha: string): void {
+  void detailPanel.open(sha);
+  const row = document.querySelector<HTMLElement>(`.rows-col .row[data-sha="${cssEscape(sha)}"]`);
+  if (row) {
+    const rowsCol = row.parentElement as HTMLElement;
+    selectRow(rowsCol, row);
+  }
+}
 
 function mount(): void {
   theme.applyChrome();
@@ -154,7 +172,10 @@ function renderInto(): void {
   const result = renderGraph(state.snapshot, {
     theme: theme.palette,
     filter: state.filter,
-    onSelect: (c: GraphSnapshotCommit) => setStatus(`${c.shortSha}  ${c.subject}`),
+    onSelect: (c: GraphSnapshotCommit) => {
+      setStatus(`${c.shortSha}  ${c.subject}`);
+      void detailPanel.open(c.sha);
+    },
     onCopySha: (sha: string) => void copySha(sha),
   });
 
@@ -232,6 +253,8 @@ function installKeyboard(): void {
     } else if (e.key === 'Enter') {
       const active = document.querySelector('.row.active') as HTMLElement | null;
       active?.click();
+    } else if (e.key === 'Escape' && detailPanel.isOpen()) {
+      detailPanel.close();
     }
   });
 }
@@ -277,6 +300,13 @@ function escapeText(s: string): string {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+/** CSS.escape with a safe fallback (older browsers / jsdom). */
+function cssEscape(s: string): string {
+  const c = window.CSS;
+  if (c && typeof c.escape === 'function') return c.escape(s);
+  return s.replace(/["\\]/g, '\\$&');
 }
 
 mount();
