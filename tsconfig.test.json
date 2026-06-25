@@ -141,7 +141,8 @@
     "src/shared/refRail.ts",
     "src/shared/graphExport.ts",
     "src/shared/blame.ts",
-    "src/shared/activity.ts"
+    "src/shared/activity.ts",
+    "src/shared/contributors.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

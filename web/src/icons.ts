@@ -76,6 +76,10 @@ export const icons = {
     '<rect x="2.5" y="3" width="11" height="10.5" rx="1.4"/>' +
       '<path d="M2.5 6h11M5.5 1.8v2.4M10.5 1.8v2.4"/>',
   ),
+  users: svg(
+    '<circle cx="6" cy="6" r="2.3"/><path d="M2.2 13a3.8 3.8 0 0 1 7.6 0"/>' +
+      '<path d="M10.5 4.2a2.3 2.3 0 0 1 0 4.1"/><path d="M11.2 9.4A3.8 3.8 0 0 1 14 13"/>',
+  ),
   blame: svg(
     '<rect x="2.5" y="2.5" width="11" height="11" rx="1.4"/>' +
       '<path d="M5 5.5h6M5 8h6M5 10.5h3.5"/>',

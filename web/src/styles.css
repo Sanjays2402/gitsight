@@ -1386,6 +1386,139 @@ body {
   cursor: default;
 }
 
+/* ── Contributors leaderboard (W14) ──────────────────────────────── */
+.contributors {
+  padding: 22px 24px;
+  overflow: auto;
+  height: 100%;
+}
+
+.contributors-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--fg-faint);
+  font-size: 13px;
+}
+
+.contributors-head {
+  display: flex;
+  align-items: baseline;
+  gap: 26px;
+  margin-bottom: 20px;
+}
+
+.contributors-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.contributor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  font: inherit;
+  text-align: left;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.contributor-row:last-child {
+  border-bottom: none;
+}
+
+.contributor-row:hover {
+  background: var(--bg-hover);
+}
+
+.contributor-rank {
+  flex: 0 0 auto;
+  width: 20px;
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.contributor-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.contributor-main {
+  flex: 0 0 auto;
+  width: 190px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.contributor-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contributor-span {
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.contributor-bar {
+  flex: 1;
+  min-width: 40px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.contributor-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+.contributor-count {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.contributor-count .commits {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.contributor-count .pct {
+  font-size: 11px;
+  color: var(--fg-faint);
+  width: 34px;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .contributor-main { width: 120px; }
+  .contributor-span { display: none; }
+}
+
 /* ── Blame heatmap (W12) ─────────────────────────────────────────── */
 .blame {
   height: 100%;

@@ -13,6 +13,7 @@ import type { FileDiff } from '@shared/diffParse';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { BlameModel } from '@shared/blame';
 import type { ActivityCalendar } from '@shared/activity';
+import type { ContributorStats } from '@shared/contributors';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -253,6 +254,33 @@ export async function loadActivity(
   const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
   return fetchJson<ActivityPayload>(`/api/activity${qs}`, isActivityPayload, opts.signal).then(r =>
     r.ok ? { ok: true, activity: r.value } : r,
+  );
+}
+
+// ── Contributors (W14) ───────────────────────────────────────────────
+
+export interface ContributorsPayload extends ContributorStats {
+  repo: string;
+  head: string;
+}
+
+export type ContributorsResult =
+  | { ok: true; stats: ContributorsPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isContributorsPayload(v: unknown): v is ContributorsPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.contributors) && typeof o.totalCommits === 'number';
+}
+
+/** Fetch the contributor leaderboard (W14). */
+export async function loadContributors(
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<ContributorsResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  return fetchJson<ContributorsPayload>(`/api/contributors${qs}`, isContributorsPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, stats: r.value } : r,
   );
 }
 

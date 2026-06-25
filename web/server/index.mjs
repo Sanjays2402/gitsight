@@ -43,6 +43,7 @@ import {
 } from '../../src/shared/repoPicker.ts';
 import { parsePorcelainBlame } from '../../src/shared/blame.ts';
 import { buildActivityCalendar } from '../../src/shared/activity.ts';
+import { buildContributors } from '../../src/shared/contributors.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -235,6 +236,15 @@ export async function buildActivityForRepo(repo, max) {
   return { repo: snapshot.repo, head: snapshot.head, ...calendar };
 }
 
+/**
+ * Build the contributor leaderboard (W14) from the snapshot's commits.
+ */
+export async function buildContributorsForRepo(repo, max) {
+  const snapshot = await buildSnapshotForRepo(repo, max);
+  const stats = buildContributors(snapshot.commits);
+  return { repo: snapshot.repo, head: snapshot.head, ...stats };
+}
+
 /** True when a directory is the top of a git work tree or a bare repo. */
 async function isGitRepo(dir) {
   try {
@@ -419,6 +429,18 @@ export function createCompanionServer(opts) {
         }
         return;
       }
+      // GET /api/contributors -> author leaderboard (W14).
+      if (url.pathname === '/api/contributors') {
+        const max = Number(url.searchParams.get('max')) || 5000;
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const contributors = await buildContributorsForRepo(repo, max);
+          sendJson(res, 200, contributors);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
       await serveStatic(res, url.pathname);
     } catch (e) {
       sendJson(res, 500, { error: String(e?.message ?? e) });
@@ -435,11 +457,12 @@ if (isMain) {
     process.stdout.write(
       `GitSight companion on http://127.0.0.1:${opts.port}  (repo: ${opts.repo})\n` +
         (opts.root ? `  scan root: ${opts.root}\n` : '') +
-        `  GET /api/graph     snapshot JSON\n` +
-        `  GET /api/activity  contribution calendar\n` +
-        `  GET /api/blame     per-file blame heatmap\n` +
-        `  GET /api/repos     switchable repos\n` +
-        `  GET /api/health    liveness\n`,
+        `  GET /api/graph         snapshot JSON\n` +
+        `  GET /api/activity      contribution calendar\n` +
+        `  GET /api/contributors  author leaderboard\n` +
+        `  GET /api/blame         per-file blame heatmap\n` +
+        `  GET /api/repos         switchable repos\n` +
+        `  GET /api/health        liveness\n`,
     );
   });
 }

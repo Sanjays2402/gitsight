@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -330,6 +330,31 @@ test('buildActivityForRepo builds a calendar from real commits', async () => {
     assert.equal(cal.last, '2026-06-03');
     // Every week column is a full 7 days.
     for (const week of cal.weeks) assert.equal(week.length, 7);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildContributorsForRepo (W14, integration) ──────────────────────
+
+test('buildContributorsForRepo ranks authors by commit count', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-contrib-'));
+  try {
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    await git(['init', '-q', '-b', 'main']);
+    const as = (name, email) => ({ GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email });
+    await git(['config', 'user.email', 'fallback@b.c']);
+    await git(['config', 'user.name', 'Fallback']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'c1'], as('Ada', 'ada@x.com'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'c2'], as('Ada', 'ada@x.com'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'c3'], as('Grace', 'grace@x.com'));
+
+    const stats = await buildContributorsForRepo(dir, 100);
+    assert.equal(stats.totalCommits, 3);
+    assert.equal(stats.totalAuthors, 2);
+    assert.equal(stats.contributors[0].name, 'Ada');
+    assert.equal(stats.contributors[0].commits, 2);
+    assert.equal(stats.contributors[1].name, 'Grace');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
