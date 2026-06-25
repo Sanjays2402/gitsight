@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -359,3 +359,89 @@ test('buildContributorsForRepo ranks authors by commit count', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// ── resolveGitDir + live SSE stream (W17, integration) ───────────────
+
+test('resolveGitDir returns the absolute .git path for a repo', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-gitdir-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    const gitDir = await resolveGitDir(dir);
+    assert.ok(gitDir.endsWith('.git'), `git dir was ${gitDir}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('watcher registry shares one watcher per git dir and refcounts cleanup', () => {
+  const registry = createWatcherRegistry();
+  try {
+    // A fake git dir that won't exist is fine — RepoWatcher.start swallows
+    // the missing-path error; we're testing the refcount bookkeeping.
+    const unsub1 = registry.subscribe('/tmp/gitsight-fake.git', () => {});
+    assert.equal(registry.size(), 1);
+    const unsub2 = registry.subscribe('/tmp/gitsight-fake.git', () => {});
+    assert.equal(registry.size(), 1); // same dir -> still one watcher
+    unsub1();
+    assert.equal(registry.size(), 1); // one subscriber left
+    unsub2();
+    assert.equal(registry.size(), 0); // last out -> watcher torn down
+  } finally {
+    registry.closeAll();
+  }
+});
+
+test('GET /api/events streams a hello then a refresh when HEAD moves', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-sse-'));
+  const server = createCompanionServer({ repo: dir, port: 0, max: 100, root: undefined });
+  const controller = new AbortController();
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'sse@gitsight.local']);
+    await git(['config', 'user.name', 'SSE Test']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    // Open the SSE stream. A hard deadline aborts the fetch so a missed
+    // event can never hang the suite.
+    const deadline = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`http://127.0.0.1:${port}/api/events`, { signal: controller.signal });
+    assert.equal(res.headers.get('content-type'), 'text/event-stream; charset=utf-8');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    // Read sequentially (one outstanding read at a time) until `needle`
+    // appears in the accumulated buffer or the stream/abort ends it.
+    const readUntil = async needle => {
+      if (buf.includes(needle)) return true;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) return false;
+        if (value) buf += decoder.decode(value, { stream: true });
+        if (buf.includes(needle)) return true;
+      }
+    };
+
+    // The greeting arrives immediately.
+    assert.ok(await readUntil('event: hello'), `no hello in: ${buf}`);
+
+    // A commit moves HEAD -> the watcher should push a refresh event.
+    await git(['commit', '--allow-empty', '-q', '-m', 'second']);
+    assert.ok(await readUntil('event: refresh'), `no refresh in: ${buf}`);
+    assert.ok(/data: \{.*"head":"main"/.test(buf), `bad refresh payload: ${buf}`);
+
+    clearTimeout(deadline);
+    await reader.cancel().catch(() => {});
+  } finally {
+    controller.abort();
+    server.watchers.closeAll();
+    await new Promise(resolve => server.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+

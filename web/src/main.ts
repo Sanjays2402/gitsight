@@ -39,6 +39,7 @@ import { renderContributors, contributorFilter } from './contributorsView';
 import { renderBlame } from './blameView';
 import { downloadGraphSvg } from './exportGraph';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
+import { LiveClient, type LiveStatus } from './live';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 
@@ -71,6 +72,8 @@ interface AppState {
   blame: AsyncSlot<BlamePayload>;
   /** The file path currently being blamed. */
   blamePath: string | null;
+  /** Live-refresh connection status (W17). */
+  live: LiveStatus;
 }
 
 const theme = new ThemeController();
@@ -88,6 +91,7 @@ const state: AppState = {
   contributors: slot<ContributorsPayload>(),
   blame: slot<BlamePayload>(),
   blamePath: null,
+  live: 'disconnected',
 };
 
 const root = document.getElementById('app')!;
@@ -102,6 +106,20 @@ const detailPanel = new CommitDetailPanel({
 
 /** The live graph controller (W16) — owns selection + scroll recycling. */
 let graphController: GraphController | null = null;
+
+/**
+ * Live-refresh client (W17). Re-pulls the snapshot when the companion
+ * reports the watched repo's graph changed, and reflects connection state
+ * in the status bar. Auto-refresh only triggers in live mode; demo data
+ * has no backend to watch.
+ */
+const live = new LiveClient({
+  onRefresh: () => void onLiveRefresh(),
+  onStatus: status => {
+    state.live = status;
+    updateLiveIndicator();
+  },
+});
 
 /** Open the detail panel for a sha and mark its row active if present. */
 function openDetailFor(sha: string): void {
@@ -163,6 +181,45 @@ async function boot(): Promise<void> {
       }
       rebuildChrome();
     }
+  }
+  // Open (or re-point) the live-refresh stream now we know the repo (W17).
+  if (state.source === 'live') live.restart(state.repo);
+  else live.stop();
+}
+
+/**
+ * The companion reported the repo's graph changed (W17). Re-pull the
+ * snapshot and re-render the active view in place. We preserve the current
+ * filter, selection sha, and scroll position so a refresh while the user
+ * reads a commit doesn't yank them around.
+ */
+let liveRefreshing = false;
+async function onLiveRefresh(): Promise<void> {
+  if (state.source !== 'live' || liveRefreshing) return;
+  liveRefreshing = true;
+  try {
+    const result = await loadSnapshot({ repo: state.repo ?? undefined });
+    if (!result.ok) return;
+    state.snapshot = result.snapshot;
+    // Invalidate cached per-view payloads — they're derived from history.
+    state.activity = slot<ActivityPayload>();
+    state.contributors = slot<ContributorsPayload>();
+    // Re-render the active view; graph keeps the user's place via the
+    // controller's selection + the surface's scrollTop.
+    const keepSha = graphController?.selectedSha() ?? null;
+    if (state.view === 'graph') {
+      renderGraphView();
+      if (keepSha) graphController?.selectSha(keepSha);
+    } else if (state.view === 'activity') {
+      void ensureActivity();
+    } else if (state.view === 'contributors') {
+      void ensureContributors();
+    }
+    // Refresh the HEAD chip in the top bar.
+    refreshHeadChip();
+    flashLiveIndicator();
+  } finally {
+    liveRefreshing = false;
   }
 }
 
@@ -631,8 +688,55 @@ function buildStatusbar(): HTMLElement {
     `<span id="status-source">${label}</span>` +
     `<span id="status-count"></span>` +
     `<span class="spacer" style="flex:1"></span>` +
-    `<span id="status-msg"></span>`;
+    `<span id="status-msg"></span>` +
+    `<span id="status-live" class="status-live" hidden>` +
+    `<span class="live-dot"></span><span class="live-label"></span></span>`;
+  updateLiveIndicator(bar);
   return bar;
+}
+
+/** Live-refresh status pill text (W17). */
+const LIVE_LABEL: Record<LiveStatus, string> = {
+  connecting: 'Connecting…',
+  connected: 'Watching',
+  disconnected: 'Offline',
+};
+
+/** Reflect the live connection status into the status-bar pill. */
+function updateLiveIndicator(scope: HTMLElement | Document = document): void {
+  const pill = scope.querySelector<HTMLElement>('#status-live');
+  if (!pill) return;
+  // The live pill only makes sense against a real backend.
+  if (state.source !== 'live') {
+    pill.hidden = true;
+    return;
+  }
+  pill.hidden = false;
+  pill.dataset.state = state.live;
+  const label = pill.querySelector<HTMLElement>('.live-label');
+  if (label) label.textContent = LIVE_LABEL[state.live];
+  pill.title =
+    state.live === 'connected'
+      ? 'Watching the repository for changes — the graph refreshes automatically.'
+      : state.live === 'connecting'
+        ? 'Connecting to the live-refresh stream…'
+        : 'Live refresh offline — retrying.';
+}
+
+/** Briefly pulse the live pill to acknowledge an auto-refresh (W17). */
+function flashLiveIndicator(): void {
+  const pill = document.querySelector<HTMLElement>('#status-live');
+  if (!pill) return;
+  pill.classList.remove('pulse');
+  // Force a reflow so re-adding the class restarts the animation.
+  void pill.offsetWidth;
+  pill.classList.add('pulse');
+}
+
+/** Repaint the HEAD chip in the top bar after a live refresh (W17). */
+function refreshHeadChip(): void {
+  const chip = document.querySelector<HTMLElement>('.topbar .meta .chip span');
+  if (chip) chip.textContent = state.snapshot.head;
 }
 
 function updateCount(rendered: number, total: number, noun = 'commits'): void {

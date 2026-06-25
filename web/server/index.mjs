@@ -25,6 +25,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile, stat } from 'node:fs/promises';
 import { readdir } from 'node:fs/promises';
+import { watch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, basename, normalize, extname, resolve } from 'node:path';
 import {
@@ -44,6 +45,10 @@ import {
 import { parsePorcelainBlame } from '../../src/shared/blame.ts';
 import { buildActivityCalendar } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
+import {
+  gitChangeTriggersRefresh,
+  formatSseMessage,
+} from '../../src/shared/repoWatch.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -245,6 +250,91 @@ export async function buildContributorsForRepo(repo, max) {
   return { repo: snapshot.repo, head: snapshot.head, ...stats };
 }
 
+/**
+ * Resolve a repo's git directory (W17). For a normal clone this is
+ * `<repo>/.git`; for a linked worktree `.git` is a file pointing
+ * elsewhere, so we ask git for the absolute path.
+ */
+export async function resolveGitDir(repo) {
+  const out = await git(repo, ['rev-parse', '--absolute-git-dir']);
+  return out.trim();
+}
+
+/**
+ * Watches a repo's git dir and invokes `onRefresh` (debounced) whenever a
+ * commit/ref/stash mutation lands (W17). Uses a single recursive
+ * fs.watch where supported (macOS/Windows) and falls back to watching the
+ * key subdirectories (refs, logs) plus the git-dir root elsewhere. The
+ * change classifier (shared, tested) decides what counts as a refresh so
+ * index writes and pack churn don't spam the browser.
+ */
+export class RepoWatcher {
+  constructor(gitDir, onRefresh, opts = {}) {
+    this.gitDir = gitDir;
+    this.onRefresh = onRefresh;
+    this.debounceMs = opts.debounceMs ?? 250;
+    this.watchers = [];
+    this.timer = null;
+    this.closed = false;
+  }
+
+  start() {
+    // Try one recursive watch first (cheap + complete where supported).
+    try {
+      this.watchers.push(
+        watch(this.gitDir, { recursive: true }, (_event, filename) => {
+          if (filename) this.onPath(String(filename));
+        }),
+      );
+      return this;
+    } catch {
+      /* recursive unsupported on this platform — fall back below */
+    }
+    // Fallback: watch the git-dir root + the ref/log subtrees individually.
+    const targets = [this.gitDir, join(this.gitDir, 'refs'), join(this.gitDir, 'logs')];
+    for (const dir of targets) {
+      try {
+        this.watchers.push(
+          watch(dir, (_event, filename) => {
+            if (!filename) return;
+            // Re-root the filename under the git dir so the classifier sees
+            // the same shape the recursive watcher would emit.
+            const rel = dir === this.gitDir ? String(filename) : `${basename(dir)}/${filename}`;
+            this.onPath(rel);
+          }),
+        );
+      } catch {
+        /* a missing subtree (e.g. no logs yet) is fine */
+      }
+    }
+    return this;
+  }
+
+  onPath(relPath) {
+    if (this.closed) return;
+    if (!gitChangeTriggersRefresh(relPath)) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (!this.closed) this.onRefresh();
+    }, this.debounceMs);
+  }
+
+  close() {
+    this.closed = true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    for (const w of this.watchers) {
+      try {
+        w.close();
+      } catch {
+        /* already closed */
+      }
+    }
+    this.watchers = [];
+  }
+}
+
 /** True when a directory is the top of a git work tree or a bare repo. */
 async function isGitRepo(dir) {
   try {
@@ -346,8 +436,94 @@ async function serveStatic(res, urlPath) {
   }
 }
 
+/**
+ * A reference-counted registry of RepoWatchers keyed by git dir (W17).
+ * Many SSE clients can watch the same repo with one underlying fs watcher;
+ * the watcher is torn down when the last subscriber disconnects.
+ */
+export function createWatcherRegistry() {
+  const entries = new Map(); // gitDir -> { watcher, subscribers:Set<fn> }
+  return {
+    subscribe(gitDir, onRefresh) {
+      let entry = entries.get(gitDir);
+      if (!entry) {
+        const subscribers = new Set();
+        const watcher = new RepoWatcher(gitDir, () => {
+          for (const fn of subscribers) {
+            try {
+              fn();
+            } catch {
+              /* a broken subscriber shouldn't sink the rest */
+            }
+          }
+        }).start();
+        entry = { watcher, subscribers };
+        entries.set(gitDir, entry);
+      }
+      entry.subscribers.add(onRefresh);
+      return () => {
+        const e = entries.get(gitDir);
+        if (!e) return;
+        e.subscribers.delete(onRefresh);
+        if (e.subscribers.size === 0) {
+          e.watcher.close();
+          entries.delete(gitDir);
+        }
+      };
+    },
+    /** Tear every watcher down (server shutdown / tests). */
+    closeAll() {
+      for (const e of entries.values()) e.watcher.close();
+      entries.clear();
+    },
+    size() {
+      return entries.size;
+    },
+  };
+}
+
+/**
+ * Open an SSE stream for a repo (W17). Resolves the repo's git dir,
+ * subscribes to the shared watcher, and pushes a `refresh` event (with the
+ * fresh HEAD label) whenever the graph changes. A periodic keep-alive
+ * comment holds the connection open through proxies; the subscription is
+ * released + watcher refcount dropped when the client disconnects.
+ */
+export async function openEventStream(req, res, repo, watchers) {
+  const gitDir = await resolveGitDir(repo);
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-store',
+    connection: 'keep-alive',
+    'access-control-allow-origin': '*',
+    'x-accel-buffering': 'no',
+  });
+  // Greet the client so EventSource flips to OPEN immediately.
+  res.write(formatSseMessage({ event: 'hello', data: { repo: basename(repo) }, retry: 3000 }));
+
+  const push = async () => {
+    const head = await readHead(repo).catch(() => 'unknown');
+    res.write(formatSseMessage({ event: 'refresh', data: { repo: basename(repo), head, at: Date.now() } }));
+  };
+  const unsubscribe = watchers.subscribe(gitDir, () => void push());
+
+  const keepAlive = setInterval(() => {
+    res.write(formatSseMessage({ comment: 'keep-alive' }));
+  }, 25000);
+  if (typeof keepAlive.unref === 'function') keepAlive.unref();
+
+  const cleanup = () => {
+    clearInterval(keepAlive);
+    unsubscribe();
+  };
+  req.on('close', cleanup);
+  req.on('error', cleanup);
+  res.on('error', cleanup);
+}
+
 export function createCompanionServer(opts) {
-  return createServer(async (req, res) => {
+  const watchers = createWatcherRegistry();
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     try {
       if (url.pathname === '/api/health') {
@@ -441,11 +617,28 @@ export function createCompanionServer(opts) {
         }
         return;
       }
+      // GET /api/events -> Server-Sent Events live-refresh stream (W17).
+      // Emits a `refresh` event (debounced) whenever the watched repo's
+      // commit graph changes, so the browser can re-pull without polling.
+      if (url.pathname === '/api/events') {
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          await openEventStream(req, res, repo, watchers);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
       await serveStatic(res, url.pathname);
     } catch (e) {
       sendJson(res, 500, { error: String(e?.message ?? e) });
     }
   });
+  // Tear watchers down when the server closes (tidy shutdown + tests).
+  server.on('close', () => watchers.closeAll());
+  // Expose the registry so callers/tests can inspect or force-cleanup.
+  server.watchers = watchers;
+  return server;
 }
 
 // Only listen when run directly (not when imported by a test).
@@ -461,6 +654,7 @@ if (isMain) {
         `  GET /api/activity      contribution calendar\n` +
         `  GET /api/contributors  author leaderboard\n` +
         `  GET /api/blame         per-file blame heatmap\n` +
+        `  GET /api/events        live-refresh SSE stream\n` +
         `  GET /api/repos         switchable repos\n` +
         `  GET /api/health        liveness\n`,
     );

@@ -800,6 +800,60 @@ body {
   background: #e0a320;
 }
 
+/* ── Live-refresh pill (W17) ──────────────────────────────────────── */
+.status-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 14px;
+  color: var(--fg-faint);
+}
+
+.status-live .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+  transition: background 0.2s var(--ease);
+}
+
+.status-live[data-state="connected"] .live-dot {
+  background: #34c759;
+}
+
+.status-live[data-state="connecting"] .live-dot {
+  background: #e0a320;
+  animation: live-blink 1s steps(2, start) infinite;
+}
+
+.status-live[data-state="disconnected"] {
+  opacity: 0.7;
+}
+
+.status-live[data-state="disconnected"] .live-dot {
+  background: var(--fg-faint);
+}
+
+@keyframes live-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* A brief ring pulse when an auto-refresh lands. */
+.status-live.pulse .live-dot {
+  animation: live-pulse 0.7s var(--ease);
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 #34c75966;
+  }
+  100% {
+    box-shadow: 0 0 0 7px #34c75900;
+  }
+}
+
 /* Toast */
 .toast {
   position: fixed;
