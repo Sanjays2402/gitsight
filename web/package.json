@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "serve": "node server/index.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test server/*.test.mjs"
+    "test": "node --test server/*.test.mjs src/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

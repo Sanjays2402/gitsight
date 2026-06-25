@@ -14,25 +14,28 @@ import { icons } from './icons';
 import { el } from './format';
 import { DEMO_SNAPSHOT } from './demo';
 import { loadSnapshot } from './data';
+import { ThemeController } from './theme';
+import { createPalettePicker } from './palettePicker';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 
 interface AppState {
   snapshot: GraphSnapshot;
   filter: string;
-  theme: string; // lane palette theme
   source: 'demo' | 'live' | 'loading';
 }
+
+const theme = new ThemeController();
 
 const state: AppState = {
   snapshot: DEMO_SNAPSHOT,
   filter: '',
-  theme: 'default',
   source: 'loading',
 };
 
 const root = document.getElementById('app')!;
 
 function mount(): void {
+  theme.applyChrome();
   root.replaceChildren(buildTopbar(), buildToolbar(), buildSurface(), buildStatusbar());
   renderInto();
   installKeyboard();
@@ -68,11 +71,33 @@ function buildTopbar(): HTMLElement {
     `<span class="repo">${escapeText(state.snapshot.repo)}</span>`;
 
   const spacer = el('div', 'spacer');
+
   const meta = el('div', 'meta');
   meta.innerHTML =
     `<span class="chip">${icons.graph}<span>${escapeText(state.snapshot.head)}</span></span>`;
 
-  bar.append(brand, spacer, meta);
+  // Lane-palette picker.
+  const picker = createPalettePicker({
+    current: theme.palette,
+    onPick: name => {
+      theme.setPalette(name);
+      renderInto();
+    },
+  });
+
+  // Chrome light/dark toggle.
+  const toggle = el('button', 'btn icon-only');
+  const renderToggle = () => {
+    toggle.innerHTML = theme.chrome === 'dark' ? icons.sun : icons.moon;
+    toggle.title = theme.chrome === 'dark' ? 'Switch to light' : 'Switch to dark';
+  };
+  renderToggle();
+  toggle.addEventListener('click', () => {
+    theme.toggleChrome();
+    renderToggle();
+  });
+
+  bar.append(brand, spacer, meta, picker, toggle);
   return bar;
 }
 
@@ -127,7 +152,7 @@ function renderInto(): void {
   if (!surface) return;
 
   const result = renderGraph(state.snapshot, {
-    theme: state.theme,
+    theme: theme.palette,
     filter: state.filter,
     onSelect: (c: GraphSnapshotCommit) => setStatus(`${c.shortSha}  ${c.subject}`),
     onCopySha: (sha: string) => void copySha(sha),
