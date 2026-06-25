@@ -138,7 +138,8 @@
     "src/shared/commitQuery.ts",
     "src/shared/diffParse.ts",
     "src/shared/repoPicker.ts",
-    "src/shared/refRail.ts"
+    "src/shared/refRail.ts",
+    "src/shared/graphExport.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -71,6 +71,7 @@ export const icons = {
   sidebar: svg(
     '<rect x="2" y="3" width="12" height="10" rx="1.6"/><path d="M6.5 3v10"/>',
   ),
+  download: svg('<path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/>'),
 };
 
 export type IconName = keyof typeof icons;
