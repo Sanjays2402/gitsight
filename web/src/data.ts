@@ -15,6 +15,7 @@ import type { BlameModel } from '@shared/blame';
 import type { ActivityCalendar } from '@shared/activity';
 import type { ContributorStats } from '@shared/contributors';
 import type { RangeComparison } from '@shared/rangeCompare';
+import type { StashList } from '@shared/stashes';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -315,6 +316,41 @@ export async function loadCompare(
   const qs = `?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}${repoParam}`;
   return fetchJson<ComparePayload>(`/api/compare${qs}`, isComparePayload, opts.signal).then(r =>
     r.ok ? { ok: true, comparison: r.value } : r,
+  );
+}
+
+// ── Stashes (W19) ────────────────────────────────────────────────────
+
+export type StashesPayload = StashList;
+
+export type StashesResult =
+  | { ok: true; stashes: StashesPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isStashesPayload(v: unknown): v is StashesPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.stashes) && typeof o.total === 'number';
+}
+
+/** Fetch the stash list with per-entry file changes (W19). */
+export async function loadStashes(opts: { signal?: AbortSignal; repo?: string } = {}): Promise<StashesResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  return fetchJson<StashesPayload>(`/api/stashes${qs}`, isStashesPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, stashes: r.value } : r,
+  );
+}
+
+/** Fetch one stash file's parsed diff (W19). Reuses FileDiffPayload. */
+export async function loadStashDiff(
+  index: number,
+  path: string,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<FileDiffResult> {
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?index=${encodeURIComponent(String(index))}&path=${encodeURIComponent(path)}${repoParam}`;
+  return fetchJson<FileDiffPayload>(`/api/stash-diff${qs}`, isFileDiffPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, diff: r.value } : r,
   );
 }
 

@@ -26,10 +26,13 @@ import {
   loadContributors,
   loadBlame,
   loadCompare,
+  loadStashes,
+  loadStashDiff,
   type ActivityPayload,
   type ContributorsPayload,
   type BlamePayload,
   type ComparePayload,
+  type StashesPayload,
 } from './data';
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
@@ -40,13 +43,14 @@ import { renderActivity, dayFilter } from './activityView';
 import { renderContributors, contributorFilter } from './contributorsView';
 import { renderBlame } from './blameView';
 import { renderCompare } from './compareView';
+import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 
-type AppView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare';
+type AppView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare' | 'stashes';
 
 interface AsyncSlot<T> {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -81,6 +85,8 @@ interface AppState {
   compare: AsyncSlot<ComparePayload>;
   compareBase: string;
   compareHead: string;
+  /** Stash list payload (W19). */
+  stashes: AsyncSlot<StashesPayload>;
 }
 
 const theme = new ThemeController();
@@ -102,6 +108,7 @@ const state: AppState = {
   compare: slot<ComparePayload>(),
   compareBase: 'main',
   compareHead: 'HEAD',
+  stashes: slot<StashesPayload>(),
 };
 
 const root = document.getElementById('app')!;
@@ -178,6 +185,7 @@ async function boot(): Promise<void> {
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
   state.compare = slot<ComparePayload>();
+  state.stashes = slot<StashesPayload>();
   rebuildChrome();
   if (!result.ok && !result.offline) {
     setStatus(`API error: ${result.error}`);
@@ -216,6 +224,7 @@ async function onLiveRefresh(): Promise<void> {
     state.activity = slot<ActivityPayload>();
     state.contributors = slot<ContributorsPayload>();
     state.compare = slot<ComparePayload>();
+    state.stashes = slot<StashesPayload>();
     // Re-render the active view; graph keeps the user's place via the
     // controller's selection + the surface's scrollTop.
     const keepSha = graphController?.selectedSha() ?? null;
@@ -228,6 +237,8 @@ async function onLiveRefresh(): Promise<void> {
       void ensureContributors();
     } else if (state.view === 'compare') {
       void ensureCompare();
+    } else if (state.view === 'stashes') {
+      void ensureStashes();
     }
     // Refresh the HEAD chip in the top bar.
     refreshHeadChip();
@@ -298,6 +309,7 @@ const TABS: Array<{ id: AppView; label: string; icon: keyof typeof icons }> = [
   { id: 'contributors', label: 'Contributors', icon: 'users' },
   { id: 'blame', label: 'Blame', icon: 'blame' },
   { id: 'compare', label: 'Compare', icon: 'gitCompare' },
+  { id: 'stashes', label: 'Stashes', icon: 'archive' },
 ];
 
 function buildTabs(): HTMLElement {
@@ -324,6 +336,7 @@ function switchView(view: AppView): void {
   if (view === 'activity') void ensureActivity();
   if (view === 'contributors') void ensureContributors();
   if (view === 'compare') void ensureCompare();
+  if (view === 'stashes') void ensureStashes();
 }
 
 // ── Toolbar (search + actions) ───────────────────────────────────────
@@ -542,6 +555,8 @@ function renderView(): void {
       return renderBlameView();
     case 'compare':
       return renderCompareView();
+    case 'stashes':
+      return renderStashesView();
   }
 }
 
@@ -668,6 +683,26 @@ function renderCompareView(): void {
   if (s.data) updateCount(s.data.filesChanged, s.data.filesChanged, 'files');
 }
 
+function renderStashesView(): void {
+  const surface = document.getElementById('surface');
+  if (!surface) return;
+  const s = state.stashes;
+  if (s.status === 'loading' || s.status === 'idle') {
+    surface.replaceChildren(loadingState('Reading stashes…'));
+    void ensureStashes();
+    return;
+  }
+  if (s.status === 'error' || !s.data) {
+    surface.replaceChildren(errorState('Could not load stashes', s.error));
+    return;
+  }
+  const node = renderStashes(s.data, {
+    loadDiff: (index: number, path: string) => loadStashDiff(index, path, { repo: state.repo ?? undefined }),
+  });
+  surface.replaceChildren(node);
+  updateCount(s.data.total, s.data.total, s.data.total === 1 ? 'stash' : 'stashes');
+}
+
 // ── Lazy data loaders ────────────────────────────────────────────────
 async function ensureActivity(): Promise<void> {
   if (state.activity.status === 'loading' || state.activity.status === 'ready') return;
@@ -703,6 +738,16 @@ async function runCompare(base: string, head: string): Promise<void> {
   if (res.ok) state.compare = { status: 'ready', data: res.comparison, error: '' };
   else state.compare = { status: 'error', data: null, error: res.error };
   if (state.view === 'compare') renderCompareView();
+}
+
+/** Lazily load the stash list when the tab first opens (W19). */
+async function ensureStashes(): Promise<void> {
+  if (state.stashes.status === 'loading' || state.stashes.status === 'ready') return;
+  state.stashes.status = 'loading';
+  const res = await loadStashes({ repo: state.repo ?? undefined });
+  if (res.ok) state.stashes = { status: 'ready', data: res.stashes, error: '' };
+  else state.stashes = { status: 'error', data: null, error: res.error };
+  if (state.view === 'stashes') renderStashesView();
 }
 
 async function loadBlamePath(path: string): Promise<void> {

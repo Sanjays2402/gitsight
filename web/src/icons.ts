@@ -93,6 +93,12 @@ export const icons = {
   ),
   // Swap base/head: two vertical arrows pointing opposite ways (W18).
   swap: svg('<path d="M5 3v10M5 13 2.8 10.7M5 13l2.2-2.3M11 13V3M11 3 8.8 5.3M11 3l2.2 2.3"/>'),
+  // Archive box for the stash view (W19).
+  archive: svg(
+    '<rect x="2" y="3" width="12" height="3" rx="0.6"/>' +
+      '<path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6"/>' +
+      '<path d="M6.3 8.6h3.4"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

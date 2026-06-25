@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -415,6 +415,70 @@ test('buildCompareForRepo rejects an unsafe ref', async () => {
     await git(['commit', '--allow-empty', '-q', '-m', 'init']);
     await assert.rejects(() => buildCompareForRepo(dir, '--output=/tmp/x', 'HEAD'), /invalid base/);
     await assert.rejects(() => buildCompareForRepo(dir, 'main', '--bad'), /invalid head/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildStashesForRepo (W19, integration) ───────────────────────────
+
+test('buildStashesForRepo lists stashes with file churn + lazy diff', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stash-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'stash@gitsight.local']);
+    await git(['config', 'user.name', 'Stash Test']);
+    await writeFile(join(dir, 'app.txt'), 'one\ntwo\n');
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'base']);
+
+    // Create two stashes.
+    await writeFile(join(dir, 'app.txt'), 'one\nTWO\nthree\n');
+    await writeFile(join(dir, 'extra.txt'), 'new file\n');
+    await git(['add', '-A']);
+    await git(['stash', 'push', '-q', '-m', 'first wip']);
+    await writeFile(join(dir, 'app.txt'), 'one\ntwo\nLATER\n');
+    await git(['add', '-A']);
+    await git(['stash', 'push', '-q', '-m', 'second wip']);
+
+    const list = await buildStashesForRepo(dir);
+    assert.equal(list.total, 2);
+    // Newest first: stash@{0} is "second wip".
+    assert.equal(list.stashes[0].index, 0);
+    assert.equal(list.stashes[0].ref, 'stash@{0}');
+    assert.equal(list.stashes[0].branch, 'main');
+    assert.ok(list.stashes[0].subject.includes('second wip'));
+    assert.ok(list.stashes[0].filesChanged >= 1);
+    // The first stash touched two files (app.txt + extra.txt).
+    const first = list.stashes[1];
+    assert.ok(first.subject.includes('first wip'));
+    assert.equal(first.filesChanged, 2);
+    const paths = first.files.map(f => f.path).sort();
+    assert.deepEqual(paths, ['app.txt', 'extra.txt']);
+
+    // Lazy per-file diff for a stash file.
+    const { file } = await buildStashFileDiffForRepo(dir, 1, 'extra.txt');
+    assert.ok(file);
+    assert.equal(file.path, 'extra.txt');
+    assert.equal(file.status, 'added');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildStashesForRepo returns an empty list when there are no stashes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-nostash-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    const list = await buildStashesForRepo(dir);
+    assert.equal(list.total, 0);
+    assert.deepEqual(list.stashes, []);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

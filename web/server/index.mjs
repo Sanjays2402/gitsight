@@ -53,6 +53,12 @@ import {
   buildRangeComparison,
   COMPARE_LOG_FORMAT,
 } from '../../src/shared/rangeCompare.ts';
+import {
+  parseStashList,
+  buildStashFiles,
+  stashRefForIndex,
+  STASH_LIST_FORMAT,
+} from '../../src/shared/stashes.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -285,6 +291,49 @@ export async function buildCompareForRepo(repo, base, head) {
     git(repo, ['diff', '--name-status', '-z', '-M', '-C', `${base}...${head}`, '--']),
   ]);
   return buildRangeComparison({ base, head, aheadStdout, behindStdout, numstatStdout, nameStatusStdout });
+}
+
+/**
+ * Build the stash list with per-entry file changes (W19). Lists the
+ * stashes, then for each shells `git stash show` twice (numstat +
+ * name-status) using a ref constructed from a VALIDATED integer index —
+ * never user ref text — so `stash@{N}` can't be turned into something else.
+ */
+export async function buildStashesForRepo(repo) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  const listStdout = await git(repo, ['stash', 'list', `--pretty=format:${STASH_LIST_FORMAT}`]);
+  const entries = parseStashList(listStdout);
+  const stashes = await Promise.all(
+    entries.map(async e => {
+      const ref = stashRefForIndex(e.index);
+      const [numstatStdout, nameStatusStdout] = await Promise.all([
+        git(repo, ['stash', 'show', '--numstat', '-z', ref]).catch(() => ''),
+        git(repo, ['stash', 'show', '--name-status', '-z', ref]).catch(() => ''),
+      ]);
+      const { files, insertions, deletions } = buildStashFiles(numstatStdout, nameStatusStdout);
+      return { ...e, files, insertions, deletions, filesChanged: files.length };
+    }),
+  );
+  return { stashes, total: stashes.length };
+}
+
+/**
+ * Build the unified diff for a single file in a stash (W19). A stash's
+ * `-p` view is the diff between its first parent and the stash itself, so
+ * we scope per-file with `git diff <ref>^1 <ref> -- <path>` (which DOES
+ * accept a pathspec, unlike `git stash show`). The ref is constructed from
+ * a validated integer index.
+ */
+export async function buildStashFileDiffForRepo(repo, index, path) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  if (typeof path !== 'string' || path.length === 0 || path.length > 4096) {
+    throw new Error('invalid path');
+  }
+  const ref = stashRefForIndex(Number(index));
+  const stdout = await git(repo, ['diff', '--no-color', '-M', '-C', `${ref}^1`, ref, '--', path]);
+  const files = parseUnifiedDiff(stdout);
+  const file = files.find(f => f.path === path) ?? files[0] ?? null;
+  return { rev: ref, path, file };
 }
 
 /**
@@ -654,6 +703,30 @@ export function createCompanionServer(opts) {
           sendJson(res, 200, comparison);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), base, head });
+        }
+        return;
+      }
+      // GET /api/stashes -> stash list with per-entry file changes (W19).
+      if (url.pathname === '/api/stashes') {
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const stashes = await buildStashesForRepo(repo);
+          sendJson(res, 200, stashes);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
+      // GET /api/stash-diff?index=&path= -> one stash file's parsed diff (W19).
+      if (url.pathname === '/api/stash-diff') {
+        const index = url.searchParams.get('index') ?? '0';
+        const path = url.searchParams.get('path') ?? '';
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const diff = await buildStashFileDiffForRepo(repo, index, path);
+          sendJson(res, 200, diff);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), index, path });
         }
         return;
       }
