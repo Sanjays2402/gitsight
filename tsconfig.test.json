@@ -129,7 +129,9 @@
     "src/git/preMergeAutoMerge.ts",
     "src/git/ghPagesPreviewPill.ts",
     "src/git/branchProtectionTemplateAutoSuggest.ts",
-    "src/git/reviewerLoadTeamTrend.ts"
+    "src/git/reviewerLoadTeamTrend.ts",
+    "src/shared/graphCore.ts",
+    "src/shared/graphPalette.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

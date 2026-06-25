@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import { Git, Commit } from '../git/git';
 import { timeAgo, colorForAuthor } from '../git/format';
 import { activePalette } from '../views/graphThemes';
+import { assignLanes, buildLaneSvg, classifyRef, refLabel } from '../shared/graphCore';
 import { buildStandaloneSvg, buildExportFilename, buildSvgDataUrl, parsePngDataUrl, buildPrintHtml, classifyPdfExport, estimateSvgBytes, ExportRow } from '../git/commitGraphExport';
 
 export class CommitGraphPanel {
@@ -266,69 +267,24 @@ interface RenderResult {
 }
 
 function renderGraph(commits: Commit[], search: string): RenderResult {
-  type Lane = { sha: string; color: string };
-  const lanes: (Lane | null)[] = [];
-  const rows: { commit: Commit; lane: number; lanes: (Lane | null)[]; color: string }[] = [];
   const palette = activePalette();
-  let colorIdx = 0;
-  const byParent = new Map<string, number>();
-
-  for (const c of commits) {
-    let laneIdx = byParent.get(c.sha);
-    let color: string;
-    if (laneIdx === undefined) {
-      laneIdx = lanes.findIndex(l => l === null);
-      if (laneIdx === -1) { laneIdx = lanes.length; lanes.push(null); }
-      color = palette[colorIdx++ % palette.length];
-    } else color = lanes[laneIdx]!.color;
-    lanes[laneIdx] = { sha: c.sha, color };
-    const snapshot = lanes.map(l => (l ? { ...l } : null));
-
-    if (c.parents.length === 0) lanes[laneIdx] = null;
-    else {
-      lanes[laneIdx] = { sha: c.parents[0], color };
-      byParent.set(c.parents[0], laneIdx);
-      for (let i = 1; i < c.parents.length; i++) {
-        let n = lanes.findIndex(l => l === null);
-        if (n === -1) { n = lanes.length; lanes.push(null); }
-        const pc = palette[colorIdx++ % palette.length];
-        lanes[n] = { sha: c.parents[i], color: pc };
-        byParent.set(c.parents[i], n);
-      }
-    }
-    rows.push({ commit: c, lane: laneIdx, lanes: snapshot, color });
-  }
+  const rows = assignLanes(commits, palette);
 
   const rowH = 28, colW = 16;
-  const maxLanes = Math.max(...rows.map(r => r.lanes.length), 1);
-  const graphW = maxLanes * colW + 10;
-
-  const svgRows = rows.map((r, i) => {
-    const cx = r.lane * colW + colW / 2 + 5;
-    const nextLanes = rows[i + 1]?.lanes ?? [];
-    const parts: string[] = [];
-    r.lanes.forEach((l, idx) => {
-      if (!l) return;
-      const x = idx * colW + colW / 2 + 5;
-      parts.push(`<line x1="${x}" y1="0" x2="${x}" y2="${rowH / 2}" stroke="${l.color}" stroke-width="2"/>`);
-      const continues = nextLanes.some((nl, ni) => nl && nl.sha === l.sha && ni === idx);
-      if (continues) parts.push(`<line x1="${x}" y1="${rowH / 2}" x2="${x}" y2="${rowH}" stroke="${l.color}" stroke-width="2"/>`);
-    });
-    r.commit.parents.forEach(p => {
-      const nIdx = nextLanes.findIndex(nl => nl && nl.sha === p);
-      if (nIdx === -1) return;
-      const nx = nIdx * colW + colW / 2 + 5;
-      if (nx === cx) parts.push(`<line x1="${cx}" y1="${rowH / 2}" x2="${nx}" y2="${rowH}" stroke="${r.color}" stroke-width="2"/>`);
-      else parts.push(`<path d="M${cx},${rowH / 2} C${cx},${rowH * 0.85} ${nx},${rowH * 0.5} ${nx},${rowH}" stroke="${r.color}" stroke-width="2" fill="none"/>`);
-    });
-    parts.push(`<circle cx="${cx}" cy="${rowH / 2}" r="5" fill="${r.color}" stroke="var(--vscode-editor-background)" stroke-width="2"/>`);
-    return `<g transform="translate(0,${i * rowH})">${parts.join('')}</g>`;
-  }).join('');
+  // Shared lane geometry — identical output to the old inline renderer, but
+  // now the standalone web app draws from the exact same function.
+  const lane = buildLaneSvg(rows, {
+    rowHeight: rowH,
+    colWidth: colW,
+    nodeStroke: 'var(--vscode-editor-background)',
+  });
+  const graphW = lane.graphWidth;
+  const svgRows = lane.rowsSvg;
 
   const list = rows.map(r => {
     const refsHtml = r.commit.refs.map(ref => {
-      const cls = ref.startsWith('tag:') ? 'tag' : ref === 'HEAD' || ref.includes('HEAD') ? 'head' : ref.includes('/') ? 'remote' : 'branch';
-      return `<span class="ref ${cls}">${escape(ref.replace(/^tag: /, ''))}</span>`;
+      const cls = classifyRef(ref);
+      return `<span class="ref ${cls}">${escape(refLabel(ref))}</span>`;
     }).join('');
     return `
     <div class="row" data-sha="${r.commit.sha}" style="height:${28}px">
