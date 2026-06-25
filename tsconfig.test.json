@@ -140,7 +140,8 @@
     "src/shared/repoPicker.ts",
     "src/shared/refRail.ts",
     "src/shared/graphExport.ts",
-    "src/shared/blame.ts"
+    "src/shared/blame.ts",
+    "src/shared/activity.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

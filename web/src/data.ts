@@ -12,6 +12,7 @@ import type { CommitDetail } from '@shared/commitDetail';
 import type { FileDiff } from '@shared/diffParse';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { BlameModel } from '@shared/blame';
+import type { ActivityCalendar } from '@shared/activity';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -225,6 +226,33 @@ export async function loadBlame(
   const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}`;
   return fetchJson<BlamePayload>(`/api/blame${qs}`, isBlamePayload, opts.signal).then(r =>
     r.ok ? { ok: true, blame: r.value } : r,
+  );
+}
+
+// ── Activity calendar (W13) ──────────────────────────────────────────
+
+export interface ActivityPayload extends ActivityCalendar {
+  repo: string;
+  head: string;
+}
+
+export type ActivityResult =
+  | { ok: true; activity: ActivityPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isActivityPayload(v: unknown): v is ActivityPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.weeks) && Array.isArray(o.months) && typeof o.total === 'number';
+}
+
+/** Fetch the contribution calendar (W13). */
+export async function loadActivity(
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<ActivityResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  return fetchJson<ActivityPayload>(`/api/activity${qs}`, isActivityPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, activity: r.value } : r,
   );
 }
 

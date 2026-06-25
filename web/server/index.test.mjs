@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -303,6 +303,33 @@ test('buildBlameForRepo rejects a flag-like path and a bad rev', async () => {
     await git(['commit', '--allow-empty', '-q', '-m', 'init']);
     await assert.rejects(() => buildBlameForRepo(dir, '--upload-pack=evil', 'x'), /invalid revision/);
     await assert.rejects(() => buildBlameForRepo(dir, 'HEAD', ''), /invalid path/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildActivityForRepo (W13, integration) ──────────────────────────
+
+test('buildActivityForRepo builds a calendar from real commits', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-activity-'));
+  try {
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    const day = (d) => ({ GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d });
+    await git(['commit', '--allow-empty', '-q', '-m', 'c1'], day('2026-06-01T09:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'c2'], day('2026-06-01T18:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'c3'], day('2026-06-03T12:00:00'));
+
+    const cal = await buildActivityForRepo(dir, 100);
+    assert.equal(cal.total, 3);
+    assert.equal(cal.activeDays, 2);
+    assert.equal(cal.max, 2);
+    assert.equal(cal.first, '2026-06-01');
+    assert.equal(cal.last, '2026-06-03');
+    // Every week column is a full 7 days.
+    for (const week of cal.weeks) assert.equal(week.length, 7);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
