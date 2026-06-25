@@ -56,6 +56,21 @@ export const icons = {
     '<circle cx="8" cy="8" r="6"/><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.5-.7 1v.4"/>' +
       '<circle cx="8" cy="11.4" r="0.2" fill="currentColor"/>',
   ),
+  branch: svg(
+    '<circle cx="5" cy="4" r="1.6"/><circle cx="5" cy="12" r="1.6"/>' +
+      '<circle cx="11" cy="5.5" r="1.6"/><path d="M5 5.6v4.8"/>' +
+      '<path d="M11 7.1c0 2-1.4 2.6-3 3"/>',
+  ),
+  remote: svg(
+    '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/>' +
+      '<circle cx="8" cy="8" r="6.2"/>',
+  ),
+  tag: svg(
+    '<path d="M2.5 7.3 7.3 2.5H13v5.7L8.2 13z"/><circle cx="10" cy="5.5" r="0.9" fill="currentColor"/>',
+  ),
+  sidebar: svg(
+    '<rect x="2" y="3" width="12" height="10" rx="1.6"/><path d="M6.5 3v10"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

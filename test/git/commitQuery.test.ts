@@ -117,9 +117,9 @@ test('commitMatchesQuery ANDs all terms; empty query matches all', () => {
 
 test('filterCommits narrows a list by a structured query', () => {
   const list = [
-    commit({ shortSha: 'aaa1111', author: 'Ada Lovelace', subject: 'feat: x' }),
-    commit({ shortSha: 'bbb2222', author: 'Sanjay', subject: 'fix: y' }),
-    commit({ shortSha: 'ccc3333', author: 'Ada Lovelace', subject: 'docs: z' }),
+    commit({ shortSha: 'aaa1111', author: 'Ada Lovelace', email: 'ada@example.com', subject: 'feat: x' }),
+    commit({ shortSha: 'bbb2222', author: 'Sanjay', email: 'sanjay@example.com', subject: 'fix: y' }),
+    commit({ shortSha: 'ccc3333', author: 'Ada Lovelace', email: 'ada@example.com', subject: 'docs: z' }),
   ];
   const out = filterCommits(list, 'author:ada');
   assert.deepEqual(out.map(c => c.shortSha), ['aaa1111', 'ccc3333']);

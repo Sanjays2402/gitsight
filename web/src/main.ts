@@ -17,6 +17,7 @@ import { loadSnapshot, loadCommitDetail, loadFileDiff, loadRepos } from './data'
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
 import { createRepoPicker } from './repoPicker';
+import { createRefRail, activeRefFromFilter } from './refRailView';
 import { CommitDetailPanel } from './detailPanel';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
@@ -29,6 +30,8 @@ interface AppState {
   repos: RepoEntry[];
   /** Path of the repo currently being viewed (?repo= override). */
   repo: string | null;
+  /** Whether the left ref rail is shown. */
+  railOpen: boolean;
 }
 
 const theme = new ThemeController();
@@ -39,6 +42,7 @@ const state: AppState = {
   source: 'loading',
   repos: [],
   repo: null,
+  railOpen: true,
 };
 
 const root = document.getElementById('app')!;
@@ -63,7 +67,7 @@ function openDetailFor(sha: string): void {
 
 function mount(): void {
   theme.applyChrome();
-  root.replaceChildren(buildTopbar(), buildToolbar(), buildSurface(), buildStatusbar());
+  root.replaceChildren(buildTopbar(), buildToolbar(), buildMainArea(), buildStatusbar());
   renderInto();
   installKeyboard();
   void boot();
@@ -82,7 +86,7 @@ async function boot(): Promise<void> {
     state.source = 'demo';
   }
   // Rebuild chrome so the repo name / head chip reflect the loaded repo.
-  root.replaceChildren(buildTopbar(), buildToolbar(), buildSurface(), buildStatusbar());
+  root.replaceChildren(buildTopbar(), buildToolbar(), buildMainArea(), buildStatusbar());
   renderInto();
   if (!result.ok && !result.offline) {
     setStatus(`API error: ${result.error}`);
@@ -96,7 +100,7 @@ async function boot(): Promise<void> {
       if (!state.repo) {
         state.repo = repos.repos.find(r => r.current)?.path ?? null;
       }
-      root.replaceChildren(buildTopbar(), buildToolbar(), buildSurface(), buildStatusbar());
+      root.replaceChildren(buildTopbar(), buildToolbar(), buildMainArea(), buildStatusbar());
       renderInto();
     }
   }
@@ -168,6 +172,21 @@ function buildTopbar(): HTMLElement {
 function buildToolbar(): HTMLElement {
   const bar = el('div', 'toolbar');
 
+  // Ref-rail toggle.
+  const railToggle = el('button', 'btn icon-only' + (state.railOpen ? ' on' : ''));
+  railToggle.title = state.railOpen ? 'Hide ref sidebar' : 'Show ref sidebar';
+  railToggle.setAttribute('aria-label', 'Toggle ref sidebar');
+  railToggle.setAttribute('aria-pressed', String(state.railOpen));
+  railToggle.innerHTML = icons.sidebar;
+  railToggle.addEventListener('click', () => {
+    state.railOpen = !state.railOpen;
+    railToggle.classList.toggle('on', state.railOpen);
+    railToggle.setAttribute('aria-pressed', String(state.railOpen));
+    railToggle.title = state.railOpen ? 'Hide ref sidebar' : 'Show ref sidebar';
+    rebuildMainArea();
+    renderInto();
+  });
+
   const search = el('div', 'search');
   search.innerHTML = `<span class="icon">${icons.search}</span>`;
   const input = el('input');
@@ -183,6 +202,8 @@ function buildToolbar(): HTMLElement {
     window.clearTimeout(t);
     t = window.setTimeout(() => {
       state.filter = input.value.trim();
+      // Keep the rail's active highlight in sync with a typed ref: query.
+      rebuildMainArea();
       renderInto();
     }, 120);
   });
@@ -200,7 +221,7 @@ function buildToolbar(): HTMLElement {
   refresh.innerHTML = icons.refresh;
   refresh.addEventListener('click', () => void boot());
 
-  bar.append(search, help, refresh);
+  bar.append(railToggle, search, help, refresh);
   return bar;
 }
 
@@ -250,11 +271,38 @@ function onSearchHelpEsc(e: KeyboardEvent): void {
   if (e.key === 'Escape') closeSearchHelp();
 }
 
-// ── Surface ──────────────────────────────────────────────────────────
-function buildSurface(): HTMLElement {
+// ── Surface (rail + graph) ───────────────────────────────────────────
+function buildMainArea(): HTMLElement {
+  const area = el('div', 'main-area');
+  if (state.railOpen) {
+    const rail = createRefRail({
+      snapshot: state.snapshot,
+      activeRef: activeRefFromFilter(state.filter),
+      onPick: query => applyFilter(query),
+      onClear: () => applyFilter(''),
+    });
+    if (rail) area.appendChild(rail);
+  }
   const surface = el('section', 'surface');
   surface.id = 'surface';
-  return surface;
+  area.appendChild(surface);
+  return area;
+}
+
+/** Set the filter (from a rail click), sync the input, and re-render. */
+function applyFilter(query: string): void {
+  state.filter = query;
+  const input = document.getElementById('filter-input') as HTMLInputElement | null;
+  if (input) input.value = query;
+  // Rebuild the rail so the active highlight follows the new filter.
+  rebuildMainArea();
+  renderInto();
+}
+
+/** Replace just the main area (rail + surface) in place. */
+function rebuildMainArea(): void {
+  const old = document.querySelector('.main-area');
+  if (old) old.replaceWith(buildMainArea());
 }
 
 function showLoading(): void {
@@ -339,6 +387,7 @@ function installKeyboard(): void {
         if (input!.value) {
           input!.value = '';
           state.filter = '';
+          rebuildMainArea();
           renderInto();
         }
       }
