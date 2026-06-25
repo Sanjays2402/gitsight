@@ -1003,6 +1003,11 @@
         "icon": "$(archive)"
       },
       {
+        "command": "gitsight.openWebApp",
+        "title": "GitSight: Open Web App",
+        "icon": "$(globe)"
+      },
+      {
         "command": "gitsight.aiReviewStaged",
         "title": "GitSight: AI Review (Staged / Working)",
         "icon": "$(comment-discussion)"
@@ -1448,6 +1453,18 @@
     "configuration": {
       "title": "GitSight",
       "properties": {
+        "gitsight.web.port": {
+          "type": "number",
+          "default": 5274,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Preferred port for the GitSight web app companion server (GitSight: Open Web App). If busy, the next free port is used."
+        },
+        "gitsight.web.root": {
+          "type": "string",
+          "default": "",
+          "description": "Optional parent directory the web app scans for sibling repos to populate its repo switcher. Leave empty to serve only the current repository."
+        },
         "gitsight.graph.theme": {
           "type": "string",
           "enum": [

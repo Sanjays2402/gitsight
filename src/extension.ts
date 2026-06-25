@@ -23,6 +23,7 @@ import { generateChangelog } from './ai/changelog';
 import { generatePullRequestDescription } from './ai/prDescription';
 import { BisectWizard } from './views/bisectWizard';
 import { showStashVisualizer } from './webviews/stashVisualizer';
+import { openWebApp, registerWebAppLifecycle } from './views/webApp';
 import { reviewStaged, reviewCommit, reviewRange } from './ai/review';
 import { showBranchProtection } from './views/branchProtection';
 import { CodeownersOverlay } from './views/codeownersOverlay';
@@ -595,6 +596,15 @@ export function activate(ctx: vscode.ExtensionContext) {
   reg('gitsight.stashVisualizer', () => errorWrap(async () => {
     const git = primary(); if (!git) return;
     await showStashVisualizer(git);
+  }));
+
+  // ── Standalone web app (W20) ────────────────────────────────────
+  // Launch the bundled companion server + open the browser-based frontend.
+  registerWebAppLifecycle(ctx);
+  reg('gitsight.openWebApp', () => errorWrap(async () => {
+    const git = primary();
+    if (!git) return vscode.window.showWarningMessage('GitSight: no Git repo.');
+    await openWebApp(ctx, git);
   }));
 
   // ── AI code review ──────────────────────────────────────────────

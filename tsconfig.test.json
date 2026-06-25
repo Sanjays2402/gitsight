@@ -130,6 +130,7 @@
     "src/git/ghPagesPreviewPill.ts",
     "src/git/branchProtectionTemplateAutoSuggest.ts",
     "src/git/reviewerLoadTeamTrend.ts",
+    "src/git/webApp.ts",
     "src/shared/graphCore.ts",
     "src/shared/graphPalette.ts",
     "src/shared/graphSnapshot.ts",
