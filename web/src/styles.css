@@ -869,3 +869,123 @@ body {
     max-width: 100%;
   }
 }
+
+/* ── Inline file diff (W7) ───────────────────────────────────────── */
+.file-row.expanded {
+  background: var(--bg-active);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.file-diff-slot {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.file-diff-slot:last-child {
+  border-bottom: none;
+}
+
+.diff-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}
+
+.spinner.small {
+  width: 13px;
+  height: 13px;
+  border-width: 1.5px;
+}
+
+.diff-empty {
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+.diff-view {
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.diff-table {
+  min-width: 100%;
+  display: table;
+}
+
+.diff-row {
+  display: flex;
+  white-space: pre;
+}
+
+.diff-row.hunk {
+  background: var(--bg-inset);
+  color: var(--fg-faint);
+  user-select: none;
+}
+
+.diff-row.add {
+  background: rgba(52, 199, 89, 0.10);
+}
+
+.diff-row.del {
+  background: rgba(240, 89, 106, 0.10);
+}
+
+[data-theme='light'] .diff-row.add {
+  background: rgba(28, 156, 68, 0.10);
+}
+
+[data-theme='light'] .diff-row.del {
+  background: rgba(216, 58, 75, 0.09);
+}
+
+.diff-gutter {
+  flex: 0 0 auto;
+  width: 40px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--fg-faint);
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.diff-row.hunk .diff-gutter {
+  width: 80px;
+  border-right: 1px solid var(--border);
+}
+
+.diff-code {
+  flex: 1;
+  padding: 0 10px;
+  overflow-wrap: normal;
+}
+
+.diff-code .sign {
+  display: inline-block;
+  width: 1ch;
+  color: var(--fg-faint);
+}
+
+.diff-row.add .sign {
+  color: #34c759;
+}
+
+.diff-row.del .sign {
+  color: var(--danger);
+}
+
+.diff-code .nonl {
+  color: var(--fg-faint);
+  margin-left: 6px;
+}

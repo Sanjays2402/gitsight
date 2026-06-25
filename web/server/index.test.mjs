@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, isSafeRev } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, isSafeRev } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -151,6 +151,60 @@ test('buildCommitDetailForRepo rejects an unsafe revision', async () => {
     await git(['config', 'user.name', 'T']);
     await git(['commit', '--allow-empty', '-q', '-m', 'init']);
     await assert.rejects(() => buildCommitDetailForRepo(dir, '--output=/tmp/x'), /invalid revision/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildFileDiffForRepo (integration) ───────────────────────────────
+
+test('buildFileDiffForRepo returns a parsed single-file diff with line numbers', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-fdiff-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'test@gitsight.local']);
+    await git(['config', 'user.name', 'GitSight Test']);
+    await pexec('bash', ['-c', 'printf "a\\nb\\nc\\n" > keep.txt'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'base']);
+    await pexec('bash', ['-c', 'printf "a\\nB\\nc\\nd\\n" > keep.txt'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'edit keep']);
+
+    const { file } = await buildFileDiffForRepo(dir, 'HEAD', 'keep.txt');
+    assert.ok(file);
+    assert.equal(file.path, 'keep.txt');
+    assert.equal(file.status, 'modified');
+    assert.equal(file.additions, 2);
+    assert.equal(file.deletions, 1);
+    assert.equal(file.hunks.length, 1);
+    const kinds = file.hunks[0].lines.map(l => l.kind);
+    assert.ok(kinds.includes('add'));
+    assert.ok(kinds.includes('del'));
+    assert.ok(kinds.includes('context'));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildFileDiffForRepo flags a binary file and rejects bad input', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-fbin-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'test@gitsight.local']);
+    await git(['config', 'user.name', 'GitSight Test']);
+    await pexec('bash', ['-c', 'printf "\\x00\\x01\\x02bin\\x00" > blob.bin'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'add binary']);
+
+    const { file } = await buildFileDiffForRepo(dir, 'HEAD', 'blob.bin');
+    assert.ok(file);
+    assert.equal(file.binary, true);
+
+    await assert.rejects(() => buildFileDiffForRepo(dir, 'HEAD', ''), /invalid path/);
+    await assert.rejects(() => buildFileDiffForRepo(dir, '--bad', 'blob.bin'), /invalid revision/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

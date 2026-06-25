@@ -13,7 +13,7 @@ import { renderGraph, selectRow } from './graph';
 import { icons } from './icons';
 import { el } from './format';
 import { DEMO_SNAPSHOT } from './demo';
-import { loadSnapshot, loadCommitDetail } from './data';
+import { loadSnapshot, loadCommitDetail, loadFileDiff } from './data';
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
 import { CommitDetailPanel } from './detailPanel';
@@ -38,6 +38,7 @@ const root = document.getElementById('app')!;
 /** Slide-in commit-detail panel (W6). Fed by /api/commit/<sha>. */
 const detailPanel = new CommitDetailPanel({
   load: sha => loadCommitDetail(sha),
+  loadDiff: (rev, path) => loadFileDiff(rev, path),
   onCopySha: sha => void copySha(sha),
   onOpenSha: sha => openDetailFor(sha),
 });

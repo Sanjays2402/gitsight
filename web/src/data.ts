@@ -9,6 +9,7 @@
 
 import type { GraphSnapshot } from '@shared/graphSnapshot';
 import type { CommitDetail } from '@shared/commitDetail';
+import type { FileDiff } from '@shared/diffParse';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -16,6 +17,17 @@ export type LoadResult =
 
 export type CommitDetailResult =
   | { ok: true; detail: CommitDetail }
+  | { ok: false; error: string; offline: boolean };
+
+/** A parsed single-file diff (file is null for an empty/unchanged path). */
+export interface FileDiffPayload {
+  rev: string;
+  path: string;
+  file: FileDiff | null;
+}
+
+export type FileDiffResult =
+  | { ok: true; diff: FileDiffPayload }
   | { ok: false; error: string; offline: boolean };
 
 /**
@@ -70,6 +82,45 @@ export async function loadCommitDetail(
       return { ok: false, error: 'Unexpected response shape from /api/commit', offline: false };
     }
     return { ok: true, detail: body };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, offline: true };
+  }
+}
+
+/** Validate a parsed payload has the FileDiffPayload shape. */
+export function isFileDiffPayload(v: unknown): v is FileDiffPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.rev === 'string' && typeof o.path === 'string' && 'file' in o;
+}
+
+export async function loadFileDiff(
+  rev: string,
+  path: string,
+  opts: { signal?: AbortSignal } = {},
+): Promise<FileDiffResult> {
+  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}`;
+  try {
+    const res = await fetch(`/api/diff${qs}`, {
+      signal: opts.signal,
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) {
+      let detail = `${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === 'string') detail = body.error;
+      } catch {
+        /* non-JSON error body */
+      }
+      return { ok: false, error: detail, offline: false };
+    }
+    const body: unknown = await res.json();
+    if (!isFileDiffPayload(body)) {
+      return { ok: false, error: 'Unexpected response shape from /api/diff', offline: false };
+    }
+    return { ok: true, diff: body };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, offline: true };

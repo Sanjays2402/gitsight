@@ -23,18 +23,20 @@ import {
   splitPath,
   diffstatSummary,
 } from './detailFormat';
+import { renderFileDiff } from './diffView';
+import type { FileDiffResult } from './data';
 
 export interface DetailPanelHandlers {
   /** Fetch a commit's detail. Returns ok/detail or an error. */
   load: (sha: string) => Promise<
     { ok: true; detail: CommitDetail } | { ok: false; error: string; offline: boolean }
   >;
+  /** Fetch a single file's parsed diff for a commit (W7). */
+  loadDiff?: (rev: string, path: string) => Promise<FileDiffResult>;
   /** Copy a sha to the clipboard. */
   onCopySha?: (sha: string) => void;
   /** Navigate the graph selection to a parent sha (W7 hook-ready). */
   onOpenSha?: (sha: string) => void;
-  /** Called when a file row is activated (W7 wires the diff view here). */
-  onOpenFile?: (file: CommitFileChange, detail: CommitDetail) => void;
 }
 
 /**
@@ -189,12 +191,72 @@ export class CommitDetailPanel {
     filesWrap.appendChild(filesHead);
 
     for (const f of d.files) {
-      filesWrap.appendChild(this.fileRow(f, d));
+      filesWrap.appendChild(this.fileEntry(f, d));
     }
     this.body.appendChild(filesWrap);
   }
 
-  private fileRow(f: CommitFileChange, d: CommitDetail): HTMLElement {
+  /** A file row plus a collapsible diff region beneath it (W7). */
+  private fileEntry(f: CommitFileChange, d: CommitDetail): HTMLElement {
+    const entry = el('div', 'file-entry');
+    const row = this.fileRow(f);
+    const diffSlot = el('div', 'file-diff-slot');
+    diffSlot.hidden = true;
+    let loaded = false;
+    let loading = false;
+
+    const collapse = () => {
+      diffSlot.hidden = true;
+      row.classList.remove('expanded');
+    };
+    const expand = async () => {
+      row.classList.add('expanded');
+      diffSlot.hidden = false;
+      if (loaded || loading) return;
+      // Binary / no loader → static note, no fetch.
+      if (f.binary || !this.handlers.loadDiff) {
+        diffSlot.replaceChildren(this.diffNote(f.binary ? 'Binary file — no textual diff.' : 'Diff unavailable.'));
+        loaded = true;
+        return;
+      }
+      loading = true;
+      diffSlot.replaceChildren(this.diffLoading());
+      const result = await this.handlers.loadDiff(d.sha, f.path);
+      loading = false;
+      // The panel may have navigated away while we awaited.
+      if (this.openSha !== d.sha) return;
+      if (result.ok && result.diff.file) {
+        diffSlot.replaceChildren(renderFileDiff(result.diff.file));
+      } else if (result.ok) {
+        diffSlot.replaceChildren(this.diffNote('No diff for this path.'));
+      } else {
+        diffSlot.replaceChildren(this.diffNote(result.error));
+      }
+      loaded = true;
+    };
+
+    row.addEventListener('click', () => {
+      if (diffSlot.hidden) void expand();
+      else collapse();
+    });
+
+    entry.append(row, diffSlot);
+    return entry;
+  }
+
+  private diffLoading(): HTMLElement {
+    const s = el('div', 'diff-loading');
+    s.innerHTML = `<span class="spinner small"></span><span>Loading diff…</span>`;
+    return s;
+  }
+
+  private diffNote(msg: string): HTMLElement {
+    const n = el('div', 'diff-empty');
+    n.textContent = msg;
+    return n;
+  }
+
+  private fileRow(f: CommitFileChange): HTMLElement {
     const row = el('button', `file-row status-${f.status}`);
     row.setAttribute('aria-label', `${statusLabel(f.status)}: ${f.path}`);
 
@@ -226,7 +288,6 @@ export class CommitDetailPanel {
     }
 
     row.append(glyph, name, churn);
-    row.addEventListener('click', () => this.handlers.onOpenFile?.(f, d));
     return row;
   }
 }
