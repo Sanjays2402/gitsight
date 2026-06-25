@@ -24,8 +24,9 @@ import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile, stat } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, basename, normalize, extname } from 'node:path';
+import { dirname, join, basename, normalize, extname, resolve } from 'node:path';
 import {
   buildGraphSnapshot,
   buildLogArgs,
@@ -36,6 +37,10 @@ import {
   COMMIT_DETAIL_FORMAT,
 } from '../../src/shared/commitDetail.ts';
 import { parseUnifiedDiff } from '../../src/shared/diffParse.ts';
+import {
+  isRepoAllowed,
+  buildRepoEntries,
+} from '../../src/shared/repoPicker.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,13 +59,17 @@ const MIME = {
 };
 
 export function parseArgs(argv) {
-  const opts = { repo: process.cwd(), port: 5274, max: 500 };
+  const opts = { repo: process.cwd(), port: 5274, max: 500, root: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if ((a === '--repo' || a === '-C') && argv[i + 1]) opts.repo = argv[++i];
     else if (a === '--port' && argv[i + 1]) opts.port = Number(argv[++i]) || opts.port;
     else if (a === '--max' && argv[i + 1]) opts.max = Number(argv[++i]) || opts.max;
+    else if (a === '--root' && argv[i + 1]) opts.root = argv[++i];
   }
+  // Normalise to absolute paths so the repo-allow gate compares like with like.
+  opts.repo = resolve(opts.repo);
+  if (opts.root) opts.root = resolve(opts.root);
   return opts;
 }
 
@@ -189,6 +198,70 @@ export async function buildFileDiffForRepo(repo, rev, path) {
   return { rev, path, file };
 }
 
+/** True when a directory is the top of a git work tree or a bare repo. */
+async function isGitRepo(dir) {
+  try {
+    const s = await stat(join(dir, '.git'));
+    if (s.isDirectory() || s.isFile()) return true;
+  } catch {
+    /* no .git entry */
+  }
+  // Bare repo heuristic: a HEAD file + objects dir at the top level.
+  try {
+    const [head, objects] = await Promise.all([
+      stat(join(dir, 'HEAD')),
+      stat(join(dir, 'objects')),
+    ]);
+    return head.isFile() && objects.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Scan one level under `root` for git repositories. Shallow on purpose:
+ * the picker lists project directories, not every nested submodule, and a
+ * deep recursive walk on a big tree would be slow + surprising. The
+ * configured root and the current repo are always considered too.
+ */
+export async function scanReposUnder(root, opts = {}) {
+  if (!root) return [];
+  const found = [];
+  // The root itself may be a repo.
+  if (await isGitRepo(root)) found.push(resolve(root));
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  const limit = opts.limit ?? 200;
+  const dirs = entries
+    .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+    .slice(0, limit);
+  await Promise.all(
+    dirs.map(async e => {
+      const full = resolve(root, e.name);
+      if (await isGitRepo(full)) found.push(full);
+    }),
+  );
+  return found;
+}
+
+/**
+ * Resolve the repo a request should act on: the `?repo=` override when it
+ * is allowed (default repo or within root), else the default. Throws on a
+ * disallowed override so the browser gets a clean 403-style error rather
+ * than silently reading the default.
+ */
+export function resolveRequestRepo(searchParams, opts) {
+  const override = searchParams.get('repo');
+  if (!override) return opts.repo;
+  const candidate = resolve(override);
+  if (isRepoAllowed(candidate, { repo: opts.repo, root: opts.root })) return candidate;
+  throw new Error(`repo not allowed: ${override}`);
+}
+
 function sendJson(res, code, body) {
   const payload = JSON.stringify(body);
   res.writeHead(code, {
@@ -232,13 +305,25 @@ export function createCompanionServer(opts) {
     try {
       if (url.pathname === '/api/health') {
         const head = await readHead(opts.repo).catch(() => 'unknown');
-        sendJson(res, 200, { ok: true, repo: basename(opts.repo), head });
+        sendJson(res, 200, { ok: true, repo: basename(opts.repo), head, root: opts.root ?? null });
+        return;
+      }
+      // GET /api/repos -> the switchable repo list (current + scan root).
+      if (url.pathname === '/api/repos') {
+        try {
+          const paths = await scanReposUnder(opts.root);
+          const repos = buildRepoEntries(paths, opts.repo);
+          sendJson(res, 200, { repos, root: opts.root ?? null });
+        } catch (e) {
+          sendJson(res, 500, { error: String(e?.message ?? e) });
+        }
         return;
       }
       if (url.pathname === '/api/graph') {
         const max = Number(url.searchParams.get('max')) || opts.max;
         try {
-          const snapshot = await buildSnapshotForRepo(opts.repo, max);
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const snapshot = await buildSnapshotForRepo(repo, max);
           sendJson(res, 200, snapshot);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
@@ -250,7 +335,8 @@ export function createCompanionServer(opts) {
       if (commitMatch) {
         const rev = decodeURIComponent(commitMatch[1]);
         try {
-          const detail = await buildCommitDetailForRepo(opts.repo, rev);
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const detail = await buildCommitDetailForRepo(repo, rev);
           sendJson(res, 200, detail);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), rev });
@@ -262,7 +348,8 @@ export function createCompanionServer(opts) {
         const rev = url.searchParams.get('rev') ?? 'HEAD';
         const path = url.searchParams.get('path') ?? '';
         try {
-          const diff = await buildFileDiffForRepo(opts.repo, rev, path);
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const diff = await buildFileDiffForRepo(repo, rev, path);
           sendJson(res, 200, diff);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), rev, path });
@@ -284,7 +371,9 @@ if (isMain) {
   server.listen(opts.port, '127.0.0.1', () => {
     process.stdout.write(
       `GitSight companion on http://127.0.0.1:${opts.port}  (repo: ${opts.repo})\n` +
+        (opts.root ? `  scan root: ${opts.root}\n` : '') +
         `  GET /api/graph   snapshot JSON\n` +
+        `  GET /api/repos   switchable repos\n` +
         `  GET /api/health  liveness\n`,
     );
   });

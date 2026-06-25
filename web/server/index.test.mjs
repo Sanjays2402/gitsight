@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, isSafeRev } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -37,6 +37,13 @@ test('parseArgs reads --repo/--port/--max and the -C alias', () => {
 
   const aliased = parseArgs(['-C', '/z']);
   assert.equal(aliased.repo, '/z');
+});
+
+test('parseArgs reads --root and resolves it to an absolute path', () => {
+  const o = parseArgs(['--root', '/Projects']);
+  assert.equal(o.root, '/Projects');
+  const none = parseArgs([]);
+  assert.equal(none.root, undefined);
 });
 
 test('parseArgs ignores a non-numeric port/max and keeps the default', () => {
@@ -208,4 +215,51 @@ test('buildFileDiffForRepo flags a binary file and rejects bad input', async () 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// ── scanReposUnder (integration) ─────────────────────────────────────
+
+test('scanReposUnder finds git repos one level under the root', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'gitsight-root-'));
+  try {
+    const git = (cwd, args) => pexec('git', args, { cwd });
+    // Two repos + one plain dir under the root.
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(join(root, 'repo-a'));
+    await mkdir(join(root, 'repo-b'));
+    await mkdir(join(root, 'not-a-repo'));
+    await git(join(root, 'repo-a'), ['init', '-q', '-b', 'main']);
+    await git(join(root, 'repo-b'), ['init', '-q', '-b', 'main']);
+
+    const found = await scanReposUnder(root);
+    const names = found.map(p => p.split('/').pop()).sort();
+    assert.ok(names.includes('repo-a'));
+    assert.ok(names.includes('repo-b'));
+    assert.ok(!names.includes('not-a-repo'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('scanReposUnder returns [] for a missing root or no root', async () => {
+  assert.deepEqual(await scanReposUnder(undefined), []);
+  assert.deepEqual(await scanReposUnder('/no/such/path/here-xyz'), []);
+});
+
+// ── resolveRequestRepo (security gate) ───────────────────────────────
+
+test('resolveRequestRepo permits the default repo and repos under root', () => {
+  const opts = { repo: '/srv/main', root: '/Projects' };
+  const sp = (q) => new URLSearchParams(q);
+  assert.equal(resolveRequestRepo(sp(''), opts), '/srv/main');
+  assert.equal(resolveRequestRepo(sp('repo=/srv/main'), opts), '/srv/main');
+  assert.equal(resolveRequestRepo(sp('repo=/Projects/x'), opts), '/Projects/x');
+});
+
+test('resolveRequestRepo throws on a disallowed override', () => {
+  const opts = { repo: '/srv/main', root: '/Projects' };
+  const sp = (q) => new URLSearchParams(q);
+  assert.throws(() => resolveRequestRepo(sp('repo=/etc/passwd'), opts), /not allowed/);
+  // No root → only the default is reachable.
+  assert.throws(() => resolveRequestRepo(sp('repo=/anywhere'), { repo: '/srv/main' }), /not allowed/);
 });

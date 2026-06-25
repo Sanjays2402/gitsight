@@ -10,6 +10,7 @@
 import type { GraphSnapshot } from '@shared/graphSnapshot';
 import type { CommitDetail } from '@shared/commitDetail';
 import type { FileDiff } from '@shared/diffParse';
+import type { RepoEntry } from '@shared/repoPicker';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -17,6 +18,15 @@ export type LoadResult =
 
 export type CommitDetailResult =
   | { ok: true; detail: CommitDetail }
+  | { ok: false; error: string; offline: boolean };
+
+export interface ReposPayload {
+  repos: RepoEntry[];
+  root: string | null;
+}
+
+export type ReposResult =
+  | { ok: true; repos: RepoEntry[]; root: string | null }
   | { ok: false; error: string; offline: boolean };
 
 /** A parsed single-file diff (file is null for an empty/unchanged path). */
@@ -60,10 +70,11 @@ export function isCommitDetail(v: unknown): v is CommitDetail {
 
 export async function loadCommitDetail(
   sha: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; repo?: string } = {},
 ): Promise<CommitDetailResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
   try {
-    const res = await fetch(`/api/commit/${encodeURIComponent(sha)}`, {
+    const res = await fetch(`/api/commit/${encodeURIComponent(sha)}${qs}`, {
       signal: opts.signal,
       headers: { accept: 'application/json' },
     });
@@ -98,9 +109,10 @@ export function isFileDiffPayload(v: unknown): v is FileDiffPayload {
 export async function loadFileDiff(
   rev: string,
   path: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; repo?: string } = {},
 ): Promise<FileDiffResult> {
-  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}`;
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}`;
   try {
     const res = await fetch(`/api/diff${qs}`, {
       signal: opts.signal,
@@ -127,8 +139,11 @@ export async function loadFileDiff(
   }
 }
 
-export async function loadSnapshot(opts: { max?: number; signal?: AbortSignal } = {}): Promise<LoadResult> {
-  const qs = opts.max ? `?max=${opts.max}` : '';
+export async function loadSnapshot(opts: { max?: number; signal?: AbortSignal; repo?: string } = {}): Promise<LoadResult> {
+  const params = new URLSearchParams();
+  if (opts.max) params.set('max', String(opts.max));
+  if (opts.repo) params.set('repo', opts.repo);
+  const qs = params.toString() ? `?${params.toString()}` : '';
   try {
     const res = await fetch(`/api/graph${qs}`, { signal: opts.signal, headers: { accept: 'application/json' } });
     if (!res.ok) {
@@ -148,6 +163,34 @@ export async function loadSnapshot(opts: { max?: number; signal?: AbortSignal } 
     return { ok: true, snapshot: body };
   } catch (e) {
     // Network error / server not running -> treat as offline.
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, offline: true };
+  }
+}
+
+/** Validate a parsed payload has the ReposPayload shape. */
+export function isReposPayload(v: unknown): v is ReposPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.repos);
+}
+
+/** Fetch the switchable repo list (W8). */
+export async function loadRepos(opts: { signal?: AbortSignal } = {}): Promise<ReposResult> {
+  try {
+    const res = await fetch('/api/repos', {
+      signal: opts.signal,
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) {
+      return { ok: false, error: `${res.status}`, offline: false };
+    }
+    const body: unknown = await res.json();
+    if (!isReposPayload(body)) {
+      return { ok: false, error: 'Unexpected response shape from /api/repos', offline: false };
+    }
+    return { ok: true, repos: body.repos, root: body.root ?? null };
+  } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, offline: true };
   }

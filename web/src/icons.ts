@@ -47,6 +47,11 @@ export const icons = {
   ),
   close: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
   arrowRight: svg('<path d="M3 8h10M9 4l4 4-4 4"/>'),
+  repo: svg(
+    '<path d="M4 2.5h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4.5A1.5 1.5 0 0 1 3 13V4a1.5 1.5 0 0 1 1.5-1.5Z"/>' +
+      '<path d="M3 11.5A1.5 1.5 0 0 1 4.5 10H12"/>',
+  ),
+  chevron: svg('<path d="M5 6.5 8 9.5l3-3"/>'),
 };
 
 export type IconName = keyof typeof icons;

@@ -136,7 +136,8 @@
     "src/shared/graphSnapshotBuild.ts",
     "src/shared/commitDetail.ts",
     "src/shared/commitQuery.ts",
-    "src/shared/diffParse.ts"
+    "src/shared/diffParse.ts",
+    "src/shared/repoPicker.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

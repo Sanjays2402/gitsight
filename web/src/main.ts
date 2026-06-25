@@ -13,16 +13,22 @@ import { renderGraph, selectRow } from './graph';
 import { icons } from './icons';
 import { el } from './format';
 import { DEMO_SNAPSHOT } from './demo';
-import { loadSnapshot, loadCommitDetail, loadFileDiff } from './data';
+import { loadSnapshot, loadCommitDetail, loadFileDiff, loadRepos } from './data';
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
+import { createRepoPicker } from './repoPicker';
 import { CommitDetailPanel } from './detailPanel';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
+import type { RepoEntry } from '@shared/repoPicker';
 
 interface AppState {
   snapshot: GraphSnapshot;
   filter: string;
   source: 'demo' | 'live' | 'loading';
+  /** Repos the companion can serve; empty until /api/repos answers. */
+  repos: RepoEntry[];
+  /** Path of the repo currently being viewed (?repo= override). */
+  repo: string | null;
 }
 
 const theme = new ThemeController();
@@ -31,14 +37,16 @@ const state: AppState = {
   snapshot: DEMO_SNAPSHOT,
   filter: '',
   source: 'loading',
+  repos: [],
+  repo: null,
 };
 
 const root = document.getElementById('app')!;
 
 /** Slide-in commit-detail panel (W6). Fed by /api/commit/<sha>. */
 const detailPanel = new CommitDetailPanel({
-  load: sha => loadCommitDetail(sha),
-  loadDiff: (rev, path) => loadFileDiff(rev, path),
+  load: sha => loadCommitDetail(sha, { repo: state.repo ?? undefined }),
+  loadDiff: (rev, path) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
   onCopySha: sha => void copySha(sha),
   onOpenSha: sha => openDetailFor(sha),
 });
@@ -64,7 +72,8 @@ function mount(): void {
 /** Load the live snapshot; fall back to demo data if the companion isn't up. */
 async function boot(): Promise<void> {
   showLoading();
-  const result = await loadSnapshot();
+  detailPanel.close();
+  const result = await loadSnapshot({ repo: state.repo ?? undefined });
   if (result.ok) {
     state.snapshot = result.snapshot;
     state.source = 'live';
@@ -78,6 +87,29 @@ async function boot(): Promise<void> {
   if (!result.ok && !result.offline) {
     setStatus(`API error: ${result.error}`);
   }
+  // Fetch the switchable repo list once (live mode only); refresh chrome
+  // if it arrives with more than one repo so the switcher appears.
+  if (state.source === 'live' && state.repos.length === 0) {
+    const repos = await loadRepos();
+    if (repos.ok && repos.repos.length > 0) {
+      state.repos = repos.repos;
+      if (!state.repo) {
+        state.repo = repos.repos.find(r => r.current)?.path ?? null;
+      }
+      root.replaceChildren(buildTopbar(), buildToolbar(), buildSurface(), buildStatusbar());
+      renderInto();
+    }
+  }
+}
+
+/** Switch the served repo and reload from scratch. */
+function switchRepo(entry: RepoEntry): void {
+  if (entry.path === state.repo) return;
+  state.repo = entry.path;
+  state.filter = '';
+  // Mark the picked repo current locally so the chrome reflects it pre-fetch.
+  state.repos = state.repos.map(r => ({ ...r, current: r.path === entry.path }));
+  void boot();
 }
 
 // ── Top bar ──────────────────────────────────────────────────────────
@@ -86,8 +118,20 @@ function buildTopbar(): HTMLElement {
   const brand = el('div', 'brand');
   brand.innerHTML =
     `<span class="mark">${icons.mark}</span>` +
-    `<span>GitSight</span>` +
-    `<span class="repo">${escapeText(state.snapshot.repo)}</span>`;
+    `<span>GitSight</span>`;
+  // Repo switcher when >1 repo is available; otherwise a static repo name.
+  const picker = createRepoPicker({
+    repos: state.repos,
+    onPick: entry => switchRepo(entry),
+  });
+  if (picker) {
+    const sep = el('span', 'brand-sep', '/');
+    brand.append(sep, picker);
+  } else {
+    const name = el('span', 'repo');
+    name.textContent = state.snapshot.repo;
+    brand.appendChild(name);
+  }
 
   const spacer = el('div', 'spacer');
 
@@ -96,7 +140,7 @@ function buildTopbar(): HTMLElement {
     `<span class="chip">${icons.graph}<span>${escapeText(state.snapshot.head)}</span></span>`;
 
   // Lane-palette picker.
-  const picker = createPalettePicker({
+  const palettePicker = createPalettePicker({
     current: theme.palette,
     onPick: name => {
       theme.setPalette(name);
@@ -116,7 +160,7 @@ function buildTopbar(): HTMLElement {
     renderToggle();
   });
 
-  bar.append(brand, spacer, meta, picker, toggle);
+  bar.append(brand, spacer, meta, palettePicker, toggle);
   return bar;
 }
 
