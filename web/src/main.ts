@@ -173,9 +173,11 @@ function buildToolbar(): HTMLElement {
   const input = el('input');
   input.id = 'filter-input';
   input.type = 'search';
-  input.placeholder = 'Filter commits by subject, author, or sha';
+  input.placeholder = 'Search — try author:ada grep:fix ref:main since:2026-01-01';
   input.value = state.filter;
-  input.setAttribute('aria-label', 'Filter commits');
+  input.setAttribute('aria-label', 'Search commits');
+  input.setAttribute('spellcheck', 'false');
+  input.setAttribute('autocomplete', 'off');
   let t: number | undefined;
   input.addEventListener('input', () => {
     window.clearTimeout(t);
@@ -186,13 +188,66 @@ function buildToolbar(): HTMLElement {
   });
   search.appendChild(input);
 
+  // Query-syntax help popover trigger.
+  const help = el('button', 'btn icon-only');
+  help.title = 'Search syntax';
+  help.setAttribute('aria-label', 'Search syntax help');
+  help.innerHTML = icons.help;
+  help.addEventListener('click', () => toggleSearchHelp(help));
+
   const refresh = el('button', 'btn icon-only');
   refresh.title = 'Reload from repository';
   refresh.innerHTML = icons.refresh;
   refresh.addEventListener('click', () => void boot());
 
-  bar.append(search, refresh);
+  bar.append(search, help, refresh);
   return bar;
+}
+
+const SEARCH_HELP_ROWS: Array<[string, string]> = [
+  ['author:ada', 'name or email'],
+  ['grep:fix', 'subject text'],
+  ['ref:main', 'branch / tag / HEAD'],
+  ['sha:a1b2', 'sha prefix'],
+  ['since:2026-01-01', 'on or after a date'],
+  ['until:2026-06-30', 'on or before a date'],
+  ['"two words"', 'quote multi-word values'],
+];
+
+let searchHelpEl: HTMLElement | null = null;
+function toggleSearchHelp(anchor: HTMLElement): void {
+  if (searchHelpEl) {
+    closeSearchHelp();
+    return;
+  }
+  const pop = el('div', 'search-help');
+  pop.innerHTML =
+    `<div class="search-help-title">Search syntax — terms AND together</div>` +
+    SEARCH_HELP_ROWS.map(
+      ([code, desc]) =>
+        `<div class="search-help-row"><code>${escapeText(code)}</code><span>${escapeText(desc)}</span></div>`,
+    ).join('');
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  pop.style.top = `${Math.round(r.bottom + 6)}px`;
+  pop.style.right = `${Math.round(window.innerWidth - r.right)}px`;
+  searchHelpEl = pop;
+  setTimeout(() => {
+    document.addEventListener('pointerdown', onSearchHelpOutside, true);
+    document.addEventListener('keydown', onSearchHelpEsc, true);
+  }, 0);
+}
+function closeSearchHelp(): void {
+  searchHelpEl?.remove();
+  searchHelpEl = null;
+  document.removeEventListener('pointerdown', onSearchHelpOutside, true);
+  document.removeEventListener('keydown', onSearchHelpEsc, true);
+}
+function onSearchHelpOutside(e: PointerEvent): void {
+  if (searchHelpEl && !searchHelpEl.contains(e.target as Node)) closeSearchHelp();
+}
+function onSearchHelpEsc(e: KeyboardEvent): void {
+  if (e.key === 'Escape') closeSearchHelp();
 }
 
 // ── Surface ──────────────────────────────────────────────────────────
@@ -237,7 +292,7 @@ function emptyState(): HTMLElement {
   s.innerHTML =
     `<span class="glyph">${icons.empty}</span>` +
     `<h2>No matching commits</h2>` +
-    `<p>Nothing matches <code>${escapeText(state.filter)}</code>. Clear the filter to see the full graph.</p>`;
+    `<p>Nothing matches <code>${escapeText(state.filter)}</code>. Clear the search or try a single term like <code>author:</code> or <code>grep:</code>.</p>`;
   return s;
 }
 

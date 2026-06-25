@@ -294,6 +294,50 @@ body {
   pointer-events: none;
 }
 
+/* ── Search syntax help (W10) ────────────────────────────────────── */
+.search-help {
+  position: fixed;
+  z-index: 50;
+  min-width: 260px;
+  padding: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+}
+
+.search-help-title {
+  color: var(--fg-muted);
+  font-size: 11px;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-help-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.search-help-row code {
+  flex: 0 0 auto;
+  min-width: 124px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  color: var(--accent);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.search-help-row span {
+  color: var(--fg-faint);
+}
+
 .btn {
   height: 32px;
   display: inline-flex;

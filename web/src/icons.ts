@@ -52,6 +52,10 @@ export const icons = {
       '<path d="M3 11.5A1.5 1.5 0 0 1 4.5 10H12"/>',
   ),
   chevron: svg('<path d="M5 6.5 8 9.5l3-3"/>'),
+  help: svg(
+    '<circle cx="8" cy="8" r="6"/><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.5-.7 1v.4"/>' +
+      '<circle cx="8" cy="11.4" r="0.2" fill="currentColor"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

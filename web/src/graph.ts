@@ -16,6 +16,7 @@ import {
 } from '@shared/graphCore';
 import { paletteFor, authorColor } from '@shared/graphPalette';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
+import { parseQuery, commitMatchesQuery } from '@shared/commitQuery';
 import { timeAgo, absoluteTime, el } from './format';
 
 const ROW_H = 30;
@@ -40,16 +41,15 @@ export interface GraphRenderResult {
   total: number;
 }
 
-/** Lowercase-match a commit against a filter token. */
+/**
+ * Lowercase-match a commit against a filter string. Now backed by the
+ * shared structured query parser (W10): `author:`, `grep:`, `ref:`,
+ * `since:`, `until:`, `sha:` terms plus bare text. A bare term keeps the
+ * original subject/author/sha behaviour.
+ */
 export function commitMatches(c: GraphSnapshotCommit, filter: string): boolean {
   if (!filter) return true;
-  const q = filter.toLowerCase();
-  return (
-    c.subject.toLowerCase().includes(q) ||
-    c.author.toLowerCase().includes(q) ||
-    c.sha.toLowerCase().startsWith(q) ||
-    c.shortSha.toLowerCase().startsWith(q)
-  );
+  return commitMatchesQuery(c, parseQuery(filter));
 }
 
 /**
@@ -61,7 +61,12 @@ export function renderGraph(
   opts: GraphRenderOptions = {},
 ): GraphRenderResult {
   const palette = paletteFor(opts.theme);
-  const filtered = snapshot.commits.filter(c => commitMatches(c, opts.filter ?? ''));
+  // Parse the query once for the whole list (not per-commit).
+  const query = parseQuery(opts.filter ?? '');
+  const filtered =
+    query.terms.length === 0
+      ? snapshot.commits
+      : snapshot.commits.filter(c => commitMatchesQuery(c, query));
 
   // Shared lane layout — the SAME function the VS Code webview calls.
   const rows = assignLanes(filtered, palette);
