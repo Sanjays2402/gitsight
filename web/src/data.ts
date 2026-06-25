@@ -14,6 +14,7 @@ import type { RepoEntry } from '@shared/repoPicker';
 import type { BlameModel } from '@shared/blame';
 import type { ActivityCalendar } from '@shared/activity';
 import type { ContributorStats } from '@shared/contributors';
+import type { RangeComparison } from '@shared/rangeCompare';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -281,6 +282,39 @@ export async function loadContributors(
   const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
   return fetchJson<ContributorsPayload>(`/api/contributors${qs}`, isContributorsPayload, opts.signal).then(r =>
     r.ok ? { ok: true, stats: r.value } : r,
+  );
+}
+
+// ── Range compare (W18) ──────────────────────────────────────────────
+
+export type ComparePayload = RangeComparison;
+
+export type CompareResult =
+  | { ok: true; comparison: ComparePayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isComparePayload(v: unknown): v is ComparePayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.base === 'string' &&
+    typeof o.head === 'string' &&
+    Array.isArray(o.ahead) &&
+    Array.isArray(o.behind) &&
+    Array.isArray(o.files)
+  );
+}
+
+/** Fetch a symmetric range comparison between two refs (W18). */
+export async function loadCompare(
+  base: string,
+  head: string,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<CompareResult> {
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}${repoParam}`;
+  return fetchJson<ComparePayload>(`/api/compare${qs}`, isComparePayload, opts.signal).then(r =>
+    r.ok ? { ok: true, comparison: r.value } : r,
   );
 }
 

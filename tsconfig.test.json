@@ -143,7 +143,8 @@
     "src/shared/blame.ts",
     "src/shared/activity.ts",
     "src/shared/contributors.ts",
-    "src/shared/repoWatch.ts"
+    "src/shared/repoWatch.ts",
+    "src/shared/rangeCompare.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -355,6 +355,66 @@ test('buildContributorsForRepo ranks authors by commit count', async () => {
     assert.equal(stats.contributors[0].name, 'Ada');
     assert.equal(stats.contributors[0].commits, 2);
     assert.equal(stats.contributors[1].name, 'Grace');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildCompareForRepo (W18, integration) ───────────────────────────
+
+test('buildCompareForRepo computes ahead/behind + file churn for a branch', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-compare-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'cmp@gitsight.local']);
+    await git(['config', 'user.name', 'Compare Test']);
+    await writeFile(join(dir, 'app.txt'), 'one\ntwo\n');
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'base: seed']);
+
+    // A feature branch adds two commits + edits a file.
+    await git(['checkout', '-q', '-b', 'feature']);
+    await writeFile(join(dir, 'app.txt'), 'one\nTWO\nthree\n');
+    await writeFile(join(dir, 'new.txt'), 'fresh\n');
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'feat: extend app']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'chore: tidy']);
+
+    // main moves forward independently (so feature is also 1 behind).
+    await git(['checkout', '-q', 'main']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'main: hotfix']);
+
+    const cmp = await buildCompareForRepo(dir, 'main', 'feature');
+    assert.equal(cmp.base, 'main');
+    assert.equal(cmp.head, 'feature');
+    // feature has 2 commits main doesn't.
+    assert.equal(cmp.ahead.length, 2);
+    assert.equal(cmp.ahead[0].subject, 'chore: tidy');
+    // main has 1 commit feature doesn't.
+    assert.equal(cmp.behind.length, 1);
+    assert.equal(cmp.behind[0].subject, 'main: hotfix');
+    // The file set: app.txt modified + new.txt added.
+    const byPath = Object.fromEntries(cmp.files.map(f => [f.path, f]));
+    assert.equal(byPath['app.txt'].status, 'modified');
+    assert.equal(byPath['new.txt'].status, 'added');
+    assert.ok(cmp.insertions > 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildCompareForRepo rejects an unsafe ref', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-cmpbad-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => buildCompareForRepo(dir, '--output=/tmp/x', 'HEAD'), /invalid base/);
+    await assert.rejects(() => buildCompareForRepo(dir, 'main', '--bad'), /invalid head/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

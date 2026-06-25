@@ -49,6 +49,10 @@ import {
   gitChangeTriggersRefresh,
   formatSseMessage,
 } from '../../src/shared/repoWatch.ts';
+import {
+  buildRangeComparison,
+  COMPARE_LOG_FORMAT,
+} from '../../src/shared/rangeCompare.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -258,6 +262,29 @@ export async function buildContributorsForRepo(repo, max) {
 export async function resolveGitDir(repo) {
   const out = await git(repo, ['rev-parse', '--absolute-git-dir']);
   return out.trim();
+}
+
+/**
+ * Build a symmetric-range comparison between two refs (W18). Runs four
+ * cheap git reads and folds them with the shared pure assembler: the
+ * commits unique to head (`base..head`), the commits unique to base
+ * (`head..base`), and the `base...head` file churn (numstat + name-status).
+ * Per-file unified diffs are fetched lazily by /api/diff (W7).
+ */
+export async function buildCompareForRepo(repo, base, head) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  if (!isSafeRev(base)) throw new Error(`invalid base: ${base}`);
+  if (!isSafeRev(head)) throw new Error(`invalid head: ${head}`);
+  const logFmt = `--pretty=format:${COMPARE_LOG_FORMAT}`;
+  // `--` terminates the rev list so a ref that looks like a flag can't be
+  // reinterpreted as an option.
+  const [aheadStdout, behindStdout, numstatStdout, nameStatusStdout] = await Promise.all([
+    git(repo, ['log', logFmt, `${base}..${head}`, '--']),
+    git(repo, ['log', logFmt, `${head}..${base}`, '--']),
+    git(repo, ['diff', '--numstat', '-z', '-M', '-C', `${base}...${head}`, '--']),
+    git(repo, ['diff', '--name-status', '-z', '-M', '-C', `${base}...${head}`, '--']),
+  ]);
+  return buildRangeComparison({ base, head, aheadStdout, behindStdout, numstatStdout, nameStatusStdout });
 }
 
 /**
@@ -614,6 +641,19 @@ export function createCompanionServer(opts) {
           sendJson(res, 200, contributors);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
+      // GET /api/compare?base=&head= -> symmetric range comparison (W18).
+      if (url.pathname === '/api/compare') {
+        const base = url.searchParams.get('base') ?? 'main';
+        const head = url.searchParams.get('head') ?? 'HEAD';
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const comparison = await buildCompareForRepo(repo, base, head);
+          sendJson(res, 200, comparison);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), base, head });
         }
         return;
       }

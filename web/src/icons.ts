@@ -84,6 +84,15 @@ export const icons = {
     '<rect x="2.5" y="2.5" width="11" height="11" rx="1.4"/>' +
       '<path d="M5 5.5h6M5 8h6M5 10.5h3.5"/>',
   ),
+  // Compare / range-diff: two offset brackets meeting an arrow (W18).
+  gitCompare: svg(
+    '<circle cx="4" cy="12" r="1.7"/><circle cx="12" cy="4" r="1.7"/>' +
+      '<path d="M4 10.3V6.5A2 2 0 0 1 6 4.5h3.4"/>' +
+      '<path d="M12 5.7v3.8a2 2 0 0 1-2 2H6.6"/>' +
+      '<path d="M8.2 2.7 9.9 4.5 8.2 6.3M7.8 9.7 6.1 11.5l1.7 1.8"/>',
+  ),
+  // Swap base/head: two vertical arrows pointing opposite ways (W18).
+  swap: svg('<path d="M5 3v10M5 13 2.8 10.7M5 13l2.2-2.3M11 13V3M11 3 8.8 5.3M11 3l2.2 2.3"/>'),
 };
 
 export type IconName = keyof typeof icons;

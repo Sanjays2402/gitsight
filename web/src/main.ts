@@ -25,9 +25,11 @@ import {
   loadActivity,
   loadContributors,
   loadBlame,
+  loadCompare,
   type ActivityPayload,
   type ContributorsPayload,
   type BlamePayload,
+  type ComparePayload,
 } from './data';
 import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
@@ -37,13 +39,14 @@ import { CommitDetailPanel } from './detailPanel';
 import { renderActivity, dayFilter } from './activityView';
 import { renderContributors, contributorFilter } from './contributorsView';
 import { renderBlame } from './blameView';
+import { renderCompare } from './compareView';
 import { downloadGraphSvg } from './exportGraph';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 
-type AppView = 'graph' | 'activity' | 'contributors' | 'blame';
+type AppView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare';
 
 interface AsyncSlot<T> {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -74,6 +77,10 @@ interface AppState {
   blamePath: string | null;
   /** Live-refresh connection status (W17). */
   live: LiveStatus;
+  /** Range-compare payload + the ref pair (W18). */
+  compare: AsyncSlot<ComparePayload>;
+  compareBase: string;
+  compareHead: string;
 }
 
 const theme = new ThemeController();
@@ -92,6 +99,9 @@ const state: AppState = {
   blame: slot<BlamePayload>(),
   blamePath: null,
   live: 'disconnected',
+  compare: slot<ComparePayload>(),
+  compareBase: 'main',
+  compareHead: 'HEAD',
 };
 
 const root = document.getElementById('app')!;
@@ -167,6 +177,7 @@ async function boot(): Promise<void> {
   state.contributors = slot<ContributorsPayload>();
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
+  state.compare = slot<ComparePayload>();
   rebuildChrome();
   if (!result.ok && !result.offline) {
     setStatus(`API error: ${result.error}`);
@@ -204,6 +215,7 @@ async function onLiveRefresh(): Promise<void> {
     // Invalidate cached per-view payloads — they're derived from history.
     state.activity = slot<ActivityPayload>();
     state.contributors = slot<ContributorsPayload>();
+    state.compare = slot<ComparePayload>();
     // Re-render the active view; graph keeps the user's place via the
     // controller's selection + the surface's scrollTop.
     const keepSha = graphController?.selectedSha() ?? null;
@@ -214,6 +226,8 @@ async function onLiveRefresh(): Promise<void> {
       void ensureActivity();
     } else if (state.view === 'contributors') {
       void ensureContributors();
+    } else if (state.view === 'compare') {
+      void ensureCompare();
     }
     // Refresh the HEAD chip in the top bar.
     refreshHeadChip();
@@ -283,6 +297,7 @@ const TABS: Array<{ id: AppView; label: string; icon: keyof typeof icons }> = [
   { id: 'activity', label: 'Activity', icon: 'calendar' },
   { id: 'contributors', label: 'Contributors', icon: 'users' },
   { id: 'blame', label: 'Blame', icon: 'blame' },
+  { id: 'compare', label: 'Compare', icon: 'gitCompare' },
 ];
 
 function buildTabs(): HTMLElement {
@@ -308,6 +323,7 @@ function switchView(view: AppView): void {
   // Lazily kick off the data load for the freshly-opened view.
   if (view === 'activity') void ensureActivity();
   if (view === 'contributors') void ensureContributors();
+  if (view === 'compare') void ensureCompare();
 }
 
 // ── Toolbar (search + actions) ───────────────────────────────────────
@@ -524,6 +540,8 @@ function renderView(): void {
       return renderContributorsView();
     case 'blame':
       return renderBlameView();
+    case 'compare':
+      return renderCompareView();
   }
 }
 
@@ -623,6 +641,33 @@ function renderBlameView(): void {
   if (s.data) updateCount(s.data.totalLines, s.data.totalLines, 'lines');
 }
 
+function renderCompareView(): void {
+  const surface = document.getElementById('surface');
+  if (!surface) return;
+  const s = state.compare;
+  const opts = {
+    base: state.compareBase,
+    head: state.compareHead,
+    onCompare: (base: string, head: string) => runCompare(base, head),
+    loadDiff: (rev: string, path: string) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
+    onOpenCommit: (sha: string) => openDetailFor(sha),
+    onCopySha: (sha: string) => void copySha(sha),
+  };
+  if (s.status === 'loading') {
+    const wrap = el('div', 'compare-loading-wrap');
+    wrap.appendChild(loadingState(`Comparing ${state.compareBase} \u2194 ${state.compareHead}…`));
+    surface.replaceChildren(renderCompare(null, opts), wrap);
+    return;
+  }
+  if (s.status === 'error') {
+    surface.replaceChildren(renderCompare(null, opts));
+    setStatus(`Compare error: ${s.error}`);
+    return;
+  }
+  surface.replaceChildren(renderCompare(s.data, opts));
+  if (s.data) updateCount(s.data.filesChanged, s.data.filesChanged, 'files');
+}
+
 // ── Lazy data loaders ────────────────────────────────────────────────
 async function ensureActivity(): Promise<void> {
   if (state.activity.status === 'loading' || state.activity.status === 'ready') return;
@@ -640,6 +685,24 @@ async function ensureContributors(): Promise<void> {
   if (res.ok) state.contributors = { status: 'ready', data: res.stats, error: '' };
   else state.contributors = { status: 'error', data: null, error: res.error };
   if (state.view === 'contributors') renderContributorsView();
+}
+
+/** Lazily load the default compare (base...head) when the tab first opens. */
+async function ensureCompare(): Promise<void> {
+  if (state.compare.status === 'loading' || state.compare.status === 'ready') return;
+  await runCompare(state.compareBase, state.compareHead);
+}
+
+/** Run a fresh comparison for a ref pair (W18). */
+async function runCompare(base: string, head: string): Promise<void> {
+  state.compareBase = base;
+  state.compareHead = head;
+  state.compare = { status: 'loading', data: null, error: '' };
+  if (state.view === 'compare') renderCompareView();
+  const res = await loadCompare(base, head, { repo: state.repo ?? undefined });
+  if (res.ok) state.compare = { status: 'ready', data: res.comparison, error: '' };
+  else state.compare = { status: 'error', data: null, error: res.error };
+  if (state.view === 'compare') renderCompareView();
 }
 
 async function loadBlamePath(path: string): Promise<void> {
