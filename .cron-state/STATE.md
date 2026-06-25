@@ -6,6 +6,52 @@
 **No emoji in git/code chrome. Monochrome glyphs only.**
 **Policy change (tick 10, 2026-06-21)**: stopped using `feature/autoship` — commits on feature branches never show on the GitHub contribution graph. The wrapper now gates on `main` and we trust the end-of-tick gate.
 
+---
+
+## FRONTEND MISSION (started tick 28, 2026-06-24) — `web/`
+
+**Directive (Sanjay, 2026-06-23):** build a real standalone WEB frontend for gitsight, additively, reusing the extension's visualization logic. Until lifted, every tick's slices grow `web/`.
+
+**ARCHITECTURE DECISION (locked tick 28):**
+- **Data path = bundled local Node companion.** `web/server/index.mjs` shells out to `git` in a target repo and serves a JSON `GraphSnapshot` at `/api/graph` + the built SPA. Local-first, no external services. Run: `node web/server/index.mjs --repo <path> --port 5274 --max N`.
+- **No build step for the server.** Node >= 23 strips TS types on the fly, so the `.mjs` server imports the shared `.ts` builder DIRECTLY (`../../src/shared/graphSnapshotBuild.ts`) — zero snapshot-shape drift from the extension.
+- **Shared renderer, never forked.** `src/shared/` holds stack-agnostic modules (no vscode, no DOM): `graphCore.ts` (lane layout + SVG), `graphPalette.ts` (8 themes + author colour), `graphSnapshot.ts` (wire contract), `graphSnapshotBuild.ts` (git-log parse). The VS Code webview AND the web app both import these.
+- **Web stack:** Vite 5 + vanilla TypeScript SPA (no framework — keeps the shared renderer the star). `@shared/*` Vite+tsc alias -> `../src/shared/*`. Pure logic tested via `node --test` by importing shared through a relative `.ts` path (Node can't resolve the `@shared` alias, only Vite/tsc can — so node-tested web files use relative `.ts` imports).
+
+**WEB GATE ADDENDUM:** when `web/` changes, also run `npm --prefix web run build` (tsc --noEmit + vite build) and `npm --prefix web test`. Never push a red web build. Extension gates (lint+compile) still apply to extension/shared code.
+
+**KEY FILE MAP:**
+- `src/shared/graphCore.ts` — `assignLanes`, `buildLaneSvg`, `escapeHtml`, `classifyRef`, `refLabel`.
+- `src/shared/graphPalette.ts` — `THEMES`, `THEME_NAMES`, `paletteFor`, `asThemeName`, `authorColor`. (`views/graphThemes.ts` now re-exports from here.)
+- `src/shared/graphSnapshot.ts` — `GraphSnapshot`/`GraphSnapshotCommit` types, `SNAPSHOT_VERSION`.
+- `src/shared/graphSnapshotBuild.ts` — `buildLogArgs`, `parseLog`, `parseLogRecord`, `buildGraphSnapshot`, `resolveHeadLabel`.
+- `web/server/index.mjs` — companion (parseArgs, buildSnapshotForRepo, createCompanionServer). Tests: `web/server/index.test.mjs`.
+- `web/src/{main,graph,data,theme,themeResolve,palettePicker,format,icons,demo}.ts`, `styles.css`. Tests: `web/src/themeResolve.test.mjs`.
+
+**FRONTEND ROADMAP (15-25 slices; W1-W5 DONE tick 28):**
+- [x] **W1** Extract stack-agnostic graphCore + graphPalette; extension consumes them (no fork).
+- [x] **W2** Scaffold `web/` (Vite+TS), design system (light+dark tokens), render demo graph via shared core.
+- [x] **W3** Pure git-log -> GraphSnapshot builder (+tests).
+- [x] **W4** Companion server + live end-to-end vertical (real repo -> snapshot -> shared renderer -> browser) + keyboard nav.
+- [x] **W5** Light/dark chrome theming + lane-palette picker (persisted).
+- [ ] **W6** Commit detail panel — click a row -> side panel with full message, author, parents, per-file stats (needs `git show --numstat` in the snapshot or a `/api/commit/:sha` endpoint).
+- [ ] **W7** `/api/commit/:sha` companion endpoint + per-file diff view in the detail panel.
+- [ ] **W8** Repo picker — `/api/repos` (scan a configured root) + a switcher in the top bar; `--root` server flag.
+- [ ] **W9** Branch/ref filter rail — left sidebar listing branches/tags/remotes; click to filter the graph to a ref's ancestry.
+- [ ] **W10** Advanced search — author:/path:/since:/grep: query syntax mirroring the extension's F51 commitSearch, parsed client-side + server-assisted.
+- [ ] **W11** Responsive layout — collapse the sidebar + detail panel into drawers under a width breakpoint; mobile-friendly row density.
+- [ ] **W12** Blame heatmap visualization — port the extension's blameHeatmap renderer into a shared module + a web view (needs `git blame --porcelain` in a companion endpoint).
+- [ ] **W13** Activity heatmap (calendar) — port activityHeatmap to shared; `/api/activity` aggregates commits-per-day.
+- [ ] **W14** Author leaderboard / contributors panel (composes F8 rangeAuthors logic into shared).
+- [ ] **W15** SVG/PNG export from the web app (reuse `commitGraphExport` buildStandaloneSvg — already stack-agnostic).
+- [ ] **W16** Virtualised row rendering for large histories (windowed list; the snapshot already caps via --max).
+- [ ] **W17** Live refresh — companion watches `.git/` (or SSE) and pushes snapshot updates; web app re-renders without a manual refresh.
+- [ ] **W18** Range diff / compare view (port rangeDiff) — pick two refs, see the symmetric-diff commit list.
+- [ ] **W19** Stash visualizer (port stashVisualizer) — `/api/stashes` + a web view.
+- [ ] **W20** `gitsight web` extension command — launch the companion + open the browser from inside VS Code (closes the loop: extension ships the web app).
+
+---
+
 ## Studied (1st tick, 2026-06-19)
 
 - VS Code extension, TS, strict mode, no test runner installed.
@@ -782,6 +828,8 @@
 - [ ] F122: Per-PR test-impact suggester — given changed files, run `git grep` against `**/*.test.ts` for paths importing them and surface a "likely-touched tests" list (composes with F111 + F114).
 
 ## TICK LOG
+
+- 2026-06-24 23:36 PT (tick 28) — FRONTEND BOOTSTRAP. 5 slices shipped toward the standalone web frontend (mission override): W1 `dcafefd`, W2 `5e4a891`, W3 `4807f0d`, W4 `c108001`, W5 `d5431e5`. Gate: lint ok, compile ok, extension suite 2637/2637 green (2607 -> 2637, +30: graphCore 18 + graphSnapshot 12). Web gate addendum: `npm --prefix web run build` green (tsc --noEmit + vite, 15 modules), `npm --prefix web test` 11/11 green (server 5 + theme 6). First frontend tick: decided the data path (bundled Node companion serving a JSON snapshot + the SPA), scaffolded `web/` (Vite + vanilla TS), extracted the commit-graph renderer into stack-agnostic `src/shared/` consumed by BOTH the extension webview and the web app (no fork), and wired one full vertical (real repo -> companion -> snapshot -> shared lane render -> browser, verified live against THIS repo). W1 is a pure refactor of the existing webview (output pixel-identical). New files: `src/shared/{graphCore,graphPalette,graphSnapshot,graphSnapshotBuild}.ts` (+2 tests), entire `web/` tree (server + SPA + 2 test files). `views/graphThemes.ts` now re-exports palette data from shared (single source of truth). Recorded the architecture decision + a 20-item W-roadmap (W6-W20 drafted) in the FRONTEND MISSION section above. NOTE: `npm --prefix web install` run this tick (first time — web deps weren't present); 11 packages (Vite + TS). Node 25 strips TS types so the companion .mjs imports the shared .ts builder with no build step.
 
 - 2026-06-19 23:17 PT — 5 features shipped: F1 `dccdb02`, F2 `dce7dfc`, F3 `b9ab869`, F4 `a62d979`, F5 `3cda082`. Gate: lint ok, compile ok, 20/20 tests green. Bootstrap commit: `c684b0b`.
 - 2026-06-20 04:11 PT — 5 features shipped: F6 `f59ee4b`, F7 `43bf023`, F11 `82573ad`, F15 `2f2171f`, F20 `8055e27`. Gate: lint ok, compile ok (56s), 50/50 tests green. 30 new tests added (workingTreeStatus, recentFiles, coAuthors, gitignoreInsight, fileStats — 6 each). New configs: 11. New files: 15.
