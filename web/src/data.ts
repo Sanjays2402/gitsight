@@ -11,6 +11,7 @@ import type { GraphSnapshot } from '@shared/graphSnapshot';
 import type { CommitDetail } from '@shared/commitDetail';
 import type { FileDiff } from '@shared/diffParse';
 import type { RepoEntry } from '@shared/repoPicker';
+import type { BlameModel } from '@shared/blame';
 
 export type LoadResult =
   | { ok: true; snapshot: GraphSnapshot }
@@ -190,6 +191,76 @@ export async function loadRepos(opts: { signal?: AbortSignal } = {}): Promise<Re
       return { ok: false, error: 'Unexpected response shape from /api/repos', offline: false };
     }
     return { ok: true, repos: body.repos, root: body.root ?? null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, offline: true };
+  }
+}
+
+// ── Blame heatmap (W12) ──────────────────────────────────────────────
+
+export interface BlamePayload extends BlameModel {
+  rev: string;
+  path: string;
+}
+
+export type BlameResult =
+  | { ok: true; blame: BlamePayload }
+  | { ok: false; error: string; offline: boolean };
+
+/** Validate a parsed payload has the BlamePayload shape. */
+export function isBlamePayload(v: unknown): v is BlamePayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.path === 'string' && Array.isArray(o.lines) && Array.isArray(o.authors);
+}
+
+/** Fetch a file's per-line blame heatmap model (W12). */
+export async function loadBlame(
+  rev: string,
+  path: string,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<BlameResult> {
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}`;
+  return fetchJson<BlamePayload>(`/api/blame${qs}`, isBlamePayload, opts.signal).then(r =>
+    r.ok ? { ok: true, blame: r.value } : r,
+  );
+}
+
+// ── Shared JSON fetch ────────────────────────────────────────────────
+
+type JsonResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string; offline: boolean };
+
+/**
+ * Fetch + validate a JSON endpoint with the project's error contract:
+ * a non-2xx reads `{ error }` from the body when present; a network
+ * failure is reported as `offline` so callers can fall back gracefully.
+ */
+async function fetchJson<T>(
+  url: string,
+  guard: (v: unknown) => v is T,
+  signal?: AbortSignal,
+): Promise<JsonResult<T>> {
+  try {
+    const res = await fetch(url, { signal, headers: { accept: 'application/json' } });
+    if (!res.ok) {
+      let detail = `${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === 'string') detail = body.error;
+      } catch {
+        /* non-JSON error body */
+      }
+      return { ok: false, error: detail, offline: false };
+    }
+    const body: unknown = await res.json();
+    if (!guard(body)) {
+      return { ok: false, error: `Unexpected response shape from ${url}`, offline: false };
+    }
+    return { ok: true, value: body };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, offline: true };

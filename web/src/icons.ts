@@ -72,6 +72,10 @@ export const icons = {
     '<rect x="2" y="3" width="12" height="10" rx="1.6"/><path d="M6.5 3v10"/>',
   ),
   download: svg('<path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/>'),
+  blame: svg(
+    '<rect x="2.5" y="2.5" width="11" height="11" rx="1.4"/>' +
+      '<path d="M5 5.5h6M5 8h6M5 10.5h3.5"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

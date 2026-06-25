@@ -139,7 +139,8 @@
     "src/shared/diffParse.ts",
     "src/shared/repoPicker.ts",
     "src/shared/refRail.ts",
-    "src/shared/graphExport.ts"
+    "src/shared/graphExport.ts",
+    "src/shared/blame.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -262,4 +262,48 @@ test('resolveRequestRepo throws on a disallowed override', () => {
   assert.throws(() => resolveRequestRepo(sp('repo=/etc/passwd'), opts), /not allowed/);
   // No root → only the default is reachable.
   assert.throws(() => resolveRequestRepo(sp('repo=/anywhere'), { repo: '/srv/main' }), /not allowed/);
+});
+
+// ── buildBlameForRepo (W12, integration) ─────────────────────────────
+
+test('buildBlameForRepo parses a real file blame into the heatmap model', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-blame-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'ada@gitsight.local']);
+    await git(['config', 'user.name', 'Ada']);
+    await writeFile(join(dir, 'app.txt'), 'one\ntwo\n');
+    await git(['add', 'app.txt']);
+    await git(['commit', '-q', '-m', 'init']);
+    await writeFile(join(dir, 'app.txt'), 'one\ntwo\nthree\n');
+    await git(['add', 'app.txt']);
+    await git(['commit', '-q', '-m', 'add third']);
+
+    const blame = await buildBlameForRepo(dir, 'HEAD', 'app.txt');
+    assert.equal(blame.path, 'app.txt');
+    assert.equal(blame.totalLines, 3);
+    assert.equal(blame.lines[0].code, 'one');
+    assert.equal(blame.lines[2].code, 'three');
+    assert.equal(blame.authors[0].author, 'Ada');
+    assert.ok(blame.newest >= blame.oldest);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildBlameForRepo rejects a flag-like path and a bad rev', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-blame2-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => buildBlameForRepo(dir, '--upload-pack=evil', 'x'), /invalid revision/);
+    await assert.rejects(() => buildBlameForRepo(dir, 'HEAD', ''), /invalid path/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

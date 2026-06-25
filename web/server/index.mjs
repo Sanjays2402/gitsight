@@ -41,6 +41,7 @@ import {
   isRepoAllowed,
   buildRepoEntries,
 } from '../../src/shared/repoPicker.ts';
+import { parsePorcelainBlame } from '../../src/shared/blame.ts';
 
 const pexec = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -196,6 +197,30 @@ export async function buildFileDiffForRepo(repo, rev, path) {
   // to the first stanza (renames change the path under us).
   const file = files.find(f => f.path === path) ?? files[0] ?? null;
   return { rev, path, file };
+}
+
+/**
+ * Build the age-heatmap blame model for one file (W12). Shells out to
+ * `git blame --porcelain` and parses it with the shared pure parser. The
+ * `--` guard keeps a flag-like path from being reinterpreted as an option.
+ */
+export async function buildBlameForRepo(repo, rev, path) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  if (!isSafeRev(rev)) {
+    throw new Error(`invalid revision: ${rev}`);
+  }
+  if (typeof path !== 'string' || path.length === 0 || path.length > 4096) {
+    throw new Error('invalid path');
+  }
+  const stdout = await git(repo, [
+    'blame',
+    '--porcelain',
+    rev,
+    '--',
+    path,
+  ]);
+  const model = parsePorcelainBlame(stdout);
+  return { rev, path, ...model };
 }
 
 /** True when a directory is the top of a git work tree or a bare repo. */
@@ -356,6 +381,19 @@ export function createCompanionServer(opts) {
         }
         return;
       }
+      // GET /api/blame?rev=<rev>&path=<file> -> per-line blame heatmap (W12).
+      if (url.pathname === '/api/blame') {
+        const rev = url.searchParams.get('rev') ?? 'HEAD';
+        const path = url.searchParams.get('path') ?? '';
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const blame = await buildBlameForRepo(repo, rev, path);
+          sendJson(res, 200, blame);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), rev, path });
+        }
+        return;
+      }
       await serveStatic(res, url.pathname);
     } catch (e) {
       sendJson(res, 500, { error: String(e?.message ?? e) });
@@ -373,6 +411,7 @@ if (isMain) {
       `GitSight companion on http://127.0.0.1:${opts.port}  (repo: ${opts.repo})\n` +
         (opts.root ? `  scan root: ${opts.root}\n` : '') +
         `  GET /api/graph   snapshot JSON\n` +
+        `  GET /api/blame   per-file blame heatmap\n` +
         `  GET /api/repos   switchable repos\n` +
         `  GET /api/health  liveness\n`,
     );
