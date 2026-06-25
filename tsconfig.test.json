@@ -131,7 +131,9 @@
     "src/git/branchProtectionTemplateAutoSuggest.ts",
     "src/git/reviewerLoadTeamTrend.ts",
     "src/shared/graphCore.ts",
-    "src/shared/graphPalette.ts"
+    "src/shared/graphPalette.ts",
+    "src/shared/graphSnapshot.ts",
+    "src/shared/graphSnapshotBuild.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }
