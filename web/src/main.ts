@@ -13,7 +13,7 @@
  */
 
 import './styles.css';
-import { renderGraph, selectRow } from './graph';
+import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
 import { DEMO_SNAPSHOT } from './demo';
@@ -100,14 +100,13 @@ const detailPanel = new CommitDetailPanel({
   onOpenSha: sha => openDetailFor(sha),
 });
 
+/** The live graph controller (W16) — owns selection + scroll recycling. */
+let graphController: GraphController | null = null;
+
 /** Open the detail panel for a sha and mark its row active if present. */
 function openDetailFor(sha: string): void {
   void detailPanel.open(sha);
-  const row = document.querySelector<HTMLElement>(`.rows-col .row[data-sha="${cssEscape(sha)}"]`);
-  if (row) {
-    const rowsCol = row.parentElement as HTMLElement;
-    selectRow(rowsCol, row);
-  }
+  graphController?.selectSha(sha);
 }
 
 function mount(): void {
@@ -474,17 +473,25 @@ function renderView(): void {
 function renderGraphView(): void {
   const surface = document.getElementById('surface');
   if (!surface) return;
+  graphController?.dispose();
   const result = renderGraph(state.snapshot, {
     theme: theme.palette,
     filter: state.filter,
+    scrollContainer: surface,
     onSelect: (c: GraphSnapshotCommit) => {
       setStatus(`${c.shortSha}  ${c.subject}`);
       void detailPanel.open(c.sha);
     },
     onCopySha: (sha: string) => void copySha(sha),
   });
-  if (result.rendered === 0) surface.replaceChildren(emptyState());
-  else surface.replaceChildren(result.node);
+  graphController = result.controller;
+  if (result.rendered === 0) {
+    graphController.dispose();
+    graphController = null;
+    surface.replaceChildren(emptyState());
+  } else {
+    surface.replaceChildren(result.node);
+  }
   updateCount(result.rendered, result.total);
 }
 
@@ -669,8 +676,7 @@ function installKeyboard(): void {
       e.preventDefault();
       moveSelection(-1);
     } else if (e.key === 'Enter') {
-      const active = document.querySelector('.row.active') as HTMLElement | null;
-      active?.click();
+      graphController?.activateSelected();
     } else if (e.key === 'Escape' && detailPanel.isOpen()) {
       detailPanel.close();
     }
@@ -678,17 +684,9 @@ function installKeyboard(): void {
 }
 
 function moveSelection(delta: number): void {
-  const rows = Array.from(document.querySelectorAll<HTMLElement>('.rows-col .row'));
-  if (rows.length === 0) return;
-  const current = rows.findIndex(r => r.classList.contains('active'));
-  let next = current + delta;
-  if (current === -1) next = delta > 0 ? 0 : rows.length - 1;
-  next = Math.max(0, Math.min(rows.length - 1, next));
-  const rowsCol = rows[0].parentElement as HTMLElement;
-  selectRow(rowsCol, rows[next]);
-  const sha = rows[next].dataset.sha ?? '';
-  const subject = rows[next].querySelector('.subject')?.textContent ?? '';
-  setStatus(`${sha.slice(0, 7)}  ${subject}`);
+  if (!graphController) return;
+  const commit = graphController.move(delta);
+  if (commit) setStatus(`${commit.shortSha}  ${commit.subject}`);
 }
 
 // ── Responsive (W11) ─────────────────────────────────────────────────
@@ -738,13 +736,6 @@ function escapeText(s: string): string {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
-}
-
-/** CSS.escape with a safe fallback (older browsers / jsdom). */
-function cssEscape(s: string): string {
-  const c = window.CSS;
-  if (c && typeof c.escape === 'function') return c.escape(s);
-  return s.replace(/["\\]/g, '\\$&');
 }
 
 mount();

@@ -595,6 +595,19 @@ body {
   min-width: 0;
 }
 
+/* Windowed rows (W16): the column reserves full height; mounted rows are
+   absolutely positioned at their index offset so only the visible slice
+   lives in the DOM while the scrollbar still spans the whole history. */
+.rows-col.virtual {
+  position: relative;
+}
+
+.rows-col.virtual .row {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
 .row {
   display: flex;
   align-items: center;
