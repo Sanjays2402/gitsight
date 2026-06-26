@@ -1,0 +1,126 @@
+/*
+ * Side-by-side (split) diff layout (W38).
+ *
+ * Co-located stylesheet (imported from main.ts) so it lives ALONGSIDE the
+ * feature instead of in the shared styles.css. Token-driven only — it reads
+ * the same design tokens (--bg-inset, --fg, --accent, the diff add/del
+ * tints) the rest of the app defines, so it inherits the active theme
+ * automatically and never hard-codes a colour.
+ */
+
+.diff-view.split {
+  overflow-x: auto;
+}
+
+.diff-split-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  min-width: max-content;
+}
+
+/* Each row spans both columns; the two cells sit in the grid tracks. */
+.diff-split-row {
+  display: contents;
+}
+
+.diff-split-side {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+/* A hairline rule between the old and new columns. */
+.diff-split-side.old {
+  border-right: 1px solid var(--border);
+}
+
+.diff-split-side .diff-gutter {
+  flex: 0 0 auto;
+  width: 3.2em;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--fg-faint);
+  user-select: none;
+  -webkit-user-select: none;
+  background: color-mix(in srgb, var(--bg-inset) 60%, transparent);
+}
+
+.diff-split-side .diff-code {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 8px 0 4px;
+  white-space: pre;
+  overflow: hidden;
+}
+
+/* Soft-wrap in split mode honours the same root flag the unified view uses. */
+:root[data-diff-wrap='on'] .diff-split-side .diff-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-split-side .diff-code .sign {
+  color: var(--fg-faint);
+  padding-right: 2px;
+}
+
+/* Add / delete tints — same hues the unified rows use, applied per side. */
+.diff-split-side.add {
+  background: color-mix(in srgb, #2ea04326 55%, transparent);
+}
+.diff-split-side.del {
+  background: color-mix(in srgb, #f8514926 55%, transparent);
+}
+.diff-split-side.add .sign,
+.diff-split-side.add .diff-gutter {
+  color: color-mix(in srgb, #3fb950 70%, var(--fg));
+  background: transparent;
+}
+.diff-split-side.del .sign,
+.diff-split-side.del .diff-gutter {
+  color: color-mix(in srgb, #f85149 70%, var(--fg));
+  background: transparent;
+}
+
+/* Filler cell: the empty side of an unbalanced row. Inert + faintly striped. */
+.diff-split-side.filler {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    color-mix(in srgb, var(--border) 32%, transparent) 6px,
+    color-mix(in srgb, var(--border) 32%, transparent) 12px
+  );
+}
+
+/* Hunk header spans the full width of both columns. */
+.diff-split-row.hunk {
+  display: block;
+}
+.diff-split-side.hunk-head {
+  display: block;
+  grid-column: 1 / -1;
+  padding: 2px 10px;
+  color: var(--fg-faint);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg-inset));
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+/* Word-level <mark> spans (W34) sit on both columns; keep them readable. */
+.diff-split-side mark.word {
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.diff-split-side.del mark.word {
+  background: color-mix(in srgb, #f85149 38%, transparent);
+  color: inherit;
+}
+.diff-split-side.add mark.word {
+  background: color-mix(in srgb, #3fb950 38%, transparent);
+  color: inherit;
+}

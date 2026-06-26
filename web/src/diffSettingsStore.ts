@@ -16,6 +16,7 @@ import {
   defaultDiffSettings,
   toggleWrap,
   toggleIgnoreWhitespace,
+  toggleSplit,
   coerceDiffSettings,
   diffSettingsEqual,
   type DiffSettings,
@@ -46,6 +47,11 @@ export class DiffSettingsStore {
 
   toggleIgnoreWhitespace(): void {
     this.set(toggleIgnoreWhitespace(this.settings));
+  }
+
+  /** Flip the side-by-side layout (W38). */
+  toggleSplit(): void {
+    this.set(toggleSplit(this.settings));
   }
 
   /** Subscribe to changes; returns an unsubscribe fn. */

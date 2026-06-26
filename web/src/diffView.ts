@@ -13,6 +13,7 @@ import { escapeHtml } from '@shared/graphCore';
 import type { FileDiff, DiffLine } from '@shared/diffParse';
 import { gutterFor, signFor } from './diffFormat';
 import { inlineDiff, shouldInlineDiff, type DiffSegment } from './tokenDiff';
+import { splitHunkRows, type SplitRow } from './diffSplit';
 
 export { gutterFor, signFor, diffHeaderStat } from './diffFormat';
 
@@ -25,6 +26,12 @@ export interface DiffViewOptions {
    * it.
    */
   wordDiff?: boolean;
+  /**
+   * Layout (W38): `'unified'` (default) stacks +/- rows in one column;
+   * `'split'` renders side-by-side old | new columns. The word-diff spans
+   * carry into both layouts.
+   */
+  view?: 'unified' | 'split';
 }
 
 const DEFAULT_MAX_LINES = 2000;
@@ -45,6 +52,10 @@ export function renderFileDiff(file: FileDiff, opts: DiffViewOptions = {}): HTML
     note.textContent = 'No textual changes (mode or metadata only).';
     wrap.appendChild(note);
     return wrap;
+  }
+
+  if ((opts.view ?? 'unified') === 'split') {
+    return renderFileDiffSplit(file, opts);
   }
 
   const max = opts.maxLines ?? DEFAULT_MAX_LINES;
@@ -151,4 +162,83 @@ function renderSegments(segs: DiffSegment[]): string {
       return s.changed ? `<mark class="word">${html}</mark>` : html;
     })
     .join('');
+}
+
+/**
+ * Side-by-side (split) layout (W38). Each hunk's lines are paired into
+ * old | new rows by the pure splitHunkRows helper; word-level highlights
+ * (W34) carry into both columns so a one-token edit lights up on each side.
+ * A blank cell (no line on that side) reads as an inert filler so the two
+ * columns stay vertically aligned.
+ */
+function renderFileDiffSplit(file: FileDiff, opts: DiffViewOptions): HTMLElement {
+  const wrap = el('div', 'diff-view split');
+  const max = opts.maxLines ?? DEFAULT_MAX_LINES;
+  const wordDiff = opts.wordDiff ?? true;
+  const table = el('div', 'diff-split-table');
+  table.setAttribute('role', 'table');
+  let emitted = 0;
+  let truncated = false;
+
+  outer: for (const hunk of file.hunks) {
+    const head = el('div', 'diff-split-row hunk');
+    head.innerHTML =
+      `<span class="diff-split-side hunk-head" role="cell">` +
+      `${escapeHtml(`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`)}` +
+      (hunk.section ? ` ${escapeHtml(hunk.section)}` : '') +
+      `</span>`;
+    table.appendChild(head);
+
+    const segs = wordDiff ? pairWordDiffs(hunk.lines) : null;
+    const rows = splitHunkRows(hunk.lines);
+
+    for (const row of rows) {
+      if (emitted >= max) {
+        truncated = true;
+        break outer;
+      }
+      table.appendChild(splitRow(row, segs));
+      emitted++;
+    }
+  }
+
+  wrap.appendChild(table);
+  if (truncated) {
+    const note = el('div', 'diff-empty');
+    note.textContent = `Diff truncated at ${max} lines.`;
+    wrap.appendChild(note);
+  }
+  return wrap;
+}
+
+/** Build one side-by-side row: [old gutter | old code] [new gutter | new code]. */
+function splitRow(row: SplitRow, segs: Map<DiffLine, DiffSegment[]> | null): HTMLElement {
+  const tr = el('div', 'diff-split-row');
+  tr.append(splitCell(row.old, 'old', segs), splitCell(row.new, 'new', segs));
+  return tr;
+}
+
+/** One side of a split row. A null line renders as an inert filler cell. */
+function splitCell(line: DiffLine | null, side: 'old' | 'new', segs: Map<DiffLine, DiffSegment[]> | null): HTMLElement {
+  if (!line) {
+    const filler = el('span', `diff-split-side ${side} filler`);
+    filler.setAttribute('role', 'cell');
+    filler.innerHTML = `<span class="diff-gutter"></span><span class="diff-code"></span>`;
+    return filler;
+  }
+  const cell = el('span', `diff-split-side ${side} ${line.kind}`);
+  cell.setAttribute('role', 'cell');
+  const g = gutterFor(line);
+  const num = side === 'old' ? g.old : g.new;
+  const lineSegs = segs?.get(line);
+  const txtHtml = lineSegs ? renderSegments(lineSegs) : escapeHtml(line.text) || '&nbsp;';
+  const sign = signFor(line);
+  cell.innerHTML =
+    `<span class="diff-gutter">${num}</span>` +
+    `<span class="diff-code">` +
+    `<span class="sign">${sign === ' ' ? '&nbsp;' : sign}</span>` +
+    `<span class="txt">${txtHtml}</span>` +
+    (line.noNewline ? `<span class="nonl" title="No newline at end of file">\u29B0</span>` : '') +
+    `</span>`;
+  return cell;
 }

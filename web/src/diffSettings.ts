@@ -21,11 +21,13 @@ export interface DiffSettings {
   wrap: boolean;
   /** Request a whitespace-insensitive diff (server passes git `-w`). */
   ignoreWhitespace: boolean;
+  /** Render side-by-side (old | new) instead of a unified column (W38). */
+  split: boolean;
 }
 
-/** The out-of-the-box settings: scroll long lines, show whitespace changes. */
+/** The out-of-the-box settings: scroll long lines, show whitespace, unified. */
 export function defaultDiffSettings(): DiffSettings {
-  return { wrap: false, ignoreWhitespace: false };
+  return { wrap: false, ignoreWhitespace: false, split: false };
 }
 
 /** Flip the wrap flag. Returns a NEW object. */
@@ -36,6 +38,16 @@ export function toggleWrap(s: DiffSettings): DiffSettings {
 /** Flip the ignore-whitespace flag. Returns a NEW object. */
 export function toggleIgnoreWhitespace(s: DiffSettings): DiffSettings {
   return { ...s, ignoreWhitespace: !s.ignoreWhitespace };
+}
+
+/** Flip the split-view flag (W38). Returns a NEW object. */
+export function toggleSplit(s: DiffSettings): DiffSettings {
+  return { ...s, split: !s.split };
+}
+
+/** The `view` arg the diff renderer takes: split when enabled, else unified. */
+export function diffViewMode(s: DiffSettings): 'split' | 'unified' {
+  return s.split ? 'split' : 'unified';
 }
 
 /**
@@ -58,10 +70,11 @@ export function coerceDiffSettings(value: unknown): DiffSettings {
   return {
     wrap: o.wrap === true,
     ignoreWhitespace: o.ignoreWhitespace === true,
+    split: o.split === true,
   };
 }
 
 /** True when two settings objects are value-equal (skip needless re-renders). */
 export function diffSettingsEqual(a: DiffSettings, b: DiffSettings): boolean {
-  return a.wrap === b.wrap && a.ignoreWhitespace === b.ignoreWhitespace;
+  return a.wrap === b.wrap && a.ignoreWhitespace === b.ignoreWhitespace && a.split === b.split;
 }

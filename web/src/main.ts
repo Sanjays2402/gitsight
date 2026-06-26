@@ -13,6 +13,7 @@
  */
 
 import './styles.css';
+import './diffSplit.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
@@ -166,11 +167,12 @@ const detailPanel = new CommitDetailPanel({
   onClosed: () => {
     if (state.view === 'graph') syncHash();
   },
-  // Diff display toggles (W31) live in the panel's files header.
+  // Diff display toggles (W31; split added W38) live in the panel's files header.
   diffSettings: {
     get: () => diffSettings.get(),
     toggleWrap: () => diffSettings.toggleWrap(),
     toggleIgnoreWhitespace: () => diffSettings.toggleIgnoreWhitespace(),
+    toggleSplit: () => diffSettings.toggleSplit(),
   },
 });
 
@@ -1075,6 +1077,7 @@ function renderCompareView(): void {
         repo: state.repo ?? undefined,
         ignoreWhitespace: diffSettings.get().ignoreWhitespace,
       }),
+    diffView: () => (diffSettings.get().split ? 'split' : 'unified'),
     onOpenCommit: (sha: string) => openDetailFor(sha),
     onCopySha: (sha: string) => void copySha(sha),
     onShareLink: () => void shareCompareLink(),

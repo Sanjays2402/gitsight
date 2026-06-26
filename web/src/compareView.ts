@@ -28,6 +28,8 @@ export interface CompareViewOptions {
   onCompare: (base: string, head: string) => void;
   /** Fetch a single file's parsed diff for the head ref (W7). */
   loadDiff?: (rev: string, path: string) => Promise<FileDiffResult>;
+  /** Current diff layout mode (W38): split when enabled, else unified. */
+  diffView?: () => 'split' | 'unified';
   /** Open a commit in the detail panel (W6 reuse). */
   onOpenCommit?: (sha: string) => void;
   /** Copy a sha to the clipboard. */
@@ -238,7 +240,7 @@ function fileEntry(f: CompareFile, headRev: string, opts: CompareViewOptions): H
     diffSlot.replaceChildren(diffLoading());
     const result = await opts.loadDiff(headRev, f.path);
     loading = false;
-    if (result.ok && result.diff.file) diffSlot.replaceChildren(renderFileDiff(result.diff.file));
+    if (result.ok && result.diff.file) diffSlot.replaceChildren(renderFileDiff(result.diff.file, { view: opts.diffView?.() ?? 'unified' }));
     else if (result.ok) diffSlot.replaceChildren(diffNote('No diff for this path.'));
     else diffSlot.replaceChildren(diffNote(result.error));
     loaded = true;

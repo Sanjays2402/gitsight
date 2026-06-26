@@ -45,12 +45,13 @@ export interface DetailPanelHandlers {
   onOpened?: (sha: string) => void;
   /** Fired when the panel closes — host clears the permalink hash (W27). */
   onClosed?: () => void;
-  /** Diff display settings + toggles (W31). When present, the files header
-   *  carries a wrap + ignore-whitespace control. */
+  /** Diff display settings + toggles (W31; split added W38). When present,
+   *  the files header carries wrap + ignore-whitespace + split controls. */
   diffSettings?: {
-    get: () => { wrap: boolean; ignoreWhitespace: boolean };
+    get: () => { wrap: boolean; ignoreWhitespace: boolean; split: boolean };
     toggleWrap: () => void;
     toggleIgnoreWhitespace: () => void;
+    toggleSplit: () => void;
   };
 }
 
@@ -258,7 +259,17 @@ export class CommitDetailPanel {
         e.stopPropagation();
         ds.toggleIgnoreWhitespace();
       });
-      opts.append(wrapBtn, wsBtn);
+      // Split / unified layout toggle (W38).
+      const splitBtn = el('button', 'diff-opt' + (cur.split ? ' on' : ''));
+      splitBtn.type = 'button';
+      splitBtn.textContent = 'Split';
+      splitBtn.title = 'Side-by-side (old | new) diff layout';
+      splitBtn.setAttribute('aria-pressed', String(cur.split));
+      splitBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        ds.toggleSplit();
+      });
+      opts.append(wrapBtn, wsBtn, splitBtn);
       filesHead.appendChild(opts);
     }
     filesWrap.appendChild(filesHead);
@@ -299,7 +310,7 @@ export class CommitDetailPanel {
       // The panel may have navigated away while we awaited.
       if (this.openSha !== d.sha) return;
       if (result.ok && result.diff.file) {
-        diffSlot.replaceChildren(renderFileDiff(result.diff.file));
+        diffSlot.replaceChildren(renderFileDiff(result.diff.file, { view: this.diffView() }));
       } else if (result.ok) {
         diffSlot.replaceChildren(this.diffNote('No diff for this path.'));
       } else {
@@ -321,6 +332,11 @@ export class CommitDetailPanel {
     const s = el('div', 'diff-loading');
     s.innerHTML = `<span class="spinner small"></span><span>Loading diff…</span>`;
     return s;
+  }
+
+  /** The current diff layout mode (W38): split when enabled, else unified. */
+  private diffView(): 'split' | 'unified' {
+    return this.handlers.diffSettings?.get().split ? 'split' : 'unified';
   }
 
   private diffNote(msg: string): HTMLElement {
