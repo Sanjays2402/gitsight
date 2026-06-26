@@ -32,6 +32,8 @@ export interface CompareViewOptions {
   onOpenCommit?: (sha: string) => void;
   /** Copy a sha to the clipboard. */
   onCopySha?: (sha: string) => void;
+  /** Copy a shareable deep link to this comparison (W24). */
+  onShareLink?: () => void;
 }
 
 /**
@@ -106,6 +108,14 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       ? ` · <span class="add">+${cmp.insertions}</span> <span class="del">-${cmp.deletions}</span>`
       : '') +
     `</span>`;
+  if (opts.onShareLink) {
+    const share = el('button', 'btn icon-only compare-share');
+    share.title = 'Copy a shareable link to this comparison';
+    share.setAttribute('aria-label', 'Copy comparison link');
+    share.innerHTML = icons.link;
+    share.addEventListener('click', () => opts.onShareLink!());
+    head.appendChild(share);
+  }
   result.appendChild(head);
 
   if (cmp.ahead.length === 0 && cmp.behind.length === 0 && cmp.files.length === 0) {

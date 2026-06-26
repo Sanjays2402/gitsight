@@ -99,6 +99,11 @@ export const icons = {
       '<path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6"/>' +
       '<path d="M6.3 8.6h3.4"/>',
   ),
+  // Chain link for the shareable deep link (W24).
+  link: svg(
+    '<path d="M6.5 9.5a2.5 2.5 0 0 0 3.6.1l2-2a2.5 2.5 0 0 0-3.5-3.6l-1 1"/>' +
+      '<path d="M9.5 6.5a2.5 2.5 0 0 0-3.6-.1l-2 2a2.5 2.5 0 0 0 3.5 3.6l1-1"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

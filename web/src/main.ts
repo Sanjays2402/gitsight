@@ -50,6 +50,7 @@ import { parseBlameTarget } from './blameWindow';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
+import { buildHash, parseHash, hashChanged, type Route } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
@@ -127,6 +128,7 @@ const detailPanel = new CommitDetailPanel({
   loadDiff: (rev, path) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
   onCopySha: sha => void copySha(sha),
   onOpenSha: sha => openDetailFor(sha),
+  onCompareFrom: sha => compareFromCommit(sha),
 });
 
 /** The live graph controller (W16) — owns selection + scroll recycling. */
@@ -186,11 +188,29 @@ function openDetailFor(sha: string): void {
   graphController?.selectSha(sha);
 }
 
+/**
+ * "Compare from here" (W24): set a commit as the compare base (vs HEAD),
+ * jump to the Compare tab, and run it. Uses the short sha so the resulting
+ * deep link stays compact + readable.
+ */
+function compareFromCommit(sha: string): void {
+  detailPanel.close();
+  const base = sha.slice(0, 12);
+  state.view = 'compare';
+  rebuildChrome();
+  syncHash();
+  void runCompare(base, 'HEAD');
+}
+
 function mount(): void {
   theme.applyChrome();
+  // Restore the deep-linked view/compare refs from the URL hash (W24)
+  // BEFORE the first paint so a shared compare link opens on its tab.
+  applyInitialRoute();
   rebuildChrome();
   installKeyboard();
   installResize();
+  installHashRouting();
   void boot();
 }
 
@@ -379,6 +399,7 @@ function switchView(view: AppView): void {
   dayPanel.close();
   authorPanel.close();
   rebuildChrome();
+  syncHash();
   // Lazily kick off the data load for the freshly-opened view.
   if (view === 'activity') void ensureActivity();
   if (view === 'contributors') void ensureContributors();
@@ -711,6 +732,7 @@ function renderCompareView(): void {
     loadDiff: (rev: string, path: string) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
     onOpenCommit: (sha: string) => openDetailFor(sha),
     onCopySha: (sha: string) => void copySha(sha),
+    onShareLink: () => void shareCompareLink(),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'compare-loading-wrap');
@@ -777,11 +799,28 @@ async function runCompare(base: string, head: string): Promise<void> {
   state.compareBase = base;
   state.compareHead = head;
   state.compare = { status: 'loading', data: null, error: '' };
+  // Reflect the ref pair in the URL so the comparison is shareable (W24).
+  syncHash();
   if (state.view === 'compare') renderCompareView();
   const res = await loadCompare(base, head, { repo: state.repo ?? undefined });
   if (res.ok) state.compare = { status: 'ready', data: res.comparison, error: '' };
   else state.compare = { status: 'error', data: null, error: res.error };
   if (state.view === 'compare') renderCompareView();
+}
+
+/**
+ * Copy a shareable deep link to the current comparison (W24). Ensures the
+ * hash is current, then copies the full URL.
+ */
+async function shareCompareLink(): Promise<void> {
+  syncHash();
+  const url = location.href;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Comparison link copied');
+  } catch {
+    toast('Copy failed');
+  }
 }
 
 /** Lazily load the stash list when the tab first opens (W19). */
@@ -947,6 +986,64 @@ function moveSelection(delta: number): void {
   if (!graphController) return;
   const commit = graphController.move(delta);
   if (commit) setStatus(`${commit.shortSha}  ${commit.subject}`);
+}
+
+// ── Deep-link hash routing (W24) ─────────────────────────────────────
+/**
+ * Apply the URL hash to the initial state (before first paint). A
+ * `#compare?base=..&head=..` link opens the Compare tab pre-loaded with
+ * that ref pair; a bare `#stashes` etc opens that tab.
+ */
+function applyInitialRoute(): void {
+  const route = parseHash(typeof location !== 'undefined' ? location.hash : '');
+  if (!route) return;
+  state.view = route.view;
+  if (route.view === 'compare' && route.base && route.head) {
+    state.compareBase = route.base;
+    state.compareHead = route.head;
+  }
+}
+
+/** True while we're writing the hash ourselves, to ignore the echo event. */
+let writingHash = false;
+
+/** Write the current view/compare state into location.hash (W24). */
+function syncHash(): void {
+  if (typeof location === 'undefined') return;
+  const route: Route =
+    state.view === 'compare'
+      ? { view: 'compare', base: state.compareBase, head: state.compareHead }
+      : { view: state.view };
+  const next = buildHash(route);
+  if (!hashChanged(location.hash, `#${next}`)) return;
+  writingHash = true;
+  // Empty hash -> clear it without leaving a bare '#'.
+  if (next) location.hash = next;
+  else history.replaceState(null, '', location.pathname + location.search);
+  // The hashchange event fires async; clear the guard on the next tick.
+  setTimeout(() => {
+    writingHash = false;
+  }, 0);
+}
+
+/** Listen for back/forward (hashchange) and re-apply the route (W24). */
+function installHashRouting(): void {
+  window.addEventListener('hashchange', () => {
+    if (writingHash) return;
+    const route = parseHash(location.hash);
+    if (!route) return;
+    if (route.view === 'compare' && route.base && route.head) {
+      const changed = route.base !== state.compareBase || route.head !== state.compareHead;
+      state.compareBase = route.base;
+      state.compareHead = route.head;
+      if (changed) state.compare = slot<ComparePayload>();
+    }
+    if (route.view !== state.view) {
+      switchView(route.view);
+    } else if (route.view === 'compare') {
+      void ensureCompare();
+    }
+  });
 }
 
 // ── Responsive (W11) ─────────────────────────────────────────────────

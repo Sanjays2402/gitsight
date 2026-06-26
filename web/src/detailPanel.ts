@@ -37,6 +37,8 @@ export interface DetailPanelHandlers {
   onCopySha?: (sha: string) => void;
   /** Navigate the graph selection to a parent sha (W7 hook-ready). */
   onOpenSha?: (sha: string) => void;
+  /** "Compare from here" — open the Compare view with this commit as base (W24). */
+  onCompareFrom?: (sha: string) => void;
 }
 
 /**
@@ -144,6 +146,18 @@ export class CommitDetailPanel {
     shaChip.addEventListener('click', () => this.handlers.onCopySha?.(d.sha));
     ident.appendChild(shaChip);
     this.body.appendChild(ident);
+
+    // Quick actions (W24): "Compare from here" sets this commit as the
+    // Compare view's base ref. Only shown when the host wires the handler.
+    if (this.handlers.onCompareFrom) {
+      const actions = el('div', 'detail-actions');
+      const cmp = el('button', 'detail-action');
+      cmp.innerHTML = `${icons.gitCompare}<span>Compare from here</span>`;
+      cmp.title = 'Compare this commit against HEAD';
+      cmp.addEventListener('click', () => this.handlers.onCompareFrom!(d.sha));
+      actions.appendChild(cmp);
+      this.body.appendChild(actions);
+    }
 
     // Committer line (only when it differs from the author).
     if (d.committer && (d.committer !== d.author || d.commitDate !== d.authorDate)) {
