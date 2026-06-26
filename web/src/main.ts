@@ -16,6 +16,7 @@ import './styles.css';
 import './diffSplit.css';
 import './activityMetric.css';
 import './blameLegend.css';
+import './contributorCompare.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
@@ -53,6 +54,7 @@ import { DayPanel } from './dayPanel';
 import { renderActivity } from './activityView';
 import { renderContributors } from './contributorsView';
 import { AuthorPanel } from './authorPanel';
+import { ContributorComparePanel } from './contributorCompareView';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter } from './blameLegend';
@@ -74,6 +76,7 @@ import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
+import type { Contributor } from '@shared/contributors';
 
 type AppView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare' | 'stashes';
 
@@ -103,6 +106,8 @@ interface AppState {
   /** Which activity metric the calendar charts (W39). */
   activityMetric: 'commits' | 'churn';
   contributors: AsyncSlot<ContributorsPayload>;
+  /** Authors marked for comparison (W35), up to two {email,name}. */
+  compareSelection: Array<{ email: string; name: string }>;
   blame: AsyncSlot<BlamePayload>;
   /** The file path currently being blamed. */
   blamePath: string | null;
@@ -141,6 +146,7 @@ const state: AppState = {
   activity: slot<ActivityPayload>(),
   activityMetric: 'commits',
   contributors: slot<ContributorsPayload>(),
+  compareSelection: [],
   blame: slot<BlamePayload>(),
   blamePath: null,
   blameRev: 'HEAD',
@@ -216,6 +222,20 @@ const authorPanel = new AuthorPanel({
     applyFilter(/\s/.test(value) ? `author:"${value}"` : `author:${value}`);
   },
   onOpenFile: path => {
+    state.view = 'blame';
+    rebuildChrome();
+    void loadBlamePath(path);
+  },
+});
+
+/**
+ * Contributor comparison panel (W35). Set two authors side by side: commits,
+ * churn, files, and their file overlap. Fed by two W23 /api/author reads.
+ */
+const contributorComparePanel = new ContributorComparePanel({
+  loadAuthor: email => loadAuthor(email, { repo: state.repo ?? undefined }),
+  onOpenFile: path => {
+    contributorComparePanel.close();
     state.view = 'blame';
     rebuildChrome();
     void loadBlamePath(path);
@@ -499,6 +519,8 @@ async function boot(): Promise<void> {
   detailPanel.close();
   dayPanel.close();
   authorPanel.close();
+  contributorComparePanel.close();
+  state.compareSelection = [];
   const result = await loadSnapshot({ repo: state.repo ?? undefined });
   if (result.ok) {
     state.snapshot = result.snapshot;
@@ -696,6 +718,7 @@ function switchView(view: AppView): void {
   detailPanel.close();
   dayPanel.close();
   authorPanel.close();
+  contributorComparePanel.close();
   rebuildChrome();
   syncHash();
   // Lazily kick off the data load for the freshly-opened view.
@@ -1055,9 +1078,33 @@ function renderContributorsView(): void {
     onPick: c => {
       void authorPanel.open(c.email || c.name, c.name);
     },
+    onCompareToggle: c => toggleCompareSelection(c),
+    selectedForCompare: state.compareSelection.map(e => e.email),
   });
   surface.replaceChildren(node);
   updateCount(s.data.totalAuthors, s.data.totalAuthors, 'contributors');
+}
+
+/**
+ * Toggle an author in the W35 comparison selection. Clicking a selected
+ * author removes them; otherwise add (capped at two — a third pushes out the
+ * oldest). When two are selected, open the comparison panel automatically.
+ */
+function toggleCompareSelection(c: Contributor): void {
+  const key = (c.email || c.name).toLowerCase();
+  const idx = state.compareSelection.findIndex(e => e.email.toLowerCase() === key);
+  if (idx >= 0) {
+    state.compareSelection.splice(idx, 1);
+  } else {
+    state.compareSelection.push({ email: c.email || c.name, name: c.name });
+    // Keep only the two most-recent picks.
+    if (state.compareSelection.length > 2) state.compareSelection.shift();
+  }
+  renderContributorsView();
+  if (state.compareSelection.length === 2) {
+    const [a, b] = state.compareSelection;
+    void contributorComparePanel.open(a, b);
+  }
 }
 
 function renderBlameView(): void {

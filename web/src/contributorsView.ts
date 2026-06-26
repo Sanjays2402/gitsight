@@ -19,6 +19,10 @@ import { sharePercent, type ContributorStats, type Contributor } from '@shared/c
 export interface ContributorsViewOptions {
   /** Fired when a row is clicked (drives an author: filter). */
   onPick?: (c: Contributor) => void;
+  /** Fired when a row's compare toggle is clicked (W35 selection). */
+  onCompareToggle?: (c: Contributor) => void;
+  /** Emails currently selected for comparison (W35), to mark rows. */
+  selectedForCompare?: string[];
 }
 
 /** Render the contributor leaderboard into a detached node. */
@@ -41,10 +45,20 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
   const list = el('div', 'contributors-list');
   list.setAttribute('role', 'list');
   const topShare = stats.contributors[0].share || 1;
+  const selected = new Set((opts.selectedForCompare ?? []).map(e => e.toLowerCase()));
 
   stats.contributors.forEach((c, i) => {
-    const row = el(opts.onPick ? 'button' : 'div', 'contributor-row');
+    const row = el('div', 'contributor-row');
     row.setAttribute('role', 'listitem');
+
+    // The main clickable region (author filter). A nested button keeps the
+    // row semantics clean so the compare toggle can live alongside it.
+    const main = el(opts.onPick ? 'button' : 'div', 'contributor-main-btn');
+    if (opts.onPick) {
+      (main as HTMLButtonElement).type = 'button';
+      main.setAttribute('aria-label', `Filter to ${escapeHtml(c.name)}`);
+      main.addEventListener('click', () => opts.onPick!(c));
+    }
 
     const rank = el('span', 'contributor-rank');
     rank.textContent = String(i + 1);
@@ -52,7 +66,7 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
     const dot = el('span', 'contributor-dot');
     dot.style.background = authorColor(c.name);
 
-    const main = el('div', 'contributor-main');
+    const info = el('div', 'contributor-main');
     const name = el('div', 'contributor-name');
     name.textContent = c.name;
     name.title = c.email;
@@ -61,7 +75,7 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
       c.firstDate === c.lastDate
         ? `${timeAgo(c.lastDate)}`
         : `${timeAgo(c.firstDate)} \u2192 ${timeAgo(c.lastDate)}`;
-    main.append(name, span);
+    info.append(name, span);
 
     // Share bar: width relative to the busiest contributor so the top
     // author fills the track.
@@ -76,11 +90,22 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
       `<span class="commits">${c.commits}</span>` +
       `<span class="pct">${sharePercent(c)}%</span>`;
 
-    row.append(rank, dot, main, barWrap, count);
-    if (opts.onPick) {
-      row.setAttribute('aria-label', `Filter to ${escapeHtml(c.name)}`);
-      row.addEventListener('click', () => opts.onPick!(c));
+    main.append(rank, dot, info, barWrap, count);
+    row.appendChild(main);
+
+    // Compare toggle (W35): mark up to two authors to set side by side.
+    if (opts.onCompareToggle) {
+      const isOn = selected.has((c.email || c.name).toLowerCase());
+      const cmp = el('button', 'contributor-compare-toggle' + (isOn ? ' on' : ''));
+      cmp.type = 'button';
+      cmp.textContent = 'vs';
+      cmp.title = isOn ? `Remove ${c.name} from comparison` : `Add ${c.name} to comparison`;
+      cmp.setAttribute('aria-pressed', String(isOn));
+      cmp.setAttribute('aria-label', `Compare ${escapeHtml(c.name)}`);
+      cmp.addEventListener('click', () => opts.onCompareToggle!(c));
+      row.appendChild(cmp);
     }
+
     list.appendChild(row);
   });
 
