@@ -1791,6 +1791,19 @@ body {
   font-size: 11.5px;
 }
 
+/* Windowed blame (W21): reserve the full scroll height, absolutely
+   position the mounted slice at its index offset — only the visible rows
+   live in the DOM so a 50k-line file blames at 60fps. */
+.blame-rows.virtual {
+  position: relative;
+}
+
+.blame-rows.virtual .blame-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
 .blame-row {
   display: flex;
   align-items: center;
@@ -1802,6 +1815,23 @@ body {
 
 .blame-row:hover {
   background: var(--bg-hover);
+}
+
+/* Jump-to-line flash (W21): a brief accent wash on the targeted row. */
+.blame-row.flash {
+  animation: blame-flash 1.4s var(--ease);
+}
+
+@keyframes blame-flash {
+  0%,
+  35% {
+    background: var(--accent-soft);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 2px 0 0 transparent;
+  }
 }
 
 .blame-heat {

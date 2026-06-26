@@ -42,6 +42,7 @@ import { CommitDetailPanel } from './detailPanel';
 import { renderActivity, dayFilter } from './activityView';
 import { renderContributors, contributorFilter } from './contributorsView';
 import { renderBlame } from './blameView';
+import { parseBlameTarget } from './blameWindow';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
@@ -79,6 +80,8 @@ interface AppState {
   blame: AsyncSlot<BlamePayload>;
   /** The file path currently being blamed. */
   blamePath: string | null;
+  /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
+  blameLine: number | null;
   /** Live-refresh connection status (W17). */
   live: LiveStatus;
   /** Range-compare payload + the ref pair (W18). */
@@ -104,6 +107,7 @@ const state: AppState = {
   contributors: slot<ContributorsPayload>(),
   blame: slot<BlamePayload>(),
   blamePath: null,
+  blameLine: null,
   live: 'disconnected',
   compare: slot<ComparePayload>(),
   compareBase: 'main',
@@ -184,6 +188,7 @@ async function boot(): Promise<void> {
   state.contributors = slot<ContributorsPayload>();
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
+  state.blameLine = null;
   state.compare = slot<ComparePayload>();
   state.stashes = slot<StashesPayload>();
   rebuildChrome();
@@ -640,6 +645,7 @@ function renderBlameView(): void {
   const opts = {
     path: state.blamePath ?? undefined,
     onLoad: (path: string) => loadBlamePath(path),
+    revealLine: state.blameLine,
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -750,11 +756,15 @@ async function ensureStashes(): Promise<void> {
   if (state.view === 'stashes') renderStashesView();
 }
 
-async function loadBlamePath(path: string): Promise<void> {
-  state.blamePath = path;
+async function loadBlamePath(input: string): Promise<void> {
+  // Accept `path`, `path:42`, or `path#L42` so the user can jump to a line.
+  const target = parseBlameTarget(input);
+  if (!target.path) return;
+  state.blamePath = target.path;
+  state.blameLine = target.line;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
-  const res = await loadBlame('HEAD', path, { repo: state.repo ?? undefined });
+  const res = await loadBlame('HEAD', target.path, { repo: state.repo ?? undefined });
   if (res.ok) state.blame = { status: 'ready', data: res.blame, error: '' };
   else state.blame = { status: 'error', data: null, error: res.error };
   if (state.view === 'blame') renderBlameView();
