@@ -49,6 +49,13 @@ test('buildServerArgs omits --max when zero or missing', () => {
   assert.ok(!args.includes('--max'));
 });
 
+test('buildServerArgs appends --allow-mutations only when enabled (W25)', () => {
+  const off = buildServerArgs({ serverEntry: '/s.mjs', repo: '/r', port: 5274 });
+  assert.ok(!off.includes('--allow-mutations'));
+  const on = buildServerArgs({ serverEntry: '/s.mjs', repo: '/r', port: 5274, allowMutations: true });
+  assert.ok(on.includes('--allow-mutations'));
+});
+
 // ── webUrl ───────────────────────────────────────────────────────────
 
 test('webUrl builds a localhost URL', () => {

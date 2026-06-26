@@ -181,6 +181,42 @@ export function isReposPayload(v: unknown): v is ReposPayload {
   return Array.isArray(o.repos);
 }
 
+// ── Health (W25 — surfaces allowMutations) ───────────────────────────
+
+export interface HealthPayload {
+  ok: boolean;
+  repo: string;
+  head: string;
+  root: string | null;
+  allowMutations: boolean;
+}
+
+export type HealthResult =
+  | { ok: true; health: HealthPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isHealthPayload(v: unknown): v is HealthPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return o.ok === true && typeof o.repo === 'string';
+}
+
+/** Fetch the companion's health, including whether mutations are enabled. */
+export async function loadHealth(opts: { signal?: AbortSignal } = {}): Promise<HealthResult> {
+  return fetchJson<HealthPayload>('/api/health', isHealthPayload, opts.signal).then(r =>
+    r.ok
+      ? {
+          ok: true,
+          health: {
+            ...r.value,
+            root: r.value.root ?? null,
+            allowMutations: r.value.allowMutations === true,
+          },
+        }
+      : r,
+  );
+}
+
 /** Fetch the switchable repo list (W8). */
 export async function loadRepos(opts: { signal?: AbortSignal } = {}): Promise<ReposResult> {
   try {
@@ -418,6 +454,67 @@ export async function loadStashDiff(
   return fetchJson<FileDiffPayload>(`/api/stash-diff${qs}`, isFileDiffPayload, opts.signal).then(r =>
     r.ok ? { ok: true, diff: r.value } : r,
   );
+}
+
+// ── Stash mutations (W25) ────────────────────────────────────────────
+
+export type StashActionKind = 'apply' | 'pop' | 'drop';
+
+/** The post-action payload: the outcome + the refreshed stash list. */
+export interface StashActionPayload extends StashList {
+  action: StashActionKind;
+  index: number;
+  removed: boolean;
+  message: string;
+}
+
+export type StashActionResult =
+  | { ok: true; result: StashActionPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isStashActionPayload(v: unknown): v is StashActionPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.action === 'string' && Array.isArray(o.stashes) && typeof o.total === 'number';
+}
+
+/**
+ * Run a local-only stash mutation (W25): apply / pop / drop. POSTs to the
+ * companion's single mutating endpoint; the companion re-validates the
+ * action + index and returns the refreshed list.
+ */
+export async function runStashAction(
+  action: StashActionKind,
+  index: number,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<StashActionResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  try {
+    const res = await fetch(`/api/stash-action${qs}`, {
+      method: 'POST',
+      signal: opts.signal,
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ action, index }),
+    });
+    if (!res.ok) {
+      let detail = `${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === 'string') detail = body.error;
+      } catch {
+        /* non-JSON error body */
+      }
+      return { ok: false, error: detail, offline: false };
+    }
+    const body: unknown = await res.json();
+    if (!isStashActionPayload(body)) {
+      return { ok: false, error: 'Unexpected response shape from /api/stash-action', offline: false };
+    }
+    return { ok: true, result: body };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, offline: true };
+  }
 }
 
 // ── Shared JSON fetch ────────────────────────────────────────────────

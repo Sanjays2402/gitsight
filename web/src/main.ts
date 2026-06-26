@@ -30,6 +30,9 @@ import {
   loadStashes,
   loadStashDiff,
   loadDay,
+  loadHealth,
+  runStashAction,
+  type StashActionKind,
   type ActivityPayload,
   type ContributorsPayload,
   type BlamePayload,
@@ -95,6 +98,8 @@ interface AppState {
   compareHead: string;
   /** Stash list payload (W19). */
   stashes: AsyncSlot<StashesPayload>;
+  /** Whether the companion permits local stash mutations (W25). */
+  allowMutations: boolean;
 }
 
 const theme = new ThemeController();
@@ -118,6 +123,7 @@ const state: AppState = {
   compareBase: 'main',
   compareHead: 'HEAD',
   stashes: slot<StashesPayload>(),
+  allowMutations: false,
 };
 
 const root = document.getElementById('app')!;
@@ -264,6 +270,15 @@ async function boot(): Promise<void> {
         state.repo = repos.repos.find(r => r.current)?.path ?? null;
       }
       rebuildChrome();
+    }
+  }
+  // Learn whether the companion permits local stash mutations (W25).
+  if (state.source === 'live') {
+    const health = await loadHealth();
+    const allow = health.ok && health.health.allowMutations;
+    if (allow !== state.allowMutations) {
+      state.allowMutations = allow;
+      if (state.view === 'stashes') rebuildChrome();
     }
   }
   // Open (or re-point) the live-refresh stream now we know the repo (W17).
@@ -764,6 +779,7 @@ function renderStashesView(): void {
   }
   const node = renderStashes(s.data, {
     loadDiff: (index: number, path: string) => loadStashDiff(index, path, { repo: state.repo ?? undefined }),
+    onAction: state.allowMutations ? (action, entry) => void runStashMutation(action, entry) : undefined,
   });
   surface.replaceChildren(node);
   updateCount(s.data.total, s.data.total, s.data.total === 1 ? 'stash' : 'stashes');
@@ -831,6 +847,37 @@ async function ensureStashes(): Promise<void> {
   if (res.ok) state.stashes = { status: 'ready', data: res.stashes, error: '' };
   else state.stashes = { status: 'error', data: null, error: res.error };
   if (state.view === 'stashes') renderStashesView();
+}
+
+/**
+ * Run a confirmed local-only stash mutation (W25). Apply/pop/drop all
+ * touch the working tree, so each goes through a confirm() gate first; on
+ * success we re-render from the fresh list the companion returns and toast
+ * the outcome.
+ */
+async function runStashMutation(
+  action: StashActionKind,
+  entry: { index: number; branch: string },
+): Promise<void> {
+  const verb = action === 'apply' ? 'Apply' : action === 'pop' ? 'Pop' : 'Drop';
+  const ref = `stash@{${entry.index}}`;
+  const warn =
+    action === 'drop'
+      ? `Drop ${ref}? This permanently discards the stash and cannot be undone.`
+      : action === 'pop'
+        ? `Pop ${ref}? This applies it to your working tree and removes the stash.`
+        : `Apply ${ref} to your working tree? The stash is kept.`;
+  if (typeof confirm === 'function' && !confirm(warn)) return;
+
+  const res = await runStashAction(action, entry.index, { repo: state.repo ?? undefined });
+  if (res.ok) {
+    state.stashes = { status: 'ready', data: { stashes: res.result.stashes, total: res.result.total }, error: '' };
+    renderStashesView();
+    const past = action === 'apply' ? 'applied' : action === 'pop' ? 'popped' : 'dropped';
+    toast(`Stash ${past}`);
+  } else {
+    toast(`${verb} failed: ${res.error}`);
+  }
 }
 
 async function loadBlamePath(input: string): Promise<void> {

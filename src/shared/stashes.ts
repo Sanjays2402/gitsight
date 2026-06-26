@@ -232,3 +232,49 @@ export function stashSummary(entry: Pick<StashEntry, 'filesChanged' | 'insertion
   if (entry.deletions > 0) parts.push(`-${entry.deletions}`);
   return parts.join(' \u00b7 ');
 }
+
+// ── Mutating actions (W25) — apply / pop / drop ──────────────────────
+
+/** The three local-only stash mutations the web view can request (W25). */
+export type StashAction = 'apply' | 'pop' | 'drop';
+
+const STASH_ACTIONS: StashAction[] = ['apply', 'pop', 'drop'];
+
+/** True when a string names a supported stash mutation. */
+export function isStashAction(s: unknown): s is StashAction {
+  return typeof s === 'string' && (STASH_ACTIONS as string[]).includes(s);
+}
+
+/**
+ * Build the validated `git stash <action> stash@{N}` argv for a mutation.
+ * BOTH the action and the index are validated — the index via the same
+ * `stashRefForIndex` gate the read path uses (so `stash@{N}` can never be
+ * anything but an integer-indexed ref), and the action against the closed
+ * verb set — so a crafted request can't smuggle a different subcommand or
+ * a flag into the argv. Throws on either being invalid.
+ */
+export function buildStashActionArgs(action: string, index: number): string[] {
+  if (!isStashAction(action)) throw new Error(`invalid stash action: ${action}`);
+  const ref = stashRefForIndex(index); // throws on a bad index
+  return ['stash', action, ref];
+}
+
+/** Human past-tense label for a completed action (toast / status). */
+export function stashActionLabel(action: StashAction): string {
+  switch (action) {
+    case 'apply':
+      return 'applied';
+    case 'pop':
+      return 'popped';
+    case 'drop':
+      return 'dropped';
+  }
+}
+
+/**
+ * Whether an action removes the stash entry from the list (so the client
+ * knows to refresh): pop + drop remove it; apply leaves it in place.
+ */
+export function stashActionRemovesEntry(action: StashAction): boolean {
+  return action === 'pop' || action === 'drop';
+}

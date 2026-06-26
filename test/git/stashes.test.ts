@@ -11,6 +11,10 @@ import {
   buildStashFiles,
   stashSummary,
   STASH_LIST_FORMAT,
+  isStashAction,
+  buildStashActionArgs,
+  stashActionLabel,
+  stashActionRemovesEntry,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -132,4 +136,39 @@ test('STASH_LIST_FORMAT carries the three fields + record terminator', () => {
   assert.ok(STASH_LIST_FORMAT.includes('%gd'));
   assert.ok(STASH_LIST_FORMAT.includes('%gs'));
   assert.ok(STASH_LIST_FORMAT.endsWith('%x1e'));
+});
+
+// ── stash mutations (W25) ────────────────────────────────────────────
+
+test('isStashAction accepts only apply/pop/drop', () => {
+  assert.equal(isStashAction('apply'), true);
+  assert.equal(isStashAction('pop'), true);
+  assert.equal(isStashAction('drop'), true);
+  assert.equal(isStashAction('clear'), false);
+  assert.equal(isStashAction('push'), false);
+  assert.equal(isStashAction(''), false);
+  assert.equal(isStashAction(null), false);
+});
+
+test('buildStashActionArgs builds a validated stash subcommand', () => {
+  assert.deepEqual(buildStashActionArgs('apply', 0), ['stash', 'apply', 'stash@{0}']);
+  assert.deepEqual(buildStashActionArgs('pop', 3), ['stash', 'pop', 'stash@{3}']);
+  assert.deepEqual(buildStashActionArgs('drop', 12), ['stash', 'drop', 'stash@{12}']);
+});
+
+test('buildStashActionArgs rejects a bad action or index (no argv injection)', () => {
+  assert.throws(() => buildStashActionArgs('clear', 0), /invalid stash action/);
+  assert.throws(() => buildStashActionArgs('--exec=evil', 0), /invalid stash action/);
+  assert.throws(() => buildStashActionArgs('apply', -1), /invalid stash index/);
+  assert.throws(() => buildStashActionArgs('apply', 1.5), /invalid stash index/);
+  assert.throws(() => buildStashActionArgs('apply', 999999), /invalid stash index/);
+});
+
+test('stashActionLabel + stashActionRemovesEntry describe the outcome', () => {
+  assert.equal(stashActionLabel('apply'), 'applied');
+  assert.equal(stashActionLabel('pop'), 'popped');
+  assert.equal(stashActionLabel('drop'), 'dropped');
+  assert.equal(stashActionRemovesEntry('apply'), false);
+  assert.equal(stashActionRemovesEntry('pop'), true);
+  assert.equal(stashActionRemovesEntry('drop'), true);
 });

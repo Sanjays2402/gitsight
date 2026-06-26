@@ -18,11 +18,17 @@ import { escapeHtml } from '@shared/graphCore';
 import { stashSummary, type StashList, type StashEntry, type StashFile } from '@shared/stashes';
 import { compareGlyph, compareLabel, compareChurn, splitComparePath } from './compareFormat';
 import { renderFileDiff } from './diffView';
-import type { FileDiffResult } from './data';
+import type { FileDiffResult, StashActionKind } from './data';
 
 export interface StashViewOptions {
   /** Fetch a single stash file's parsed diff (W19). */
   loadDiff?: (index: number, path: string) => Promise<FileDiffResult>;
+  /**
+   * Run a local-only mutation on a stash (W25). When omitted, the cards are
+   * read-only (the mutating endpoint isn't enabled). The handler owns the
+   * confirm step + the refresh.
+   */
+  onAction?: (action: StashActionKind, entry: StashEntry) => void;
 }
 
 /** Render the stash list into a detached node. */
@@ -68,6 +74,22 @@ function stashCard(entry: StashEntry, opts: StashViewOptions): HTMLElement {
   const subject = el('div', 'stash-subject');
   subject.textContent = stashSubjectText(entry);
   card.appendChild(subject);
+
+  // Local-only mutation actions (W25). Only present when the host wired a
+  // handler (i.e. the companion's mutating endpoint is enabled).
+  if (opts.onAction) {
+    const actions = el('div', 'stash-actions');
+    const mkBtn = (action: StashActionKind, label: string, danger = false) => {
+      const b = el('button', `stash-action${danger ? ' danger' : ''}`);
+      b.type = 'button';
+      b.textContent = label;
+      b.title = `${label} stash@{${entry.index}}`;
+      b.addEventListener('click', () => opts.onAction!(action, entry));
+      return b;
+    };
+    actions.append(mkBtn('apply', 'Apply'), mkBtn('pop', 'Pop'), mkBtn('drop', 'Drop', true));
+    card.appendChild(actions);
+  }
 
   // File list with lazy diffs.
   if (entry.files.length > 0) {

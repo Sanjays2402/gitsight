@@ -35,10 +35,12 @@ export function buildServerArgs(opts: {
   port: number;
   root?: string;
   max?: number;
+  allowMutations?: boolean;
 }): string[] {
   const args = [opts.serverEntry, '--repo', opts.repo, '--port', String(opts.port)];
   if (opts.root) args.push('--root', opts.root);
   if (opts.max && opts.max > 0) args.push('--max', String(opts.max));
+  if (opts.allowMutations) args.push('--allow-mutations');
   return args;
 }
 

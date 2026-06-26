@@ -1465,6 +1465,11 @@
           "default": "",
           "description": "Optional parent directory the web app scans for sibling repos to populate its repo switcher. Leave empty to serve only the current repository."
         },
+        "gitsight.web.allowMutations": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow the GitSight web app to apply, pop, or drop stashes on the local repository (each is confirmed first). Off by default so the web app stays read-only; enable only when you trust the local browser session."
+        },
         "gitsight.graph.theme": {
           "type": "string",
           "enum": [

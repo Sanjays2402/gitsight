@@ -62,6 +62,8 @@ import {
   parseStashList,
   buildStashFiles,
   stashRefForIndex,
+  buildStashActionArgs,
+  stashActionRemovesEntry,
   STASH_LIST_FORMAT,
 } from '../../src/shared/stashes.ts';
 
@@ -82,13 +84,14 @@ const MIME = {
 };
 
 export function parseArgs(argv) {
-  const opts = { repo: process.cwd(), port: 5274, max: 500, root: undefined };
+  const opts = { repo: process.cwd(), port: 5274, max: 500, root: undefined, allowMutations: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if ((a === '--repo' || a === '-C') && argv[i + 1]) opts.repo = argv[++i];
     else if (a === '--port' && argv[i + 1]) opts.port = Number(argv[++i]) || opts.port;
     else if (a === '--max' && argv[i + 1]) opts.max = Number(argv[++i]) || opts.max;
     else if (a === '--root' && argv[i + 1]) opts.root = argv[++i];
+    else if (a === '--allow-mutations') opts.allowMutations = true;
   }
   // Normalise to absolute paths so the repo-allow gate compares like with like.
   opts.repo = resolve(opts.repo);
@@ -409,6 +412,30 @@ export async function buildStashFileDiffForRepo(repo, index, path) {
 }
 
 /**
+ * Run a local-only stash mutation (W25): apply / pop / drop. The argv is
+ * built by the shared `buildStashActionArgs`, which validates BOTH the
+ * action (closed verb set) and the index (integer -> `stash@{N}`), so a
+ * crafted request can't smuggle a different subcommand or a flag. Returns
+ * the post-action stash list so the client can re-render without a second
+ * round-trip. This is the only endpoint that writes to the working tree;
+ * it's POST-only (enforced by the route) and local-first by construction.
+ */
+export async function runStashActionForRepo(repo, action, index) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  const args = buildStashActionArgs(action, Number(index));
+  const stdout = await git(repo, args);
+  // Re-list so the client gets the fresh state in one response.
+  const list = await buildStashesForRepo(repo);
+  return {
+    action,
+    index: Number(index),
+    removed: stashActionRemovesEntry(action),
+    message: stdout.trim(),
+    ...list,
+  };
+}
+
+/**
  * Watches a repo's git dir and invokes `onRefresh` (debounced) whenever a
  * commit/ref/stash mutation lands (W17). Uses a single recursive
  * fs.watch where supported (macOS/Windows) and falls back to watching the
@@ -557,6 +584,45 @@ function sendJson(res, code, body) {
   res.end(payload);
 }
 
+/**
+ * Read + parse a small JSON request body (W25 mutations). Caps the body at
+ * 64KB so a hostile client can't exhaust memory, and rejects a non-object
+ * payload. Resolves with the parsed object.
+ */
+export function readJsonBody(req, limit = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('request body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (!raw) {
+        resolve({});
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          reject(new Error('request body must be a JSON object'));
+          return;
+        }
+        resolve(parsed);
+      } catch {
+        reject(new Error('invalid JSON body'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 async function serveStatic(res, urlPath) {
   // Resolve within DIST_DIR only; reject path traversal.
   const rel = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '');
@@ -676,7 +742,7 @@ export function createCompanionServer(opts) {
     try {
       if (url.pathname === '/api/health') {
         const head = await readHead(opts.repo).catch(() => 'unknown');
-        sendJson(res, 200, { ok: true, repo: basename(opts.repo), head, root: opts.root ?? null });
+        sendJson(res, 200, { ok: true, repo: basename(opts.repo), head, root: opts.root ?? null, allowMutations: !!opts.allowMutations });
         return;
       }
       // GET /api/repos -> the switchable repo list (current + scan root).
@@ -829,6 +895,29 @@ export function createCompanionServer(opts) {
         }
         return;
       }
+      // POST /api/stash-action {action,index} -> apply/pop/drop a stash (W25).
+      // The ONLY mutating endpoint: POST-only, body-validated, local-first.
+      // Disabled unless the server was started with --allow-mutations so a
+      // read-only deployment can't be made to write to the working tree.
+      if (url.pathname === '/api/stash-action') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'method not allowed; use POST' });
+          return;
+        }
+        if (!opts.allowMutations) {
+          sendJson(res, 403, { error: 'stash mutations are disabled (start with --allow-mutations)' });
+          return;
+        }
+        try {
+          const body = await readJsonBody(req);
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const result = await runStashActionForRepo(repo, body.action, body.index);
+          sendJson(res, 200, result);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e) });
+        }
+        return;
+      }
       // GET /api/events -> Server-Sent Events live-refresh stream (W17).
       // Emits a `refresh` event (debounced) whenever the watched repo's
       // commit graph changes, so the browser can re-pull without polling.
@@ -862,6 +951,7 @@ if (isMain) {
     process.stdout.write(
       `GitSight companion on http://127.0.0.1:${opts.port}  (repo: ${opts.repo})\n` +
         (opts.root ? `  scan root: ${opts.root}\n` : '') +
+        (opts.allowMutations ? `  stash mutations: ENABLED (apply/pop/drop)\n` : '') +
         `  GET /api/graph         snapshot JSON\n` +
         `  GET /api/activity      contribution calendar\n` +
         `  GET /api/contributors  author leaderboard\n` +

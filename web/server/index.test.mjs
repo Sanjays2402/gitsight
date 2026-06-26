@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, buildAuthorDetailForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, buildAuthorDetailForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo, runStashActionForRepo, readJsonBody } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -584,6 +584,75 @@ test('buildStashesForRepo returns an empty list when there are no stashes', asyn
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// ── runStashActionForRepo (W25, integration) ─────────────────────────
+
+test('runStashActionForRepo applies then drops a stash (mutating)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stashact-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await writeFile(join(dir, 'f.txt'), 'base\n');
+    await git(['add', 'f.txt']);
+    await git(['commit', '-q', '-m', 'init']);
+    // Create two stashes.
+    await writeFile(join(dir, 'f.txt'), 'change one\n');
+    await git(['stash', 'push', '-m', 'wip one']);
+    await writeFile(join(dir, 'f.txt'), 'change two\n');
+    await git(['stash', 'push', '-m', 'wip two']);
+
+    let list = await buildStashesForRepo(dir);
+    assert.equal(list.total, 2);
+
+    // apply leaves the entry in place (working tree now dirty).
+    const applied = await runStashActionForRepo(dir, 'apply', 0);
+    assert.equal(applied.action, 'apply');
+    assert.equal(applied.removed, false);
+    assert.equal(applied.total, 2);
+    // Reset the working tree so the next op is clean.
+    await git(['checkout', '--', 'f.txt']);
+
+    // drop removes the entry.
+    const dropped = await runStashActionForRepo(dir, 'drop', 0);
+    assert.equal(dropped.removed, true);
+    assert.equal(dropped.total, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('runStashActionForRepo rejects a bad action / index (no injection)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stashactbad-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => runStashActionForRepo(dir, 'clear', 0), /invalid stash action/);
+    await assert.rejects(() => runStashActionForRepo(dir, '--exec=evil', 0), /invalid stash action/);
+    await assert.rejects(() => runStashActionForRepo(dir, 'apply', -1), /invalid stash index/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseArgs reads --allow-mutations (defaults off)', () => {
+  assert.equal(parseArgs([]).allowMutations, false);
+  assert.equal(parseArgs(['--allow-mutations']).allowMutations, true);
+});
+
+test('readJsonBody parses a small JSON object and rejects junk', async () => {
+  const { Readable } = await import('node:stream');
+  const makeReq = (s) => Readable.from([Buffer.from(s)]);
+  assert.deepEqual(await readJsonBody(makeReq('{"action":"pop","index":1}')), { action: 'pop', index: 1 });
+  assert.deepEqual(await readJsonBody(makeReq('')), {});
+  await assert.rejects(() => readJsonBody(makeReq('not json')), /invalid JSON/);
+  await assert.rejects(() => readJsonBody(makeReq('[1,2]')), /must be a JSON object/);
 });
 
 // ── resolveGitDir + live SSE stream (W17, integration) ───────────────

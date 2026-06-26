@@ -88,10 +88,11 @@ export async function openWebApp(ctx: vscode.ExtensionContext, git: Git): Promis
   const cfg = vscode.workspace.getConfiguration('gitsight.web');
   const preferredPort = normalizePort(cfg.get('port', DEFAULT_WEB_PORT), DEFAULT_WEB_PORT);
   const root = cfg.get<string>('root', '').trim() || undefined;
+  const allowMutations = cfg.get<boolean>('allowMutations', false) === true;
 
   const result = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'GitSight: starting web app…' },
-    () => launchServer({ serverEntry, repo, preferredPort, root }),
+    () => launchServer({ serverEntry, repo, preferredPort, root, allowMutations }),
   );
 
   if (!result.ok) {
@@ -134,10 +135,11 @@ async function launchServer(opts: {
   repo: string;
   preferredPort: number;
   root?: string;
+  allowMutations?: boolean;
 }): Promise<LaunchResult> {
   let port = opts.preferredPort;
   for (let attempt = 0; attempt < PORT_SCAN_RANGE; attempt++) {
-    const args = buildServerArgs({ serverEntry: opts.serverEntry, repo: opts.repo, port, root: opts.root });
+    const args = buildServerArgs({ serverEntry: opts.serverEntry, repo: opts.repo, port, root: opts.root, allowMutations: opts.allowMutations });
     const attemptResult = await tryPort(args, port);
     if (attemptResult.ok) return attemptResult;
     if (!attemptResult.retry) return { ok: false, error: attemptResult.error };
