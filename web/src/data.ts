@@ -7,7 +7,7 @@
  * the app is never blank.
  */
 
-import type { GraphSnapshot } from '@shared/graphSnapshot';
+import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { CommitDetail } from '@shared/commitDetail';
 import type { FileDiff } from '@shared/diffParse';
 import type { RepoEntry } from '@shared/repoPicker';
@@ -256,6 +256,39 @@ export async function loadActivity(
   const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
   return fetchJson<ActivityPayload>(`/api/activity${qs}`, isActivityPayload, opts.signal).then(r =>
     r.ok ? { ok: true, activity: r.value } : r,
+  );
+}
+
+// ── Activity day drill-down (W22) ────────────────────────────────────
+
+/** One day's commits (the subset of the snapshot bucketed to that day). */
+export interface DayPayload {
+  repo: string;
+  head: string;
+  date: string;
+  commits: GraphSnapshotCommit[];
+  total: number;
+}
+
+export type DayResult =
+  | { ok: true; day: DayPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isDayPayload(v: unknown): v is DayPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.date === 'string' && Array.isArray(o.commits) && typeof o.total === 'number';
+}
+
+/** Fetch the commit list for one author-local day (W22 drill-down). */
+export async function loadDay(
+  date: string,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<DayResult> {
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?date=${encodeURIComponent(date)}${repoParam}`;
+  return fetchJson<DayPayload>(`/api/day${qs}`, isDayPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, day: r.value } : r,
   );
 }
 

@@ -28,6 +28,7 @@ import {
   loadCompare,
   loadStashes,
   loadStashDiff,
+  loadDay,
   type ActivityPayload,
   type ContributorsPayload,
   type BlamePayload,
@@ -39,7 +40,8 @@ import { createPalettePicker } from './palettePicker';
 import { createRepoPicker } from './repoPicker';
 import { createRefRail, activeRefFromFilter } from './refRailView';
 import { CommitDetailPanel } from './detailPanel';
-import { renderActivity, dayFilter } from './activityView';
+import { DayPanel } from './dayPanel';
+import { renderActivity } from './activityView';
 import { renderContributors, contributorFilter } from './contributorsView';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
@@ -129,6 +131,21 @@ const detailPanel = new CommitDetailPanel({
 let graphController: GraphController | null = null;
 
 /**
+ * Activity day drill-down panel (W22). Opened from an Activity calendar
+ * cell; lists that day's commits and routes into the detail panel / graph.
+ */
+const dayPanel = new DayPanel({
+  load: date => loadDay(date, { repo: state.repo ?? undefined }),
+  onOpenCommit: sha => openDetailFor(sha),
+  onViewInGraph: date => {
+    state.view = 'graph';
+    rebuildChrome();
+    applyFilter(`since:${date} until:${date}`);
+  },
+  onCopySha: sha => void copySha(sha),
+});
+
+/**
  * Live-refresh client (W17). Re-pulls the snapshot when the companion
  * reports the watched repo's graph changed, and reflects connection state
  * in the status bar. Auto-refresh only triggers in live mode; demo data
@@ -175,6 +192,7 @@ async function boot(): Promise<void> {
   state.source = 'loading';
   showLoading();
   detailPanel.close();
+  dayPanel.close();
   const result = await loadSnapshot({ repo: state.repo ?? undefined });
   if (result.ok) {
     state.snapshot = result.snapshot;
@@ -336,6 +354,7 @@ function switchView(view: AppView): void {
   if (state.view === view) return;
   state.view = view;
   detailPanel.close();
+  dayPanel.close();
   rebuildChrome();
   // Lazily kick off the data load for the freshly-opened view.
   if (view === 'activity') void ensureActivity();
@@ -605,9 +624,7 @@ function renderActivityView(): void {
   }
   const node = renderActivity(s.data, {
     onPickDay: day => {
-      state.view = 'graph';
-      rebuildChrome();
-      applyFilter(dayFilter(day));
+      void dayPanel.open(day.date);
     },
   });
   surface.replaceChildren(node);

@@ -2,6 +2,8 @@ import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   dayKey,
+  isDayKey,
+  filterCommitsByDay,
   activityLevel,
   buildActivityCalendar,
 } from '../../src/shared/activity';
@@ -17,6 +19,31 @@ test('dayKey rejects malformed input', () => {
   assert.equal(dayKey(''), null);
   assert.equal(dayKey('nope'), null);
   assert.equal(dayKey('2026/06/25'), null);
+});
+
+// ── isDayKey + filterCommitsByDay (W22) ──────────────────────────────
+
+test('isDayKey accepts structural YYYY-MM-DD and rejects the rest', () => {
+  assert.equal(isDayKey('2026-06-25'), true);
+  assert.equal(isDayKey('2026-6-5'), false);
+  assert.equal(isDayKey('nope'), false);
+  assert.equal(isDayKey(20260625), false);
+  assert.equal(isDayKey(null), false);
+});
+
+test('filterCommitsByDay returns only commits on that author-local day', () => {
+  const commits = [
+    { date: '2026-06-25T23:30:00-07:00', subject: 'late' },
+    { date: '2026-06-25T08:00:00-07:00', subject: 'early' },
+    { date: '2026-06-24T12:00:00-07:00', subject: 'yesterday' },
+  ];
+  const out = filterCommitsByDay(commits, '2026-06-25');
+  assert.equal(out.length, 2);
+  assert.deepEqual(out.map(c => c.subject), ['late', 'early']); // order preserved
+});
+
+test('filterCommitsByDay returns [] for a malformed day key', () => {
+  assert.deepEqual(filterCommitsByDay([{ date: '2026-06-25T00:00:00Z' }], 'bad'), []);
 });
 
 // ── activityLevel ────────────────────────────────────────────────────

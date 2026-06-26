@@ -43,7 +43,7 @@ import {
   buildRepoEntries,
 } from '../../src/shared/repoPicker.ts';
 import { parsePorcelainBlame } from '../../src/shared/blame.ts';
-import { buildActivityCalendar } from '../../src/shared/activity.ts';
+import { buildActivityCalendar, isDayKey, filterCommitsByDay } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
 import {
   gitChangeTriggersRefresh,
@@ -249,6 +249,19 @@ export async function buildActivityForRepo(repo, max) {
   const snapshot = await buildSnapshotForRepo(repo, max);
   const calendar = buildActivityCalendar(snapshot.commits, { maxWeeks: 53 });
   return { repo: snapshot.repo, head: snapshot.head, ...calendar };
+}
+
+/**
+ * Build the commit list for a single author-local day (W22 drill-down).
+ * Reuses the same wider snapshot window the calendar uses, then filters by
+ * the shared `dayKey` bucketing so the list exactly matches the cell's
+ * count. The date is validated as a YYYY-MM-DD key before use.
+ */
+export async function buildDayCommitsForRepo(repo, date, max) {
+  if (!isDayKey(date)) throw new Error(`invalid day: ${date}`);
+  const snapshot = await buildSnapshotForRepo(repo, max);
+  const commits = filterCommitsByDay(snapshot.commits, date);
+  return { repo: snapshot.repo, head: snapshot.head, date, commits, total: commits.length };
 }
 
 /**
@@ -678,6 +691,20 @@ export function createCompanionServer(opts) {
           sendJson(res, 200, activity);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
+      // GET /api/day?date=YYYY-MM-DD -> commits on one author-local day (W22).
+      // Drill-down from an activity-calendar cell; reuses the wider window.
+      if (url.pathname === '/api/day') {
+        const date = url.searchParams.get('date') ?? '';
+        const max = Number(url.searchParams.get('max')) || 5000;
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const day = await buildDayCommitsForRepo(repo, date, max);
+          sendJson(res, 200, day);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), date });
         }
         return;
       }

@@ -902,6 +902,191 @@ body {
   opacity: 1;
 }
 
+/* ── Activity day drill-down panel (W22) ─────────────────────────── */
+.day-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  z-index: 44;
+  transform: translateX(-8px);
+  opacity: 0;
+  transition: opacity 0.16s var(--ease), transform 0.18s var(--ease);
+}
+
+.day-panel.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.day-head {
+  flex: 0 0 auto;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.day-title {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.day-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.day-authors {
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}
+
+.day-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.day-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 12px;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.day-commit:last-child {
+  border-bottom: none;
+}
+
+.day-commit:hover {
+  background: var(--bg-hover);
+}
+
+.day-commit-subject {
+  color: var(--fg);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-commit-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+.day-commit-meta .who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.day-commit-meta .ago {
+  font-variant-numeric: tabular-nums;
+}
+
+.day-commit-meta .sha {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  cursor: copy;
+}
+
+.day-commit-meta .sha:hover {
+  background: var(--bg-active);
+  color: var(--fg);
+}
+
+.day-empty {
+  padding: 28px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--fg-faint);
+}
+
+.day-graph-btn {
+  align-self: flex-start;
+  gap: 7px;
+}
+
+.day-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 18px;
+  text-align: center;
+  color: var(--fg-faint);
+}
+
+.day-state .glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.day-state h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.day-state.error h3 {
+  color: var(--danger);
+}
+
+.day-state p {
+  margin: 0;
+  font-size: 12px;
+}
+
 .detail-head {
   flex: 0 0 auto;
   height: var(--header-h);

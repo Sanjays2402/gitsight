@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -330,6 +330,56 @@ test('buildActivityForRepo builds a calendar from real commits', async () => {
     assert.equal(cal.last, '2026-06-03');
     // Every week column is a full 7 days.
     for (const week of cal.weeks) assert.equal(week.length, 7);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildDayCommitsForRepo (W22, integration) ────────────────────────
+
+test('buildDayCommitsForRepo returns commits bucketed to one author-local day', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-day-'));
+  try {
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    const day = (d) => ({ GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d });
+    await git(['commit', '--allow-empty', '-q', '-m', 'jun1-morning'], day('2026-06-01T09:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'jun1-evening'], day('2026-06-01T18:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'jun3-noon'], day('2026-06-03T12:00:00'));
+
+    const jun1 = await buildDayCommitsForRepo(dir, '2026-06-01', 100);
+    assert.equal(jun1.date, '2026-06-01');
+    assert.equal(jun1.total, 2);
+    assert.deepEqual(jun1.commits.map(c => c.subject).sort(), ['jun1-evening', 'jun1-morning']);
+
+    const jun3 = await buildDayCommitsForRepo(dir, '2026-06-03', 100);
+    assert.equal(jun3.total, 1);
+    assert.equal(jun3.commits[0].subject, 'jun3-noon');
+
+    // A day with no commits is an empty (but valid) list.
+    const empty = await buildDayCommitsForRepo(dir, '2026-06-02', 100);
+    assert.equal(empty.total, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildDayCommitsForRepo rejects a malformed day key', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-daybad-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => buildDayCommitsForRepo(dir, 'not-a-day', 100), /invalid day/);
+    await assert.rejects(() => buildDayCommitsForRepo(dir, '06/01/2026', 100), /invalid day/);
+    // A structurally-valid but impossible key is accepted as a key and
+    // simply matches nothing (the bucket compare is a cheap string match).
+    const none = await buildDayCommitsForRepo(dir, '2026-13-40', 100);
+    assert.equal(none.total, 0);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

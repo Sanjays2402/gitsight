@@ -65,6 +65,25 @@ export function dayKey(iso: string): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
+/** True when a YYYY-MM-DD string is a structurally valid calendar day key. */
+export function isDayKey(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+/**
+ * Filter a snapshot's commits to a single author-local day (W22 drill-down).
+ * Buckets by the same `dayKey` the calendar uses, so the returned list
+ * exactly matches the count shown on that calendar cell. Preserves the
+ * input order (git emits newest-first).
+ */
+export function filterCommitsByDay<T extends Pick<GraphSnapshotCommit, 'date'>>(
+  commits: T[],
+  date: string,
+): T[] {
+  if (!isDayKey(date)) return [];
+  return commits.filter(c => dayKey(c.date) === date);
+}
+
 /** A UTC-midnight Date for a YYYY-MM-DD key (used only for grid maths). */
 function dayDate(key: string): Date {
   return new Date(`${key}T00:00:00Z`);
