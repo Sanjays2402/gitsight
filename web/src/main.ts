@@ -138,6 +138,15 @@ const detailPanel = new CommitDetailPanel({
   onCopySha: sha => void copySha(sha),
   onOpenSha: sha => openDetailFor(sha),
   onCompareFrom: sha => compareFromCommit(sha),
+  onCopyLink: sha => void copyCommitLink(sha),
+  // Keep the URL in sync with the focused commit so it's a shareable
+  // permalink (W27); clearing on close drops the #commit/<sha> fragment.
+  onOpened: () => {
+    if (state.view === 'graph') syncHash();
+  },
+  onClosed: () => {
+    if (state.view === 'graph') syncHash();
+  },
 });
 
 /** The live graph controller (W16) — owns selection + scroll recycling. */
@@ -355,6 +364,16 @@ async function boot(): Promise<void> {
   // Open (or re-point) the live-refresh stream now we know the repo (W17).
   if (state.source === 'live') live.restart(state.repo);
   else live.stop();
+
+  // Open a commit permalink once the snapshot is in hand (W27). Only on the
+  // graph view, and only if the row still exists in the loaded history.
+  if (pendingCommitSha && state.view === 'graph') {
+    const sha = pendingCommitSha;
+    pendingCommitSha = null;
+    if (state.snapshot.commits.some(c => c.sha.toLowerCase().startsWith(sha))) {
+      openDetailFor(sha);
+    }
+  }
 }
 
 /**
@@ -1136,18 +1155,31 @@ function applyInitialRoute(): void {
     state.compareBase = route.base;
     state.compareHead = route.head;
   }
+  // Remember a commit permalink (#commit/<sha>, W27); boot() opens the
+  // detail panel once the snapshot has loaded.
+  if (route.view === 'graph' && route.sha) {
+    pendingCommitSha = route.sha;
+  }
 }
+
+/** A commit sha from a #commit/<sha> permalink, opened after boot (W27). */
+let pendingCommitSha: string | null = null;
 
 /** True while we're writing the hash ourselves, to ignore the echo event. */
 let writingHash = false;
 
-/** Write the current view/compare state into location.hash (W24). */
+/** Write the current view/compare state into location.hash (W24; W27). */
 function syncHash(): void {
   if (typeof location === 'undefined') return;
-  const route: Route =
-    state.view === 'compare'
-      ? { view: 'compare', base: state.compareBase, head: state.compareHead }
-      : { view: state.view };
+  let route: Route;
+  if (state.view === 'compare') {
+    route = { view: 'compare', base: state.compareBase, head: state.compareHead };
+  } else if (state.view === 'graph' && detailPanel.isOpen() && detailPanel.currentSha()) {
+    // A permalink to the focused commit (W27).
+    route = { view: 'graph', sha: detailPanel.currentSha()! };
+  } else {
+    route = { view: state.view };
+  }
   const next = buildHash(route);
   if (!hashChanged(location.hash, `#${next}`)) return;
   writingHash = true;
@@ -1160,22 +1192,42 @@ function syncHash(): void {
   }, 0);
 }
 
-/** Listen for back/forward (hashchange) and re-apply the route (W24). */
+/** Listen for back/forward (hashchange) and re-apply the route (W24; W27). */
 function installHashRouting(): void {
   window.addEventListener('hashchange', () => {
     if (writingHash) return;
     const route = parseHash(location.hash);
-    if (!route) return;
+    if (!route) {
+      // Hash cleared (e.g. back to base URL) -> close any open permalink.
+      if (state.view === 'graph' && detailPanel.isOpen()) detailPanel.close();
+      return;
+    }
     if (route.view === 'compare' && route.base && route.head) {
       const changed = route.base !== state.compareBase || route.head !== state.compareHead;
       state.compareBase = route.base;
       state.compareHead = route.head;
       if (changed) state.compare = slot<ComparePayload>();
     }
+    // Commit permalink on the graph view (W27): swap to graph WITHOUT the
+    // panel-closing switchView does, then open/close the detail to match the
+    // URL so back/forward navigates focused commits.
+    if (route.view === 'graph' && route.sha) {
+      if (state.view !== 'graph') {
+        state.view = 'graph';
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      }
+      if (detailPanel.currentSha() !== route.sha) openDetailFor(route.sha);
+      return;
+    }
     if (route.view !== state.view) {
       switchView(route.view);
     } else if (route.view === 'compare') {
       void ensureCompare();
+    } else if (route.view === 'graph' && detailPanel.isOpen()) {
+      // Same view, no sha in the URL -> close an open permalink.
+      detailPanel.close();
     }
   });
 }
@@ -1205,6 +1257,23 @@ async function copySha(sha: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(sha);
     toast(`Copied ${sha.slice(0, 7)}`);
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/**
+ * Copy a #commit/<sha> permalink to a specific commit (W27). Ensures the
+ * hash reflects the focused commit, then copies the full URL so a teammate
+ * lands on the same commit's detail panel.
+ */
+async function copyCommitLink(sha: string): Promise<void> {
+  if (typeof location === 'undefined') return;
+  const hash = buildHash({ view: 'graph', sha });
+  const url = `${location.origin}${location.pathname}${location.search}${hash ? `#${hash}` : ''}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Commit link copied');
   } catch {
     toast('Copy failed');
   }

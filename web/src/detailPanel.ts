@@ -39,6 +39,12 @@ export interface DetailPanelHandlers {
   onOpenSha?: (sha: string) => void;
   /** "Compare from here" — open the Compare view with this commit as base (W24). */
   onCompareFrom?: (sha: string) => void;
+  /** Copy a #commit/<sha> permalink to the focused commit (W27). */
+  onCopyLink?: (sha: string) => void;
+  /** Fired after the panel opens a commit (sha) — host syncs the URL (W27). */
+  onOpened?: (sha: string) => void;
+  /** Fired when the panel closes — host clears the permalink hash (W27). */
+  onClosed?: () => void;
 }
 
 /**
@@ -87,6 +93,8 @@ export class CommitDetailPanel {
     this.root.hidden = false;
     this.root.classList.add('show');
     this.showLoading(sha);
+    // Let the host reflect the focused commit in the URL (W27 permalink).
+    this.handlers.onOpened?.(sha);
 
     this.controller?.abort();
     this.controller = new AbortController();
@@ -102,11 +110,13 @@ export class CommitDetailPanel {
   }
 
   close(): void {
+    const wasOpen = !this.root.hidden;
     this.controller?.abort();
     this.controller = null;
     this.openSha = null;
     this.root.classList.remove('show');
     this.root.hidden = true;
+    if (wasOpen) this.handlers.onClosed?.();
   }
 
   private showLoading(sha: string): void {
@@ -147,15 +157,25 @@ export class CommitDetailPanel {
     ident.appendChild(shaChip);
     this.body.appendChild(ident);
 
-    // Quick actions (W24): "Compare from here" sets this commit as the
-    // Compare view's base ref. Only shown when the host wires the handler.
-    if (this.handlers.onCompareFrom) {
+    // Quick actions (W24/W27): "Compare from here" sets this commit as the
+    // Compare view's base ref; "Copy link" yields a #commit/<sha> permalink.
+    // Each is only shown when the host wires its handler.
+    if (this.handlers.onCompareFrom || this.handlers.onCopyLink) {
       const actions = el('div', 'detail-actions');
-      const cmp = el('button', 'detail-action');
-      cmp.innerHTML = `${icons.gitCompare}<span>Compare from here</span>`;
-      cmp.title = 'Compare this commit against HEAD';
-      cmp.addEventListener('click', () => this.handlers.onCompareFrom!(d.sha));
-      actions.appendChild(cmp);
+      if (this.handlers.onCompareFrom) {
+        const cmp = el('button', 'detail-action');
+        cmp.innerHTML = `${icons.gitCompare}<span>Compare from here</span>`;
+        cmp.title = 'Compare this commit against HEAD';
+        cmp.addEventListener('click', () => this.handlers.onCompareFrom!(d.sha));
+        actions.appendChild(cmp);
+      }
+      if (this.handlers.onCopyLink) {
+        const link = el('button', 'detail-action');
+        link.innerHTML = `${icons.link}<span>Copy link</span>`;
+        link.title = 'Copy a permalink to this commit';
+        link.addEventListener('click', () => this.handlers.onCopyLink!(d.sha));
+        actions.appendChild(link);
+      }
       this.body.appendChild(actions);
     }
 

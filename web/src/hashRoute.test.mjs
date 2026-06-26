@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -26,6 +26,39 @@ test('buildHash returns empty for the default graph view', () => {
 test('buildHash emits the bare name for other views', () => {
   assert.equal(buildHash({ view: 'stashes' }), 'stashes');
   assert.equal(buildHash({ view: 'blame' }), 'blame');
+});
+
+// ── commit permalink (W27) ───────────────────────────────────────────
+
+test('buildHash emits commit/<sha> for a graph route with a sha', () => {
+  assert.equal(buildHash({ view: 'graph', sha: 'a1b2c3d4' }), 'commit/a1b2c3d4');
+});
+
+test('buildHash lowercases + degrades an unsafe permalink sha', () => {
+  assert.equal(buildHash({ view: 'graph', sha: 'ABCDEF12' }), 'commit/abcdef12');
+  assert.equal(buildHash({ view: 'graph', sha: 'nothex!' }), '');
+});
+
+test('parseHash reads a commit permalink into a graph route + sha', () => {
+  assert.deepEqual(parseHash('#commit/a1b2c3d4'), { view: 'graph', sha: 'a1b2c3d4' });
+});
+
+test('parseHash drops an unsafe permalink sha to the bare graph view', () => {
+  assert.deepEqual(parseHash('#commit/..%2Fetc'), { view: 'graph' });
+  assert.deepEqual(parseHash('#commit/-rf'), { view: 'graph' });
+});
+
+test('sanitizeSha accepts hex 4-64 chars and rejects the rest', () => {
+  assert.equal(sanitizeSha('AbCd'), 'abcd');
+  assert.equal(sanitizeSha('  deadbeef '), 'deadbeef');
+  assert.equal(sanitizeSha('abc'), null); // too short
+  assert.equal(sanitizeSha('xyz1'), null); // non-hex
+  assert.equal(sanitizeSha('a'.repeat(65)), null); // too long
+});
+
+test('buildHash(parseHash(x)) round-trips a commit permalink', () => {
+  const original = 'commit/0123abcd';
+  assert.equal(buildHash(parseHash(original)), original);
 });
 
 // ── parseHash ────────────────────────────────────────────────────────

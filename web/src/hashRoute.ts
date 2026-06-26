@@ -1,17 +1,17 @@
 /**
- * Pure URL-hash routing for shareable compare links (W24).
+ * Pure URL-hash routing for shareable deep links (W24; commit permalinks W27).
  *
  * DOM-free + framework-free so it's unit-tested under node --test. Encodes
  * the active view's deep-linkable state into `location.hash` and parses it
- * back, so a comparison (and which tab you're on) survives a reload and can
- * be copied/bookmarked. Today only the Compare view carries shareable
- * params (base/head); the scheme is extensible per-view.
+ * back, so a comparison (W24), a focused commit (W27), or just which tab
+ * you're on survives a reload and can be copied/bookmarked.
  *
  * Hash grammar (after the leading '#'):
- *   compare?base=<ref>&head=<ref>
- *   graph            (bare view name = just the tab, no params)
- * Refs are validated with the same client-side sanitiser the compare form
- * uses, so a crafted hash can't inject a flag/space toward the companion.
+ *   compare?base=<ref>&head=<ref>   the Compare view, pre-loaded
+ *   commit/<sha>                    the graph with a commit detail open
+ *   graph                           bare view name = just the tab, no params
+ * Refs run through the compare sanitiser and a sha through `sanitizeSha`,
+ * so a crafted hash can't inject a flag/space toward the companion.
  *
  * Tests: web/src/hashRoute.test.mjs
  */
@@ -31,6 +31,11 @@ export interface CompareRoute {
 
 export interface PlainRoute {
   view: Exclude<RouteView, 'compare'>;
+  /**
+   * Only on a graph permalink (`#commit/<sha>`, W27): the commit to open
+   * the detail panel for. Absent for a bare view route.
+   */
+  sha?: string;
 }
 
 export type Route = CompareRoute | PlainRoute;
@@ -41,10 +46,22 @@ export function isRouteView(v: string): v is RouteView {
 }
 
 /**
+ * Normalise + validate a commit sha for a permalink (W27). Accepts a hex
+ * string of 4-64 chars (short sha through full sha-256), lowercased. Returns
+ * null for anything else so a crafted `#commit/...` can't smuggle a path or
+ * flag toward the companion's `git show`.
+ */
+export function sanitizeSha(sha: string): string | null {
+  const s = (sha ?? '').trim().toLowerCase();
+  return /^[0-9a-f]{4,64}$/.test(s) ? s : null;
+}
+
+/**
  * Build the hash string (without the leading '#') for a route. A compare
- * route with both refs emits `compare?base=..&head=..`; everything else is
- * the bare view name. Returns '' for the default (graph, no params) so we
- * can clear the hash rather than write `#graph`.
+ * route with both refs emits `compare?base=..&head=..`; a graph route with
+ * a sha emits `commit/<sha>`; everything else is the bare view name.
+ * Returns '' for the default (graph, no params) so we can clear the hash
+ * rather than write `#graph`.
  */
 export function buildHash(route: Route): string {
   if (route.view === 'compare') {
@@ -54,19 +71,30 @@ export function buildHash(route: Route): string {
     const p = new URLSearchParams({ base, head });
     return `compare?${p.toString()}`;
   }
+  if (route.view === 'graph' && route.sha) {
+    const sha = sanitizeSha(route.sha);
+    return sha ? `commit/${sha}` : '';
+  }
   return route.view === 'graph' ? '' : route.view;
 }
 
 /**
  * Parse a `location.hash` value into a Route, or null when it carries no
  * routable view. Tolerates a leading '#', surrounding whitespace, and an
- * unknown view name (returns null). Unsafe refs are dropped, degrading a
- * compare link to the bare Compare tab rather than passing junk on.
+ * unknown view name (returns null). Unsafe refs/shas are dropped, degrading
+ * a deep link to the bare tab rather than passing junk on.
  */
 export function parseHash(hash: string): Route | null {
   let h = (hash ?? '').trim();
   if (h.startsWith('#')) h = h.slice(1);
   if (!h) return null;
+
+  // Commit permalink: commit/<sha> -> the graph with that detail open (W27).
+  const commitMatch = /^commit\/(.+)$/.exec(h);
+  if (commitMatch) {
+    const sha = sanitizeSha(decodeURIComponent(commitMatch[1]));
+    return sha ? { view: 'graph', sha } : { view: 'graph' };
+  }
 
   const qIdx = h.indexOf('?');
   const viewName = (qIdx === -1 ? h : h.slice(0, qIdx)).toLowerCase();
