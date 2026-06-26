@@ -1,0 +1,98 @@
+/*
+ * Blame age legend + author-filter affordances (W40).
+ *
+ * Co-located + token-driven. The age strip's gradient is set inline from the
+ * heat ramp; everything else reads design tokens so it tracks the theme.
+ */
+
+/* Age-ramp legend: a label, a gradient strip, and tick labels. */
+.blame-age-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.blame-age-legend:empty {
+  display: none;
+}
+
+.blame-age-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--fg-faint);
+}
+
+.blame-age-strip {
+  flex: 0 0 180px;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.blame-age-ticks {
+  display: flex;
+  justify-content: space-between;
+  flex: 1 1 auto;
+  max-width: 320px;
+  font-variant-numeric: tabular-nums;
+}
+
+.blame-age-ticks span {
+  color: var(--fg-faint);
+}
+
+/* Clickable author legend chips (W40). */
+.blame-legend-item.clickable {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  transition: background 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+
+.blame-legend-item.clickable:hover {
+  background: var(--bg-hover);
+}
+
+.blame-legend-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.blame-legend-clear {
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-inset);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  margin-left: 4px;
+}
+
+.blame-legend-clear:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+/* Dimmed rows: a line by a non-isolated author (W40). */
+.blame-row.dim {
+  opacity: 0.32;
+  transition: opacity 0.12s var(--ease);
+}
+
+.blame-row.dim:hover {
+  opacity: 0.7;
+}

@@ -15,6 +15,7 @@
 import './styles.css';
 import './diffSplit.css';
 import './activityMetric.css';
+import './blameLegend.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
@@ -54,6 +55,7 @@ import { renderContributors } from './contributorsView';
 import { AuthorPanel } from './authorPanel';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
+import { toggleAuthorFilter } from './blameLegend';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
@@ -106,6 +108,8 @@ interface AppState {
   blamePath: string | null;
   /** The revision currently being blamed (default HEAD; W28 blame-at-commit). */
   blameRev: string;
+  /** The isolated author in the blame view, or null for all (W40). */
+  blameAuthor: string | null;
   /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
   blameLine: number | null;
   /** Live-refresh connection status (W17). */
@@ -140,6 +144,7 @@ const state: AppState = {
   blame: slot<BlamePayload>(),
   blamePath: null,
   blameRev: 'HEAD',
+  blameAuthor: null,
   blameLine: null,
   live: 'disconnected',
   compare: slot<ComparePayload>(),
@@ -1064,6 +1069,8 @@ function renderBlameView(): void {
     onLoad: (path: string) => loadBlamePath(path),
     revealLine: state.blameLine,
     rev: state.blameRev,
+    activeAuthor: state.blameAuthor,
+    onToggleAuthor: (author: string) => toggleBlameAuthor(author),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1247,11 +1254,23 @@ async function runBlame(rev: string, path: string, line: number | null): Promise
   state.blamePath = path;
   state.blameRev = rev;
   state.blameLine = line;
+  // A fresh file/rev starts with no author isolated (W40).
+  state.blameAuthor = null;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
   const res = await loadBlame(rev, path, { repo: state.repo ?? undefined });
   if (res.ok) state.blame = { status: 'ready', data: res.blame, error: '' };
   else state.blame = { status: 'error', data: null, error: res.error };
+  if (state.view === 'blame') renderBlameView();
+}
+
+/**
+ * Toggle the isolated blame author (W40). Clicking the active author clears
+ * the filter; clicking another switches to it. Pure toggle logic lives in
+ * blameLegend.toggleAuthorFilter; here we just re-render the loaded model.
+ */
+function toggleBlameAuthor(author: string): void {
+  state.blameAuthor = toggleAuthorFilter(state.blameAuthor, author);
   if (state.view === 'blame') renderBlameView();
 }
 

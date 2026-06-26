@@ -23,6 +23,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { blameHeat, type BlameModel, type BlameLineInfo } from '@shared/blame';
 import { heatColor, authorDot, relativeAgeFromUnix, blameSummary } from './blameFormat';
+import { buildAgeRamp, isAuthorDimmed } from './blameLegend';
 import {
   shouldVirtualizeBlame,
   blameWindow,
@@ -45,6 +46,13 @@ export interface BlameViewOptions {
    * "Blame at this commit" reads clearly; omitted/`HEAD` shows no badge.
    */
   rev?: string;
+  /**
+   * The currently-isolated author (W40). When set, lines by other authors
+   * fade so one person's contribution stands out. Null = no filter.
+   */
+  activeAuthor?: string | null;
+  /** Fired when a legend author is clicked (W40); host toggles the filter. */
+  onToggleAuthor?: (author: string) => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -71,38 +79,94 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
     return wrap;
   }
 
-  // Author legend.
+  // Author legend (W40: clickable to isolate one author; active one marked).
+  const active = opts.activeAuthor ?? null;
   const legend = el('div', 'blame-legend');
   const summary = el('span', 'blame-summary');
   summary.textContent = blameSummary(model.totalLines, model.authors.length);
   legend.appendChild(summary);
   for (const a of model.authors.slice(0, 10)) {
-    const item = el('span', 'blame-legend-item');
+    const isActive = active !== null && active.trim().toLowerCase() === a.author.trim().toLowerCase();
+    const item = el(
+      opts.onToggleAuthor ? 'button' : 'span',
+      'blame-legend-item' + (opts.onToggleAuthor ? ' clickable' : '') + (isActive ? ' active' : ''),
+    );
     const pct = Math.round(a.share * 100);
     item.innerHTML =
       `<span class="dot" style="background:${authorDot(a.author)}"></span>` +
       `<span class="who">${escapeHtml(a.author)}</span>` +
       `<span class="n">${a.lines} (${pct}%)</span>`;
+    if (opts.onToggleAuthor) {
+      (item as HTMLButtonElement).type = 'button';
+      item.title = isActive ? `Show all authors` : `Isolate ${a.author}`;
+      item.setAttribute('aria-pressed', String(isActive));
+      item.addEventListener('click', () => opts.onToggleAuthor!(a.author));
+    }
     legend.appendChild(item);
   }
+  // A clear-filter affordance when an author is isolated (W40).
+  if (active && opts.onToggleAuthor) {
+    const clear = el('button', 'blame-legend-clear');
+    clear.type = 'button';
+    clear.textContent = 'Show all';
+    clear.title = 'Clear author filter';
+    clear.addEventListener('click', () => opts.onToggleAuthor!(active));
+    legend.appendChild(clear);
+  }
   wrap.appendChild(legend);
+
+  // Age-ramp legend (W40): a key for what the heat strip's colours mean,
+  // oldest (cold) -> newest (hot), with relative-age tick labels.
+  wrap.appendChild(buildAgeLegend(model));
 
   // Rows: windowed for big files, plain for small ones.
   const rows = el('div', 'blame-rows');
   wrap.appendChild(rows);
   if (shouldVirtualizeBlame(model.lines.length)) {
-    new BlameWindowController(rows, model, opts.revealLine ?? null);
+    new BlameWindowController(rows, model, opts.revealLine ?? null, active);
   } else {
-    renderAllRows(rows, model, opts.revealLine ?? null);
+    renderAllRows(rows, model, opts.revealLine ?? null, active);
   }
 
   return wrap;
 }
 
+/**
+ * Build the age-ramp legend (W40): a gradient strip from oldest to newest
+ * with a handful of relative-age ticks, so the heat colours have a key.
+ */
+function buildAgeLegend(model: BlameModel): HTMLElement {
+  const wrap = el('div', 'blame-age-legend');
+  if (!model.oldest || !model.newest) return wrap;
+  const ramp = buildAgeRamp(model.oldest, model.newest, 5);
+  const label = el('span', 'blame-age-label', 'Age');
+  const strip = el('span', 'blame-age-strip');
+  // A left-to-right cold->hot gradient built from the ramp's heat stops.
+  const stops = ramp.map(s => heatColor(s.heat)).join(', ');
+  strip.style.background = `linear-gradient(to right, ${stops})`;
+  const ticks = el('span', 'blame-age-ticks');
+  ticks.innerHTML =
+    `<span>older</span>` +
+    ramp
+      .slice(1, -1)
+      .map(s => `<span>${escapeHtml(relativeAgeFromUnix(s.unixSec))}</span>`)
+      .join('') +
+    `<span>newer</span>`;
+  wrap.append(label, strip, ticks);
+  return wrap;
+}
+
 /** Build one blame row element for a line. */
-function blameRow(line: BlameLineInfo, model: BlameModel, positioned: boolean, index: number): HTMLElement {
+function blameRow(
+  line: BlameLineInfo,
+  model: BlameModel,
+  positioned: boolean,
+  index: number,
+  activeAuthor: string | null,
+): HTMLElement {
   const heat = blameHeat(line.authorTime, model.oldest, model.newest);
-  const row = el('div', 'blame-row');
+  const dimmed = isAuthorDimmed(line.author, activeAuthor);
+  const row = el('div', 'blame-row' + (dimmed ? ' dim' : ''));
   row.dataset.line = String(line.line);
   if (positioned) row.style.top = `${index * BLAME_ROW_H}px`;
   row.title = `${line.author} \u00b7 ${line.summary}`;
@@ -118,9 +182,9 @@ function blameRow(line: BlameLineInfo, model: BlameModel, positioned: boolean, i
 }
 
 /** Small-file path: mount every row, then optionally scroll to a line. */
-function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null): void {
+function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null): void {
   const frag = document.createDocumentFragment();
-  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i)));
+  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i, activeAuthor)));
   rows.appendChild(frag);
   if (revealLine) {
     // Defer until the node is in the DOM with a measurable scroll height.
@@ -141,12 +205,14 @@ function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number 
 class BlameWindowController {
   private readonly rows: HTMLElement;
   private readonly model: BlameModel;
+  private readonly activeAuthor: string | null;
   private win: WindowRange = { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
   private pendingReveal: number | null;
 
-  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null) {
+  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null) {
     this.rows = rows;
     this.model = model;
+    this.activeAuthor = activeAuthor;
     this.pendingReveal = revealLine;
     this.rows.classList.add('virtual');
     this.rows.style.height = `${blameContentHeight(model.lines.length)}px`;
@@ -178,7 +244,7 @@ class BlameWindowController {
     this.win = next;
     const frag = document.createDocumentFragment();
     for (let i = next.start; i < next.end; i++) {
-      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i));
+      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i, this.activeAuthor));
     }
     this.rows.replaceChildren(frag);
   }
