@@ -104,6 +104,27 @@ export const icons = {
     '<path d="M6.5 9.5a2.5 2.5 0 0 0 3.6.1l2-2a2.5 2.5 0 0 0-3.5-3.6l-1 1"/>' +
       '<path d="M9.5 6.5a2.5 2.5 0 0 0-3.6-.1l-2 2a2.5 2.5 0 0 0 3.5 3.6l1-1"/>',
   ),
+  // The Cmd / command glyph for the palette (W26).
+  command: svg(
+    '<path d="M6 4.5A1.5 1.5 0 1 0 4.5 6H6V4.5ZM10 4.5A1.5 1.5 0 1 1 11.5 6H10V4.5Z' +
+      'M6 11.5A1.5 1.5 0 1 1 4.5 10H6v1.5ZM10 11.5A1.5 1.5 0 1 0 11.5 10H10v1.5Z' +
+      'M6 6h4v4H6V6Z"/>',
+  ),
+  // Clipboard / copy for context-menu copy actions (W28).
+  copy: svg(
+    '<rect x="5.5" y="5.5" width="8" height="8" rx="1.4"/>' +
+      '<path d="M10.5 5.5V4a1.4 1.4 0 0 0-1.4-1.4H4A1.4 1.4 0 0 0 2.6 4v5.1A1.4 1.4 0 0 0 4 10.5h1.5"/>',
+  ),
+  // Globe for "open on remote" (W28) — host-detected web URL.
+  globe: svg(
+    '<circle cx="8" cy="8" r="6"/><path d="M2 8h12"/>' +
+      '<path d="M8 2c1.8 1.6 2.8 3.8 2.8 6S9.8 12.4 8 14C6.2 12.4 5.2 10.2 5.2 8S6.2 3.6 8 2Z"/>',
+  ),
+  // External-link arrow (W28) — used alongside globe for remote actions.
+  external: svg(
+    '<path d="M9 3h4v4"/><path d="M13 3 7.5 8.5"/>' +
+      '<path d="M11 9.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2.5"/>',
+  ),
 };
 
 export type IconName = keyof typeof icons;

@@ -56,6 +56,9 @@ import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
+import { CommandPalette } from './commandPalette';
+import type { PaletteItem } from './paletteSearch';
+import { buildRailSections, refQuery } from '@shared/refRail';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 
@@ -192,6 +195,74 @@ const live = new LiveClient({
 function openDetailFor(sha: string): void {
   void detailPanel.open(sha);
   graphController?.selectSha(sha);
+}
+
+/**
+ * Command palette (W26) — Cmd-K quick switcher. Its item list is rebuilt
+ * on every open (via the handler) so branch/tag entries reflect the
+ * currently-loaded snapshot. Running an item routes to a view, applies a
+ * ref filter, or fires a global action.
+ */
+const palette = new CommandPalette({
+  items: () => buildPaletteItems(),
+  onRun: item => runPaletteItem(item),
+});
+
+/** Assemble the palette's searchable items: views + refs + actions. */
+function buildPaletteItems(): PaletteItem[] {
+  const items: PaletteItem[] = [];
+  // Views (skip the one we're already on so the list stays useful).
+  for (const tab of TABS) {
+    if (tab.id === state.view) continue;
+    items.push({ id: `view:${tab.id}`, kind: 'view', label: tab.label, hint: 'View', value: `view:${tab.id}`, weight: 0 });
+  }
+  // Branch / remote / tag refs from the live snapshot -> ref-filtered graph.
+  for (const section of buildRailSections(state.snapshot.commits)) {
+    for (const ref of section.refs) {
+      items.push({
+        id: `ref:${ref.group}:${ref.name}`,
+        kind: 'ref',
+        label: ref.name,
+        hint: section.label.replace(/e?s$/, ''),
+        value: refQuery(ref),
+        weight: 1,
+      });
+    }
+  }
+  // Global actions.
+  const actions: Array<[string, string, string]> = [
+    ['reload', 'Reload from repository', 'Action'],
+    ['theme', `Switch to ${theme.chrome === 'dark' ? 'light' : 'dark'} theme`, 'Action'],
+    ['export', 'Export graph as SVG', 'Action'],
+  ];
+  for (const [id, label, hint] of actions) {
+    items.push({ id: `action:${id}`, kind: 'action', label, hint, value: `action:${id}`, weight: 2 });
+  }
+  return items;
+}
+
+/** Execute a palette selection. */
+function runPaletteItem(item: PaletteItem): void {
+  if (item.kind === 'view') {
+    switchView(item.value.slice('view:'.length) as AppView);
+  } else if (item.kind === 'ref') {
+    if (state.view !== 'graph') {
+      state.view = 'graph';
+      rebuildChrome();
+      syncHash();
+    }
+    applyFilter(item.value);
+  } else if (item.kind === 'action') {
+    const id = item.value.slice('action:'.length);
+    if (id === 'reload') void boot();
+    else if (id === 'theme') {
+      theme.toggleChrome();
+      rebuildChrome();
+    } else if (id === 'export') {
+      if (state.view !== 'graph') switchView('graph');
+      exportSvg();
+    }
+  }
 }
 
 /**
@@ -366,6 +437,14 @@ function buildTopbar(): HTMLElement {
     },
   });
 
+  // Command-palette trigger (W26) — discoverable Cmd-K affordance.
+  const cmdBtn = el('button', 'btn cmdk-btn');
+  cmdBtn.title = 'Command palette';
+  cmdBtn.setAttribute('aria-label', 'Open command palette');
+  const cmdKey = isApplePlatform() ? '\u2318K' : 'Ctrl K';
+  cmdBtn.innerHTML = `<span class="icon">${icons.command}</span><kbd>${cmdKey}</kbd>`;
+  cmdBtn.addEventListener('click', () => palette.show());
+
   const toggle = el('button', 'btn icon-only');
   const renderToggle = () => {
     toggle.innerHTML = theme.chrome === 'dark' ? icons.sun : icons.moon;
@@ -378,7 +457,7 @@ function buildTopbar(): HTMLElement {
     renderView();
   });
 
-  bar.append(brand, spacer, meta, palettePicker, toggle);
+  bar.append(brand, spacer, meta, palettePicker, cmdBtn, toggle);
   return bar;
 }
 
@@ -995,6 +1074,14 @@ function setStatus(msg: string): void {
 // ── Keyboard navigation (W4) ─────────────────────────────────────────
 function installKeyboard(): void {
   document.addEventListener('keydown', e => {
+    // Cmd-K / Ctrl-K toggles the command palette from anywhere (W26).
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      palette.toggle();
+      return;
+    }
+    // While the palette is open it owns the keyboard.
+    if (palette.isOpen()) return;
     const input = document.getElementById('filter-input') as HTMLInputElement | null;
     if (e.key === '/' && document.activeElement !== input && state.view === 'graph') {
       e.preventDefault();
@@ -1140,6 +1227,13 @@ function escapeText(s: string): string {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+/** True on macOS/iOS so we can show the Cmd glyph instead of Ctrl (W26). */
+function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const p = (navigator.platform || '') + ' ' + (navigator.userAgent || '');
+  return /Mac|iPhone|iPad|iPod/i.test(p);
 }
 
 mount();
