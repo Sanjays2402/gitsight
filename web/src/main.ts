@@ -60,6 +60,7 @@ import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
 import type { PaletteItem } from './paletteSearch';
+import { KeyboardHelp } from './keyboardHelp';
 import { openContextMenu, type ContextMenuItem } from './contextMenu';
 import { SearchHistory } from './searchHistory';
 import { buildRailSections, refQuery } from '@shared/refRail';
@@ -223,6 +224,15 @@ function openDetailFor(sha: string): void {
 const palette = new CommandPalette({
   items: () => buildPaletteItems(),
   onRun: item => runPaletteItem(item),
+});
+
+/**
+ * Keyboard help overlay (W37) — the `?` cheat-sheet. Reads the live view on
+ * open so it lists exactly the shortcuts in play. Read-only; Esc dismisses.
+ */
+const keyboardHelp = new KeyboardHelp({
+  view: () => state.view,
+  isMac: isApplePlatform(),
 });
 
 /**
@@ -544,6 +554,13 @@ function buildTopbar(): HTMLElement {
   cmdBtn.innerHTML = `<span class="icon">${icons.command}</span><kbd>${cmdKey}</kbd>`;
   cmdBtn.addEventListener('click', () => palette.show());
 
+  // Keyboard-help trigger (W37) — the `?` cheat-sheet, also clickable.
+  const helpBtn = el('button', 'btn icon-only');
+  helpBtn.title = 'Keyboard shortcuts (?)';
+  helpBtn.setAttribute('aria-label', 'Show keyboard shortcuts');
+  helpBtn.innerHTML = icons.help;
+  helpBtn.addEventListener('click', () => keyboardHelp.show());
+
   const toggle = el('button', 'btn icon-only');
   const renderToggle = () => {
     toggle.innerHTML = theme.chrome === 'dark' ? icons.sun : icons.moon;
@@ -556,7 +573,7 @@ function buildTopbar(): HTMLElement {
     renderView();
   });
 
-  bar.append(brand, spacer, meta, palettePicker, cmdBtn, toggle);
+  bar.append(brand, spacer, meta, palettePicker, cmdBtn, helpBtn, toggle);
   return bar;
 }
 
@@ -1247,7 +1264,22 @@ function installKeyboard(): void {
     }
     // While the palette is open it owns the keyboard.
     if (palette.isOpen()) return;
+    // The keyboard-help overlay (W37): Esc closes it; while open it swallows
+    // other keys so the cheat-sheet stays modal.
+    if (keyboardHelp.isOpen()) {
+      if (e.key === 'Escape' || e.key === '?') {
+        e.preventDefault();
+        keyboardHelp.close();
+      }
+      return;
+    }
     const input = document.getElementById('filter-input') as HTMLInputElement | null;
+    // `?` (Shift+/) opens the help overlay — but not while typing in a field.
+    if (e.key === '?' && document.activeElement !== input) {
+      e.preventDefault();
+      keyboardHelp.show();
+      return;
+    }
     if (e.key === '/' && document.activeElement !== input && state.view === 'graph') {
       e.preventDefault();
       input?.focus();
