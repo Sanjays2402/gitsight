@@ -1974,6 +1974,29 @@ button.author-file:hover {
   margin-left: 6px;
 }
 
+/* Word-level intra-line highlight (W34): a stronger tint on the changed
+   spans so a one-token edit stands out from the row's base add/del wash. */
+.diff-code .txt mark.word {
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.diff-row.add .txt mark.word {
+  background: rgba(52, 199, 89, 0.32);
+}
+.diff-row.del .txt mark.word {
+  background: rgba(240, 89, 106, 0.30);
+}
+[data-theme='light'] .diff-row.add .txt mark.word {
+  background: rgba(28, 156, 68, 0.26);
+}
+[data-theme='light'] .diff-row.del .txt mark.word {
+  background: rgba(216, 58, 75, 0.22);
+}
+
 /* ── View tabs (W11/W13/W14) ─────────────────────────────────────── */
 .tabs {
   flex: 0 0 auto;
