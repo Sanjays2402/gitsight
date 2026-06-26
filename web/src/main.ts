@@ -17,6 +17,7 @@ import './diffSplit.css';
 import './activityMetric.css';
 import './blameLegend.css';
 import './contributorCompare.css';
+import './stashCreate.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
@@ -36,6 +37,7 @@ import {
   loadDay,
   loadHealth,
   runStashAction,
+  runStashCreate,
   type StashActionKind,
   type ActivityPayload,
   type ContributorsPayload,
@@ -1183,9 +1185,26 @@ function renderStashesView(): void {
   const node = renderStashes(s.data, {
     loadDiff: (index: number, path: string) => loadStashDiff(index, path, { repo: state.repo ?? undefined }),
     onAction: state.allowMutations ? (action, entry) => void runStashMutation(action, entry) : undefined,
+    onCreate: state.allowMutations ? createOpts => void createStash(createOpts) : undefined,
   });
   surface.replaceChildren(node);
   updateCount(s.data.total, s.data.total, s.data.total === 1 ? 'stash' : 'stashes');
+}
+
+/**
+ * Create a stash from the web app (W42). POSTs to the guarded endpoint and
+ * re-renders from the fresh list. `created: false` (nothing to stash) is a
+ * friendly toast, not an error.
+ */
+async function createStash(opts: { message: string; includeUntracked: boolean; keepIndex: boolean }): Promise<void> {
+  const res = await runStashCreate(opts, { repo: state.repo ?? undefined });
+  if (res.ok) {
+    state.stashes = { status: 'ready', data: { stashes: res.result.stashes, total: res.result.total }, error: '' };
+    renderStashesView();
+    toast(res.result.created ? 'Stash created' : 'No local changes to stash');
+  } else {
+    toast(`Stash failed: ${res.error}`);
+  }
 }
 
 // ── Lazy data loaders ────────────────────────────────────────────────

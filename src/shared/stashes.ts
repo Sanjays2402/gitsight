@@ -278,3 +278,49 @@ export function stashActionLabel(action: StashAction): string {
 export function stashActionRemovesEntry(action: StashAction): boolean {
   return action === 'pop' || action === 'drop';
 }
+
+// ── Stash create (W42) — git stash push ──────────────────────────────
+
+/** Options for creating a stash from the web app (W42). */
+export interface StashPushOptions {
+  /** Optional message (`-m <message>`); blank means a default WIP subject. */
+  message?: string;
+  /** Include untracked files (`-u`). */
+  includeUntracked?: boolean;
+  /** Keep staged changes in the index (`--keep-index`). */
+  keepIndex?: boolean;
+}
+
+/** Max stash message length we accept (defensive bound on argv size). */
+export const STASH_MESSAGE_MAX = 500;
+
+/**
+ * Validate + normalise a stash message. A message is optional; when present
+ * it must be a string within the length bound and is trimmed of trailing
+ * whitespace. Control characters (newlines, NULs) are stripped so the
+ * subject stays a single clean line. Returns the cleaned message, or ''
+ * for "no message" (git then writes its default `WIP on <branch>` subject).
+ */
+export function normalizeStashMessage(message: unknown): string {
+  if (typeof message !== 'string') return '';
+  // Strip control chars (including newlines/NUL) so the subject is one line.
+  // eslint-disable-next-line no-control-regex
+  const cleaned = message.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  return cleaned.slice(0, STASH_MESSAGE_MAX);
+}
+
+/**
+ * Build the validated `git stash push` argv for a create (W42). The message
+ * is normalised + length-bounded, and is always passed via `-m <message>`
+ * (never concatenated) so it can't smuggle a flag. Boolean options map to
+ * their git flags. Mirrors the W25 mutation-argv discipline: every piece is
+ * a fixed token or a validated value.
+ */
+export function buildStashPushArgs(opts: StashPushOptions = {}): string[] {
+  const args = ['stash', 'push'];
+  if (opts.includeUntracked) args.push('--include-untracked');
+  if (opts.keepIndex) args.push('--keep-index');
+  const message = normalizeStashMessage(opts.message);
+  if (message) args.push('-m', message);
+  return args;
+}

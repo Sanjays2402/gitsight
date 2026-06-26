@@ -29,11 +29,19 @@ export interface StashViewOptions {
    * confirm step + the refresh.
    */
   onAction?: (action: StashActionKind, entry: StashEntry) => void;
+  /**
+   * Create a new stash (W42). When present (mutations enabled), a compact
+   * create form sits above the list. The handler owns the POST + refresh.
+   */
+  onCreate?: (opts: { message: string; includeUntracked: boolean; keepIndex: boolean }) => void;
 }
 
 /** Render the stash list into a detached node. */
 export function renderStashes(list: StashList | null, opts: StashViewOptions = {}): HTMLElement {
   const wrap = el('div', 'stashes');
+
+  // Create form (W42) — only when the mutating endpoint is enabled.
+  if (opts.onCreate) wrap.appendChild(buildCreateForm(opts.onCreate));
 
   if (!list || list.total === 0) {
     const empty = el('div', 'stashes-empty');
@@ -51,6 +59,50 @@ export function renderStashes(list: StashList | null, opts: StashViewOptions = {
 
   for (const entry of list.stashes) wrap.appendChild(stashCard(entry, opts));
   return wrap;
+}
+
+/**
+ * Compact "create stash" form (W42): a message field + two option toggles
+ * (include untracked, keep index) + a Stash button. Monochrome chrome.
+ */
+function buildCreateForm(
+  onCreate: (opts: { message: string; includeUntracked: boolean; keepIndex: boolean }) => void,
+): HTMLElement {
+  const form = el('form', 'stash-create');
+
+  const input = el('input', 'stash-create-msg') as HTMLInputElement;
+  input.type = 'text';
+  input.placeholder = 'Stash message (optional)';
+  input.setAttribute('aria-label', 'Stash message');
+  input.setAttribute('spellcheck', 'false');
+  input.maxLength = 500;
+
+  const mkToggle = (label: string, title: string): { wrap: HTMLElement; input: HTMLInputElement } => {
+    const wrap = el('label', 'stash-create-opt');
+    const box = el('input') as HTMLInputElement;
+    box.type = 'checkbox';
+    wrap.title = title;
+    const text = el('span', undefined, label);
+    wrap.append(box, text);
+    return { wrap, input: box };
+  };
+  const untracked = mkToggle('Untracked', 'Include untracked files (-u)');
+  const keepIndex = mkToggle('Keep staged', 'Keep staged changes in the index (--keep-index)');
+
+  const btn = el('button', 'btn primary stash-create-btn');
+  btn.type = 'submit';
+  btn.innerHTML = `${icons.archive}<span>Stash</span>`;
+
+  form.append(input, untracked.wrap, keepIndex.wrap, btn);
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    onCreate({
+      message: input.value.trim(),
+      includeUntracked: untracked.input.checked,
+      keepIndex: keepIndex.input.checked,
+    });
+  });
+  return form;
 }
 
 function stashCard(entry: StashEntry, opts: StashViewOptions): HTMLElement {

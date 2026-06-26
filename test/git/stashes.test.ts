@@ -15,6 +15,9 @@ import {
   buildStashActionArgs,
   stashActionLabel,
   stashActionRemovesEntry,
+  normalizeStashMessage,
+  buildStashPushArgs,
+  STASH_MESSAGE_MAX,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -171,4 +174,56 @@ test('stashActionLabel + stashActionRemovesEntry describe the outcome', () => {
   assert.equal(stashActionRemovesEntry('apply'), false);
   assert.equal(stashActionRemovesEntry('pop'), true);
   assert.equal(stashActionRemovesEntry('drop'), true);
+});
+
+// ── Stash create (W42) ───────────────────────────────────────────────
+
+test('normalizeStashMessage trims, strips control chars, and bounds length', () => {
+  assert.equal(normalizeStashMessage('  hello  '), 'hello');
+  assert.equal(normalizeStashMessage('line1\nline2\ttab'), 'line1 line2 tab');
+  assert.equal(normalizeStashMessage(''), '');
+  assert.equal(normalizeStashMessage(undefined), '');
+  assert.equal(normalizeStashMessage(42), '');
+  // NUL is stripped (would otherwise break argv).
+  assert.equal(normalizeStashMessage('a\u0000b'), 'a b');
+  // Length is bounded.
+  const long = 'x'.repeat(STASH_MESSAGE_MAX + 50);
+  assert.equal(normalizeStashMessage(long).length, STASH_MESSAGE_MAX);
+});
+
+test('buildStashPushArgs builds a bare push by default', () => {
+  assert.deepEqual(buildStashPushArgs(), ['stash', 'push']);
+  assert.deepEqual(buildStashPushArgs({}), ['stash', 'push']);
+});
+
+test('buildStashPushArgs maps options to flags + passes the message via -m', () => {
+  assert.deepEqual(buildStashPushArgs({ message: 'wip: refactor' }), [
+    'stash',
+    'push',
+    '-m',
+    'wip: refactor',
+  ]);
+  assert.deepEqual(buildStashPushArgs({ includeUntracked: true }), [
+    'stash',
+    'push',
+    '--include-untracked',
+  ]);
+  assert.deepEqual(buildStashPushArgs({ keepIndex: true, includeUntracked: true, message: 'm' }), [
+    'stash',
+    'push',
+    '--include-untracked',
+    '--keep-index',
+    '-m',
+    'm',
+  ]);
+});
+
+test('buildStashPushArgs never lets a flag-like message smuggle an option', () => {
+  // The message is always after `-m`, so even a flag-shaped message is a value.
+  const args = buildStashPushArgs({ message: '--include-untracked --evil' });
+  assert.deepEqual(args, ['stash', 'push', '-m', '--include-untracked --evil']);
+  // It sits in the value slot (right after -m), never as its own flag.
+  assert.equal(args[args.indexOf('-m') + 1], '--include-untracked --evil');
+  // A whitespace-only message is dropped (no empty -m value).
+  assert.deepEqual(buildStashPushArgs({ message: '   ' }), ['stash', 'push']);
 });

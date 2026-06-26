@@ -1,0 +1,54 @@
+/*
+ * Stash create form (W42) — message + options + Stash button above the list.
+ * Co-located + token-driven so it tracks the active theme.
+ */
+
+.stash-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+}
+
+.stash-create-msg {
+  flex: 1 1 240px;
+  min-width: 160px;
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.stash-create-msg:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.stash-create-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stash-create-opt input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.stash-create-btn {
+  flex: 0 0 auto;
+}

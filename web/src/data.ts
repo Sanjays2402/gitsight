@@ -526,6 +526,67 @@ export async function runStashAction(
   }
 }
 
+/** Options for creating a stash from the web app (W42). */
+export interface StashCreateOptions {
+  message?: string;
+  includeUntracked?: boolean;
+  keepIndex?: boolean;
+}
+
+/** The post-create payload: whether a stash was created + the fresh list. */
+export interface StashCreatePayload extends StashList {
+  created: boolean;
+  message: string;
+}
+
+export type StashCreateResult =
+  | { ok: true; result: StashCreatePayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isStashCreatePayload(v: unknown): v is StashCreatePayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.created === 'boolean' && Array.isArray(o.stashes) && typeof o.total === 'number';
+}
+
+/**
+ * Create a stash (W42): POST to the companion's guarded /api/stash-create.
+ * Mirrors runStashAction — the companion re-validates + returns the fresh
+ * stash list. `created` is false when there was nothing to stash.
+ */
+export async function runStashCreate(
+  body: StashCreateOptions,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<StashCreateResult> {
+  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  try {
+    const res = await fetch(`/api/stash-create${qs}`, {
+      method: 'POST',
+      signal: opts.signal,
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let detail = `${res.status}`;
+      try {
+        const errBody = await res.json();
+        if (errBody && typeof errBody.error === 'string') detail = errBody.error;
+      } catch {
+        /* non-JSON error body */
+      }
+      return { ok: false, error: detail, offline: false };
+    }
+    const payload: unknown = await res.json();
+    if (!isStashCreatePayload(payload)) {
+      return { ok: false, error: 'Unexpected response shape from /api/stash-create', offline: false };
+    }
+    return { ok: true, result: payload };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg, offline: true };
+  }
+}
+
 // ── Shared JSON fetch ────────────────────────────────────────────────
 
 type JsonResult<T> =

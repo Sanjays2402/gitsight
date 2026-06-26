@@ -64,6 +64,7 @@ import {
   stashRefForIndex,
   buildStashActionArgs,
   stashActionRemovesEntry,
+  buildStashPushArgs,
   STASH_LIST_FORMAT,
 } from '../../src/shared/stashes.ts';
 
@@ -461,6 +462,41 @@ export async function runStashActionForRepo(repo, action, index) {
     message: stdout.trim(),
     ...list,
   };
+}
+
+/**
+ * Create a stash from the web app (W42): `git stash push` with an optional
+ * message + include-untracked + keep-index. The argv is built by the shared
+ * `buildStashPushArgs`, which normalises the message + always passes it via
+ * `-m <value>` so it can't smuggle a flag. Returns the post-create stash
+ * list (so the client re-renders without a second round-trip) plus a `created`
+ * flag (false when there was nothing to stash — git exits non-zero, which we
+ * translate into a clean "no local changes" outcome rather than a 400).
+ */
+export async function runStashCreateForRepo(repo, opts = {}) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  const args = buildStashPushArgs({
+    message: opts.message,
+    includeUntracked: !!opts.includeUntracked,
+    keepIndex: !!opts.keepIndex,
+  });
+  let message = '';
+  let created = true;
+  try {
+    message = (await git(repo, args)).trim();
+    // git prints "No local changes to save" and exits 0 in that case.
+    if (/no local changes to save/i.test(message)) created = false;
+  } catch (e) {
+    const text = String(e?.stderr ?? e?.message ?? e);
+    if (/no local changes to save/i.test(text)) {
+      created = false;
+      message = 'No local changes to save';
+    } else {
+      throw e;
+    }
+  }
+  const list = await buildStashesForRepo(repo);
+  return { created, message, ...list };
 }
 
 /**
@@ -942,6 +978,32 @@ export function createCompanionServer(opts) {
           const body = await readJsonBody(req);
           const repo = resolveRequestRepo(url.searchParams, opts);
           const result = await runStashActionForRepo(repo, body.action, body.index);
+          sendJson(res, 200, result);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e) });
+        }
+        return;
+      }
+      // POST /api/stash-create {message?,includeUntracked?,keepIndex?} (W42).
+      // Creates a stash via `git stash push`. Same guards as stash-action:
+      // POST-only + disabled unless --allow-mutations. Returns the fresh list.
+      if (url.pathname === '/api/stash-create') {
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'method not allowed; use POST' });
+          return;
+        }
+        if (!opts.allowMutations) {
+          sendJson(res, 403, { error: 'stash mutations are disabled (start with --allow-mutations)' });
+          return;
+        }
+        try {
+          const body = await readJsonBody(req);
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const result = await runStashCreateForRepo(repo, {
+            message: body.message,
+            includeUntracked: body.includeUntracked,
+            keepIndex: body.keepIndex,
+          });
           sendJson(res, 200, result);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e) });

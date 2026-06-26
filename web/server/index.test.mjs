@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, buildAuthorDetailForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo, runStashActionForRepo, readJsonBody } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, buildAuthorDetailForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo, runStashActionForRepo, runStashCreateForRepo, readJsonBody } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -704,6 +704,74 @@ test('runStashActionForRepo rejects a bad action / index (no injection)', async 
 test('parseArgs reads --allow-mutations (defaults off)', () => {
   assert.equal(parseArgs([]).allowMutations, false);
   assert.equal(parseArgs(['--allow-mutations']).allowMutations, true);
+});
+
+// ── runStashCreateForRepo (W42, integration) ─────────────────────────
+
+test('runStashCreateForRepo stashes working changes with a message', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stashnew-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await writeFile(join(dir, 'f.txt'), 'base\n');
+    await git(['add', 'f.txt']);
+    await git(['commit', '-q', '-m', 'init']);
+    // Dirty the tree, then stash via the builder.
+    await writeFile(join(dir, 'f.txt'), 'edited\n');
+
+    const result = await runStashCreateForRepo(dir, { message: 'wip: my work' });
+    assert.equal(result.created, true);
+    assert.equal(result.total, 1);
+    assert.match(result.stashes[0].subject, /wip: my work/);
+    // The working tree is clean again (the change went into the stash).
+    const status = (await git(['status', '--porcelain'])).stdout.trim();
+    assert.equal(status, '');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('runStashCreateForRepo includes untracked files when asked', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stashnewu-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    // A brand-new untracked file: only -u captures it.
+    await writeFile(join(dir, 'new.txt'), 'fresh\n');
+
+    const result = await runStashCreateForRepo(dir, { includeUntracked: true });
+    assert.equal(result.created, true);
+    assert.equal(result.total, 1);
+    const status = (await git(['status', '--porcelain'])).stdout.trim();
+    assert.equal(status, '');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('runStashCreateForRepo reports created=false when there is nothing to stash', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-stashnoop-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    // Clean tree -> nothing to stash. Should NOT throw; created=false.
+    const result = await runStashCreateForRepo(dir, { message: 'noop' });
+    assert.equal(result.created, false);
+    assert.equal(result.total, 0);
+    assert.match(result.message, /no local changes/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('readJsonBody parses a small JSON object and rejects junk', async () => {
