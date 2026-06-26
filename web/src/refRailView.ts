@@ -31,6 +31,8 @@ export interface RefRailOptions {
   onPick: (query: string, ref: RailRef) => void;
   /** Fired when the "all" / clear row is clicked. */
   onClear: () => void;
+  /** Fired when a ref's detail caret is clicked (W29 popover) with the anchor. */
+  onShowDetail?: (ref: RailRef, anchor: HTMLElement) => void;
 }
 
 /** Build the rail node from a snapshot. Returns null when there are no refs. */
@@ -55,14 +57,30 @@ export function createRefRail(opts: RefRailOptions): HTMLElement | null {
     sec.appendChild(head);
 
     for (const ref of section.refs) {
-      const item = el('button', 'rail-ref' + (ref.name === opts.activeRef ? ' active' : ''));
+      const item = el('div', 'rail-ref' + (ref.name === opts.activeRef ? ' active' : ''));
       item.title = ref.name;
       const ico = icons[GROUP_ICON[ref.group]] ?? icons.branch;
-      item.innerHTML =
+      const pick = el('button', 'rail-ref-pick');
+      pick.innerHTML =
         `<span class="rail-ico">${ico}</span>` +
         `<span class="rail-name">${escapeHtml(ref.name)}</span>` +
         (ref.isHead ? `<span class="rail-head" title="HEAD">HEAD</span>` : '');
-      item.addEventListener('click', () => opts.onPick(refQuery(ref), ref));
+      pick.addEventListener('click', () => opts.onPick(refQuery(ref), ref));
+      item.appendChild(pick);
+
+      // Detail caret (W29): opens a popover with the ref's tip + ahead/behind.
+      if (opts.onShowDetail) {
+        const caret = el('button', 'rail-caret');
+        caret.title = 'Ref details';
+        caret.setAttribute('aria-label', `Details for ${ref.name}`);
+        caret.innerHTML = icons.chevron;
+        caret.addEventListener('click', e => {
+          e.stopPropagation();
+          opts.onShowDetail!(ref, caret);
+        });
+        item.appendChild(caret);
+      }
+
       sec.appendChild(item);
     }
     rail.appendChild(sec);

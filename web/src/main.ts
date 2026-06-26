@@ -43,6 +43,8 @@ import { ThemeController } from './theme';
 import { createPalettePicker } from './palettePicker';
 import { createRepoPicker } from './repoPicker';
 import { createRefRail, activeRefFromFilter } from './refRailView';
+import { openRefDetail } from './refDetailPopover';
+import type { RailRef } from '@shared/refRail';
 import { CommitDetailPanel } from './detailPanel';
 import { DayPanel } from './dayPanel';
 import { renderActivity } from './activityView';
@@ -769,6 +771,7 @@ function buildMainArea(): HTMLElement {
       activeRef: activeRefFromFilter(state.filter),
       onPick: query => applyFilter(query),
       onClear: () => applyFilter(''),
+      onShowDetail: (ref, anchor) => showRefDetail(ref, anchor),
     });
     if (rail) {
       if (state.layout.railIsDrawer) rail.classList.add('drawer');
@@ -803,6 +806,45 @@ function applyFilter(query: string): void {
 function rebuildMainArea(): void {
   const old = document.querySelector('.main-area');
   if (old) old.replaceWith(buildMainArea());
+}
+
+/**
+ * Find HEAD's tip sha in the loaded snapshot (W29). HEAD is the commit
+ * carrying a `HEAD -> ` decoration, or a bare `HEAD` ref; falls back to the
+ * newest commit so ahead/behind still has a sensible baseline.
+ */
+function headTipSha(): string {
+  const commits = state.snapshot.commits;
+  const head = commits.find(c =>
+    c.refs.some(r => /^HEAD\b/.test(r.trim()) || r.trim() === 'HEAD'),
+  );
+  return head?.sha ?? commits[0]?.sha ?? '';
+}
+
+/**
+ * Open the ref-detail popover (W29) for a rail ref: tip commit + ahead/
+ * behind vs HEAD (computed client-side), with filter / open-tip / compare
+ * actions. All data comes from the loaded snapshot — no backend call.
+ */
+function showRefDetail(ref: RailRef, anchor: HTMLElement): void {
+  openRefDetail(ref, anchor, state.snapshot.commits, headTipSha(), {
+    onFilter: r => applyFilter(refQueryFor(r)),
+    onOpenTip: sha => openDetailFor(sha),
+    onCompare: r => compareRefToHead(r),
+  });
+}
+
+/** The `ref:` query for a rail ref (quote when the name needs it). */
+function refQueryFor(ref: RailRef): string {
+  return /[\s"]/.test(ref.name) ? `ref:"${ref.name}"` : `ref:${ref.name}`;
+}
+
+/** Compare a ref against HEAD in the Compare view (W29 action). */
+function compareRefToHead(ref: RailRef): void {
+  state.view = 'compare';
+  rebuildChrome();
+  syncHash();
+  void runCompare(ref.name, 'HEAD');
 }
 
 function showLoading(): void {

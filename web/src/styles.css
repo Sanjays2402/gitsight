@@ -588,7 +588,7 @@ body {
 }
 
 .rail-all,
-.rail-ref {
+.rail-ref-pick {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -602,6 +602,18 @@ body {
   border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
+}
+
+/* The ref row is a flex container: the pick button + a detail caret (W29). */
+.rail-ref {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+
+.rail-ref-pick {
+  flex: 1;
+  min-width: 0;
 }
 
 .rail-all:hover,
@@ -619,6 +631,38 @@ body {
 .rail-all.active .rail-ico,
 .rail-ref.active .rail-ico {
   color: var(--accent);
+}
+
+/* Ref-detail caret (W29) — appears on hover, opens the popover. */
+.rail-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  color: var(--fg-faint);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s var(--ease), color 0.1s var(--ease), background 0.1s var(--ease);
+}
+
+.rail-caret svg {
+  width: 13px;
+  height: 13px;
+}
+
+.rail-ref:hover .rail-caret {
+  opacity: 1;
+}
+
+.rail-caret:hover {
+  color: var(--accent);
+  background: var(--bg-active);
 }
 
 .rail-ico {
@@ -3246,4 +3290,151 @@ button.author-file:hover {
   height: 1px;
   margin: 4px 6px;
   background: var(--border);
+}
+
+/* ── Ref-detail popover (W29) ────────────────────────────────────── */
+.ref-detail {
+  position: fixed;
+  z-index: 70;
+  width: 268px;
+  padding: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 0.1s var(--ease), transform 0.1s var(--ease);
+}
+
+.ref-detail.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ref-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ref-detail-head .rd-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-detail-head .rd-group {
+  flex: 0 0 auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.rd-aheadbehind {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.rd-ico {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+  flex: 0 0 auto;
+}
+
+.rd-tip {
+  padding: 9px 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-tip-subject {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rd-tip-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+.rd-tip-author {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-tip-age {
+  flex: 0 0 auto;
+}
+
+.rd-tip-sha {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.rd-tip-missing {
+  font-size: 11.5px;
+  color: var(--fg-faint);
+  line-height: 1.5;
+}
+
+.rd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rd-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color 0.1s var(--ease), border-color 0.1s var(--ease);
+}
+
+.rd-action:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.rd-action:hover .rd-ico {
+  color: var(--accent);
 }
