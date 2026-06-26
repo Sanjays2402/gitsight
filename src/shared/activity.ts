@@ -89,6 +89,124 @@ function dayDate(key: string): Date {
   return new Date(`${key}T00:00:00Z`);
 }
 
+/** Whole-day distance b - a between two day keys (negative if b precedes a). */
+function dayDiff(a: string, b: string): number {
+  return Math.round((dayDate(b).getTime() - dayDate(a).getTime()) / MS_PER_DAY);
+}
+
+/** A commit-activity streak summary (W33). */
+export interface ActivityStreak {
+  /** Longest run of consecutive active calendar days (0 when none). */
+  longest: number;
+  /** First/last day (YYYY-MM-DD) of the longest run, or null when none. */
+  longestStart: string | null;
+  longestEnd: string | null;
+  /**
+   * Run of consecutive active days ending on the most recent active day
+   * (0 when none). This is the "current" streak even if it has lapsed.
+   */
+  current: number;
+  /** First day of the current run, or null when none. */
+  currentStart: string | null;
+  /** The most recent active day overall, or null. */
+  lastActive: string | null;
+  /**
+   * True when the current run is still alive relative to `now` — i.e. the
+   * last active day is today or within `graceDays` of it. A lapsed streak
+   * (last commit several days ago) reports `live: false`.
+   */
+  live: boolean;
+}
+
+export interface StreakOptions {
+  /** "Now" reference in ms (injectable for tests). Default Date.now(). */
+  now?: number;
+  /**
+   * How many days the last active day may trail `now` and still count as a
+   * live streak. Default 1 (today or yesterday), which also absorbs most
+   * author-local vs UTC midnight edge cases.
+   */
+  graceDays?: number;
+}
+
+/**
+ * Compute current + longest commit streaks from a set of active day keys
+ * (W33). Pure + order-independent: dedupes + sorts the input, then walks it
+ * counting runs of consecutive calendar days. A "run" is a maximal sequence
+ * where each day is exactly one day after the previous.
+ *
+ * The CURRENT streak is the run ending on the most recent active day; it is
+ * flagged `live` when that day is within `graceDays` of `now` (so a streak
+ * that lapsed days ago still reports its length but `live: false`).
+ *
+ * `now` is compared in UTC (matching the UTC-midnight day maths the
+ * calendar uses); the 1-day default grace absorbs timezone skew at the day
+ * boundary, so the readout doesn't flicker around local midnight.
+ */
+export function buildStreaks(days: string[], opts: StreakOptions = {}): ActivityStreak {
+  const now = opts.now ?? Date.now();
+  const grace = Math.max(0, Math.floor(opts.graceDays ?? 1));
+
+  const keys = [...new Set(days.filter(isDayKey))].sort();
+  if (keys.length === 0) {
+    return {
+      longest: 0,
+      longestStart: null,
+      longestEnd: null,
+      current: 0,
+      currentStart: null,
+      lastActive: null,
+      live: false,
+    };
+  }
+
+  let longest = 0;
+  let longestStart: string | null = null;
+  let longestEnd: string | null = null;
+
+  let runStart = keys[0];
+  let runLen = 1;
+  const commit = (start: string, end: string, len: number): void => {
+    if (len > longest) {
+      longest = len;
+      longestStart = start;
+      longestEnd = end;
+    }
+  };
+
+  for (let i = 1; i < keys.length; i++) {
+    if (dayDiff(keys[i - 1], keys[i]) === 1) {
+      runLen++;
+    } else {
+      commit(runStart, keys[i - 1], runLen);
+      runStart = keys[i];
+      runLen = 1;
+    }
+  }
+  const lastActive = keys[keys.length - 1];
+  commit(runStart, lastActive, runLen);
+
+  // The current run is the final run (it ends on lastActive).
+  const current = runLen;
+  const currentStart = runStart;
+  const nowKey = new Date(now).toISOString().slice(0, 10);
+  const gap = dayDiff(lastActive, nowKey);
+  const live = gap >= 0 && gap <= grace;
+
+  return { longest, longestStart, longestEnd, current, currentStart, lastActive, live };
+}
+
+/** Extract the active (count > 0, non-filler) day keys from a calendar. */
+export function activeDaysOf(cal: ActivityCalendar): string[] {
+  const out: string[] = [];
+  for (const week of cal.weeks) {
+    for (const day of week) {
+      if (!day.filler && day.count > 0) out.push(day.date);
+    }
+  }
+  return out;
+}
+
 /** Format a UTC Date back to a YYYY-MM-DD key. */
 function keyOf(d: Date): string {
   return d.toISOString().slice(0, 10);

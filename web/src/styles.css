@@ -2114,6 +2114,40 @@ button.author-file:hover {
   letter-spacing: 0.05em;
 }
 
+/* Streak stats (W33): a hairline divider sets them apart from the counts. */
+.activity-stat.streak {
+  position: relative;
+  padding-left: 26px;
+}
+.activity-stat.streak::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--border);
+}
+.activity-stat.streak + .activity-stat.streak {
+  padding-left: 18px;
+}
+.activity-stat.streak + .activity-stat.streak::before {
+  display: none;
+}
+.activity-stat.streak.live .n {
+  color: var(--accent);
+}
+/* A small hollow dot marks a lapsed (not-live) current streak. */
+.activity-stat .streak-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--fg-faint);
+  vertical-align: middle;
+}
+
 .activity-range {
   margin-left: auto;
   align-self: flex-end;

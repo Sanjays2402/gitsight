@@ -13,6 +13,7 @@
 
 import { el } from './format';
 import { escapeHtml } from '@shared/graphCore';
+import { buildStreaks, activeDaysOf } from '@shared/activity';
 import type { ActivityCalendar, ActivityDay } from '@shared/activity';
 
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -39,6 +40,28 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
     `<div class="activity-stat"><span class="n">${cal.total}</span><span class="l">commits</span></div>` +
     `<div class="activity-stat"><span class="n">${cal.activeDays}</span><span class="l">active days</span></div>` +
     `<div class="activity-stat"><span class="n">${cal.max}</span><span class="l">busiest day</span></div>`;
+
+  // Streak readout (W33): current + longest runs of consecutive active days.
+  // The "current" run is dim when it has lapsed (live=false) so an unbroken
+  // streak reads as the live, accented one.
+  const streak = buildStreaks(activeDaysOf(cal));
+  if (streak.longest > 0) {
+    const curClass = streak.live ? 'activity-stat streak live' : 'activity-stat streak';
+    const curTitle = streak.live
+      ? `Current streak: ${dayLabel(streak.currentStart, streak.lastActive)}`
+      : streak.lastActive
+        ? `Last active ${escapeHtml(streak.lastActive)} — streak lapsed`
+        : '';
+    head.insertAdjacentHTML(
+      'beforeend',
+      `<div class="${curClass}" title="${curTitle}">` +
+        `<span class="n">${streak.current}${streak.live ? '' : '<span class="streak-dot" aria-hidden="true"></span>'}</span>` +
+        `<span class="l">current streak</span></div>` +
+        `<div class="activity-stat streak" title="Longest streak: ${dayLabel(streak.longestStart, streak.longestEnd)}">` +
+        `<span class="n">${streak.longest}</span><span class="l">longest streak</span></div>`,
+    );
+  }
+
   if (cal.first && cal.last) {
     const span = el('div', 'activity-range');
     span.textContent = `${cal.first} \u2192 ${cal.last}`;
@@ -117,4 +140,10 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
 /** Helper: the since/until filter a day click should produce. */
 export function dayFilter(day: ActivityDay): string {
   return `since:${escapeHtml(day.date)} until:${escapeHtml(day.date)}`;
+}
+
+/** Tooltip label for a streak span: "Jun 01 -> Jun 11" or a single day. */
+function dayLabel(start: string | null, end: string | null): string {
+  if (!start || !end) return '';
+  return start === end ? escapeHtml(start) : `${escapeHtml(start)} \u2192 ${escapeHtml(end)}`;
 }
