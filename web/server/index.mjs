@@ -210,7 +210,7 @@ export async function buildCommitDetailForRepo(repo, rev) {
  * the shared FileDiff shape. Scopes `git show` to one pathspec so we
  * never stream a huge multi-file patch to the browser.
  */
-export async function buildFileDiffForRepo(repo, rev, path) {
+export async function buildFileDiffForRepo(repo, rev, path, opts = {}) {
   await git(repo, ['rev-parse', '--git-dir']);
   if (!isSafeRev(rev)) {
     throw new Error(`invalid revision: ${rev}`);
@@ -220,19 +220,12 @@ export async function buildFileDiffForRepo(repo, rev, path) {
   }
   // `--` separates the rev from the pathspec so a path that looks like a
   // flag can't be reinterpreted as one. `-M -C` enable rename/copy
-  // detection so the diff header carries the old path.
-  const stdout = await git(repo, [
-    'show',
-    '--no-color',
-    '--first-parent',
-    '-m',
-    '-M',
-    '-C',
-    '--format=',
-    rev,
-    '--',
-    path,
-  ]);
+  // detection so the diff header carries the old path. `-w` (W31) drops
+  // whitespace-only changes when the caller asks to ignore them.
+  const args = ['show', '--no-color', '--first-parent', '-m', '-M', '-C'];
+  if (opts.ignoreWhitespace) args.push('-w');
+  args.push('--format=', rev, '--', path);
+  const stdout = await git(repo, args);
   const files = parseUnifiedDiff(stdout);
   // Prefer the file whose post-image path matches the request; fall back
   // to the first stanza (renames change the path under us).
@@ -796,13 +789,14 @@ export function createCompanionServer(opts) {
         }
         return;
       }
-      // GET /api/diff?rev=<rev>&path=<file> -> parsed FileDiff for one file.
+      // GET /api/diff?rev=<rev>&path=<file>&ws=ignore -> parsed FileDiff.
       if (url.pathname === '/api/diff') {
         const rev = url.searchParams.get('rev') ?? 'HEAD';
         const path = url.searchParams.get('path') ?? '';
+        const ignoreWhitespace = url.searchParams.get('ws') === 'ignore';
         try {
           const repo = resolveRequestRepo(url.searchParams, opts);
-          const diff = await buildFileDiffForRepo(repo, rev, path);
+          const diff = await buildFileDiffForRepo(repo, rev, path, { ignoreWhitespace });
           sendJson(res, 200, diff);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), rev, path });

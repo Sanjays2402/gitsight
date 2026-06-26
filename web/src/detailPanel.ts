@@ -45,6 +45,13 @@ export interface DetailPanelHandlers {
   onOpened?: (sha: string) => void;
   /** Fired when the panel closes — host clears the permalink hash (W27). */
   onClosed?: () => void;
+  /** Diff display settings + toggles (W31). When present, the files header
+   *  carries a wrap + ignore-whitespace control. */
+  diffSettings?: {
+    get: () => { wrap: boolean; ignoreWhitespace: boolean };
+    toggleWrap: () => void;
+    toggleIgnoreWhitespace: () => void;
+  };
 }
 
 /**
@@ -221,7 +228,39 @@ export class CommitDetailPanel {
     // File list.
     const filesWrap = el('div', 'detail-files');
     const filesHead = el('div', 'files-head');
-    filesHead.textContent = diffstatSummary(d.filesChanged, d.insertions, d.deletions);
+    const filesLabel = el('span', 'files-head-label');
+    filesLabel.textContent = diffstatSummary(d.filesChanged, d.insertions, d.deletions);
+    filesHead.appendChild(filesLabel);
+
+    // Diff display toggles (W31): wrap + ignore-whitespace. Toggling flips
+    // the host store, which persists + (for whitespace) re-fetches.
+    const ds = this.handlers.diffSettings;
+    if (ds) {
+      const cur = ds.get();
+      const opts = el('span', 'diff-opts');
+      const wrapBtn = el('button', 'diff-opt' + (cur.wrap ? ' on' : ''));
+      wrapBtn.type = 'button';
+      wrapBtn.textContent = 'Wrap';
+      wrapBtn.title = 'Soft-wrap long diff lines';
+      wrapBtn.setAttribute('aria-pressed', String(cur.wrap));
+      wrapBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        ds.toggleWrap();
+        wrapBtn.classList.toggle('on');
+        wrapBtn.setAttribute('aria-pressed', String(ds.get().wrap));
+      });
+      const wsBtn = el('button', 'diff-opt' + (cur.ignoreWhitespace ? ' on' : ''));
+      wsBtn.type = 'button';
+      wsBtn.textContent = 'Ignore whitespace';
+      wsBtn.title = 'Hide whitespace-only changes (git -w)';
+      wsBtn.setAttribute('aria-pressed', String(cur.ignoreWhitespace));
+      wsBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        ds.toggleIgnoreWhitespace();
+      });
+      opts.append(wrapBtn, wsBtn);
+      filesHead.appendChild(opts);
+    }
     filesWrap.appendChild(filesHead);
 
     for (const f of d.files) {

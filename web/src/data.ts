@@ -115,10 +115,11 @@ export function isFileDiffPayload(v: unknown): v is FileDiffPayload {
 export async function loadFileDiff(
   rev: string,
   path: string,
-  opts: { signal?: AbortSignal; repo?: string } = {},
+  opts: { signal?: AbortSignal; repo?: string; ignoreWhitespace?: boolean } = {},
 ): Promise<FileDiffResult> {
   const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
-  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}`;
+  const wsParam = opts.ignoreWhitespace ? '&ws=ignore' : '';
+  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}${wsParam}`;
   try {
     const res = await fetch(`/api/diff${qs}`, {
       signal: opts.signal,

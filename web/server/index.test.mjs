@@ -217,6 +217,35 @@ test('buildFileDiffForRepo flags a binary file and rejects bad input', async () 
   }
 });
 
+test('buildFileDiffForRepo ignoreWhitespace drops a whitespace-only change (W31)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-fws-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'test@gitsight.local']);
+    await git(['config', 'user.name', 'GitSight Test']);
+    await pexec('bash', ['-c', 'printf "alpha\\nbeta\\n" > ws.txt'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'base']);
+    // Reindent only: add trailing spaces + leading indent, no content change.
+    await pexec('bash', ['-c', 'printf "alpha  \\n  beta\\n" > ws.txt'], { cwd: dir });
+    await git(['add', '-A']);
+    await git(['commit', '-q', '-m', 'reindent']);
+
+    // Default: the whitespace edit shows as a hunk.
+    const normal = await buildFileDiffForRepo(dir, 'HEAD', 'ws.txt');
+    assert.ok(normal.file);
+    assert.ok(normal.file.hunks.length >= 1);
+
+    // -w: the whitespace-only change yields an empty diff (no stanza to
+    // parse), so the file resolves to null — the UI renders "no diff".
+    const ignored = await buildFileDiffForRepo(dir, 'HEAD', 'ws.txt', { ignoreWhitespace: true });
+    assert.equal(ignored.file, null);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 // ── scanReposUnder (integration) ─────────────────────────────────────
 
 test('scanReposUnder finds git repos one level under the root', async () => {

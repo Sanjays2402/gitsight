@@ -65,6 +65,7 @@ import { matchCommits } from './paletteSearch';
 import { KeyboardHelp } from './keyboardHelp';
 import { openContextMenu, type ContextMenuItem } from './contextMenu';
 import { SearchHistory } from './searchHistory';
+import { DiffSettingsStore } from './diffSettingsStore';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
@@ -117,6 +118,9 @@ interface AppState {
 
 const theme = new ThemeController();
 
+/** Diff display settings (W31): wrap + ignore-whitespace, persisted. */
+const diffSettings = new DiffSettingsStore();
+
 const state: AppState = {
   snapshot: DEMO_SNAPSHOT,
   filter: '',
@@ -145,7 +149,11 @@ const root = document.getElementById('app')!;
 /** Slide-in commit-detail panel (W6). Fed by /api/commit/<sha>. */
 const detailPanel = new CommitDetailPanel({
   load: sha => loadCommitDetail(sha, { repo: state.repo ?? undefined }),
-  loadDiff: (rev, path) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
+  loadDiff: (rev, path) =>
+    loadFileDiff(rev, path, {
+      repo: state.repo ?? undefined,
+      ignoreWhitespace: diffSettings.get().ignoreWhitespace,
+    }),
   onCopySha: sha => void copySha(sha),
   onOpenSha: sha => openDetailFor(sha),
   onCompareFrom: sha => compareFromCommit(sha),
@@ -157,6 +165,12 @@ const detailPanel = new CommitDetailPanel({
   },
   onClosed: () => {
     if (state.view === 'graph') syncHash();
+  },
+  // Diff display toggles (W31) live in the panel's files header.
+  diffSettings: {
+    get: () => diffSettings.get(),
+    toggleWrap: () => diffSettings.toggleWrap(),
+    toggleIgnoreWhitespace: () => diffSettings.toggleIgnoreWhitespace(),
   },
 });
 
@@ -434,6 +448,15 @@ async function blameAtCommit(sha: string): Promise<void> {
 
 function mount(): void {
   theme.applyChrome();
+  // Reflect the persisted diff-wrap preference onto <html> before paint (W31).
+  diffSettings.applyToRoot();
+  // When the diff settings change, refresh whatever diff surface is live so
+  // an ignore-whitespace toggle re-fetches (wrap is pure CSS via the root attr).
+  diffSettings.onChange(() => {
+    const sha = detailPanel.currentSha();
+    if (detailPanel.isOpen() && sha) void detailPanel.open(sha);
+    if (state.view === 'compare') renderCompareView();
+  });
   // Restore the deep-linked view/compare refs from the URL hash (W24)
   // BEFORE the first paint so a shared compare link opens on its tab.
   applyInitialRoute();
@@ -1047,7 +1070,11 @@ function renderCompareView(): void {
     base: state.compareBase,
     head: state.compareHead,
     onCompare: (base: string, head: string) => runCompare(base, head),
-    loadDiff: (rev: string, path: string) => loadFileDiff(rev, path, { repo: state.repo ?? undefined }),
+    loadDiff: (rev: string, path: string) =>
+      loadFileDiff(rev, path, {
+        repo: state.repo ?? undefined,
+        ignoreWhitespace: diffSettings.get().ignoreWhitespace,
+      }),
     onOpenCommit: (sha: string) => openDetailFor(sha),
     onCopySha: (sha: string) => void copySha(sha),
     onShareLink: () => void shareCompareLink(),
