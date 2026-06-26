@@ -338,6 +338,126 @@ body {
   color: var(--fg-faint);
 }
 
+/* ── Search history + saved filters (W30) ────────────────────────── */
+.search-history {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 46;
+  padding: 5px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-history-head {
+  padding: 6px 9px 7px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-faint);
+}
+
+.search-history-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-md);
+}
+
+.search-history-row:hover {
+  background: var(--bg-hover);
+}
+
+.shr-apply {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.shr-ico {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+  flex: 0 0 auto;
+}
+
+.search-history-row.pinned .shr-ico {
+  color: var(--accent);
+}
+
+.shr-q {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.shr-pin,
+.shr-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  color: var(--fg-faint);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s var(--ease), color 0.1s var(--ease);
+}
+
+.shr-pin svg,
+.shr-del svg {
+  width: 14px;
+  height: 14px;
+}
+
+.search-history-row:hover .shr-pin,
+.search-history-row:hover .shr-del,
+.shr-pin.on {
+  opacity: 1;
+}
+
+.shr-pin.on {
+  color: var(--accent);
+}
+
+.shr-pin:hover {
+  color: var(--accent);
+  background: var(--bg-active);
+}
+
+.shr-del:hover {
+  color: var(--danger);
+  background: var(--bg-active);
+}
+
 .btn {
   height: 32px;
   display: inline-flex;

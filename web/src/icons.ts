@@ -125,6 +125,17 @@ export const icons = {
     '<path d="M9 3h4v4"/><path d="M13 3 7.5 8.5"/>' +
       '<path d="M11 9.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2.5"/>',
   ),
+  // Outline pin for "pin this filter" (W30).
+  pin: svg(
+    '<path d="M9.5 2.5 13.5 6.5l-2.4.5-2.7 2.7-.5 2.8-3.7-3.7 2.8-.5L9 4.9Z"/>' +
+      '<path d="M5.7 10.3 2.5 13.5"/>',
+  ),
+  // Filled pin for a pinned filter (W30).
+  pinned: svg(
+    '<path d="M9.5 2.2 13.8 6.5l-2.6.5-2.7 2.7-.5 2.9-3.9-3.9 2.9-.5L9 4.8Z"/>' +
+      '<path d="M5.5 10.5 2.2 13.8"/>',
+    { fill: true },
+  ),
 };
 
 export type IconName = keyof typeof icons;

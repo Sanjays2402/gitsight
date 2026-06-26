@@ -59,6 +59,7 @@ import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
 import type { PaletteItem } from './paletteSearch';
 import { openContextMenu, type ContextMenuItem } from './contextMenu';
+import { SearchHistory } from './searchHistory';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
@@ -220,6 +221,22 @@ function openDetailFor(sha: string): void {
 const palette = new CommandPalette({
   items: () => buildPaletteItems(),
   onRun: item => runPaletteItem(item),
+});
+
+/**
+ * Search history + saved filters (W30). Persists the structured queries the
+ * user runs (recent + pinned) and surfaces them as a dropdown under the
+ * graph search box. Applying a row drives the same filter path as typing.
+ */
+const searchHistory = new SearchHistory({
+  onApply: query => {
+    const input = document.getElementById('filter-input') as HTMLInputElement | null;
+    if (input) input.value = query;
+    state.filter = query;
+    searchHistory.record(query);
+    rebuildMainArea();
+    renderView();
+  },
 });
 
 /** Assemble the palette's searchable items: views + refs + actions. */
@@ -616,6 +633,7 @@ function buildToolbar(): HTMLElement {
   input.setAttribute('spellcheck', 'false');
   input.setAttribute('autocomplete', 'off');
   let t: number | undefined;
+  let recordTimer: number | undefined;
   input.addEventListener('input', () => {
     window.clearTimeout(t);
     t = window.setTimeout(() => {
@@ -623,8 +641,16 @@ function buildToolbar(): HTMLElement {
       rebuildMainArea();
       renderView();
     }, 120);
+    // Record the query as a recent only after the user pauses typing, so we
+    // don't store every intermediate keystroke (W30).
+    window.clearTimeout(recordTimer);
+    recordTimer = window.setTimeout(() => {
+      if (state.filter) searchHistory.record(state.filter);
+    }, 900);
   });
   search.appendChild(input);
+  // Surface recent/pinned filters as a dropdown under the box (W30).
+  searchHistory.attach(input, search);
 
   const help = el('button', 'btn icon-only');
   help.title = 'Search syntax';
@@ -766,6 +792,9 @@ function applyFilter(query: string): void {
   state.filter = query;
   const input = document.getElementById('filter-input') as HTMLInputElement | null;
   if (input) input.value = query;
+  // A deliberate filter (rail click, ref jump, search-syntax) is worth
+  // remembering; an empty clear is not (W30).
+  if (query) searchHistory.record(query);
   rebuildMainArea();
   renderView();
 }
