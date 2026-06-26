@@ -19,7 +19,7 @@
 /** A selectable command-palette entry. `value` is what the host acts on. */
 export interface PaletteItem {
   id: string;
-  kind: 'view' | 'ref' | 'search' | 'action';
+  kind: 'view' | 'ref' | 'search' | 'action' | 'commit';
   label: string;
   /** Subtitle / category shown dim on the right (e.g. "View", "Branch"). */
   hint?: string;
@@ -156,4 +156,81 @@ export function highlightRuns(label: string, positions: number[]): LabelRun[] {
   }
   if (buf) runs.push({ text: buf, match: bufMatch });
   return runs;
+}
+
+/** The minimal commit shape the palette commit-search needs (W32). */
+export interface CommitLike {
+  sha: string;
+  shortSha: string;
+  subject: string;
+  author: string;
+}
+
+export interface CommitMatch<T extends CommitLike = CommitLike> {
+  commit: T;
+  /** Higher is a better match. */
+  score: number;
+  /** Why it matched — drives which field the UI emphasises. */
+  reason: 'sha' | 'subject' | 'author';
+  /** Matched positions in the subject (for highlighting), when reason=subject. */
+  positions: number[];
+}
+
+/** A 4-64 char hex string smells like a sha prefix the user is pasting. */
+function looksLikeShaQuery(q: string): boolean {
+  return /^[0-9a-f]{4,64}$/i.test(q);
+}
+
+/**
+ * Rank a snapshot's commits against a free-text query for the Cmd-K commit
+ * search (W32). Pure + DOM-free. Three match modes, in priority order:
+ *
+ *   1. SHA PREFIX — when the query is hex (4+ chars), match commits whose
+ *      full sha starts with it. An exact-ish prefix is the strongest signal.
+ *   2. SUBJECT — fuzzy-subsequence match on the commit subject (reusing the
+ *      same scorer as the command list).
+ *   3. AUTHOR — substring match on the author name (a weaker, last-resort
+ *      signal so "alice" surfaces her commits).
+ *
+ * Results sort by score desc, then by input order (newest-first, since git
+ * emits commits newest-first). Capped to `limit`.
+ */
+export function matchCommits<T extends CommitLike>(
+  commits: T[],
+  query: string,
+  limit = 8,
+): CommitMatch<T>[] {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const lower = q.toLowerCase();
+  const isSha = looksLikeShaQuery(q);
+  const out: CommitMatch<T>[] = [];
+
+  commits.forEach((commit, i) => {
+    // Newest-first ordering bonus so ties favour recent commits.
+    const recency = -i * 0.001;
+
+    if (isSha && commit.sha.toLowerCase().startsWith(lower)) {
+      out.push({ commit, score: 1000 + recency, reason: 'sha', positions: [] });
+      return;
+    }
+
+    const subjectMatch = fuzzyMatch(q, commit.subject);
+    if (subjectMatch) {
+      out.push({
+        commit,
+        score: 100 + subjectMatch.score + recency,
+        reason: 'subject',
+        positions: subjectMatch.positions,
+      });
+      return;
+    }
+
+    if (commit.author.toLowerCase().includes(lower)) {
+      out.push({ commit, score: 10 + recency, reason: 'author', positions: [] });
+    }
+  });
+
+  out.sort((a, b) => b.score - a.score);
+  return out.slice(0, Math.max(0, limit));
 }

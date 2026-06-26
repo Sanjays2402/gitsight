@@ -55,6 +55,11 @@ export class SearchHistory {
     return this.entries.length > 0;
   }
 
+  /** The pinned (saved) queries, for surfacing in the command palette (W32). */
+  pinnedQueries(): string[] {
+    return this.entries.filter(e => e.pinned).map(e => e.query);
+  }
+
   isOpen(): boolean {
     return this.panel !== null;
   }

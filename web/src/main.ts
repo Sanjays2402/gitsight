@@ -59,7 +59,9 @@ import { buildHash, parseHash, hashChanged, type Route } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
+import type { PaletteCommitItem } from './commandPalette';
 import type { PaletteItem } from './paletteSearch';
+import { matchCommits } from './paletteSearch';
 import { KeyboardHelp } from './keyboardHelp';
 import { openContextMenu, type ContextMenuItem } from './contextMenu';
 import { SearchHistory } from './searchHistory';
@@ -224,6 +226,7 @@ function openDetailFor(sha: string): void {
 const palette = new CommandPalette({
   items: () => buildPaletteItems(),
   onRun: item => runPaletteItem(item),
+  commitSearch: query => buildCommitItems(query),
 });
 
 /**
@@ -277,11 +280,44 @@ function buildPaletteItems(): PaletteItem[] {
     ['reload', 'Reload from repository', 'Action'],
     ['theme', `Switch to ${theme.chrome === 'dark' ? 'light' : 'dark'} theme`, 'Action'],
     ['export', 'Export graph as SVG', 'Action'],
+    ['help', 'Show keyboard shortcuts', 'Action'],
   ];
   for (const [id, label, hint] of actions) {
     items.push({ id: `action:${id}`, kind: 'action', label, hint, value: `action:${id}`, weight: 2 });
   }
+  // Saved (pinned) search filters (W30/W32) -> re-apply straight from Cmd-K.
+  for (const query of searchHistory.pinnedQueries()) {
+    items.push({
+      id: `saved:${query}`,
+      kind: 'search',
+      label: query,
+      hint: 'Saved filter',
+      value: `saved:${query}`,
+      weight: 3,
+    });
+  }
   return items;
+}
+
+/**
+ * Commit-search palette items (W32). Reuses the pure `matchCommits` ranker
+ * over the loaded snapshot so typing a sha prefix, a subject fragment, or an
+ * author name surfaces matching commits inline; running one opens its detail.
+ */
+function buildCommitItems(query: string): PaletteCommitItem[] {
+  const matches = matchCommits(state.snapshot.commits, query, 8);
+  return matches.map(m => {
+    const reasonHint =
+      m.reason === 'sha' ? 'Commit' : m.reason === 'author' ? `Commit \u00b7 ${m.commit.author}` : 'Commit';
+    return {
+      id: `commit:${m.commit.sha}`,
+      kind: 'commit',
+      label: m.commit.subject,
+      hint: `${m.commit.shortSha} \u00b7 ${reasonHint}`,
+      value: `commit:${m.commit.sha}`,
+      matchPositions: m.positions,
+    };
+  });
 }
 
 /** Execute a palette selection. */
@@ -295,6 +331,22 @@ function runPaletteItem(item: PaletteItem): void {
       syncHash();
     }
     applyFilter(item.value);
+  } else if (item.kind === 'commit') {
+    // W32: jump straight to the commit's detail (switch to the graph so the
+    // selection + permalink line up).
+    const sha = item.value.slice('commit:'.length);
+    if (state.view !== 'graph') switchView('graph');
+    openDetailFor(sha);
+  } else if (item.kind === 'search') {
+    // A saved (pinned) filter (W32) — re-apply it on the graph.
+    const query = item.value.slice('saved:'.length);
+    if (state.view !== 'graph') {
+      state.view = 'graph';
+      rebuildChrome();
+      syncHash();
+    }
+    applyFilter(query);
+    searchHistory.record(query);
   } else if (item.kind === 'action') {
     const id = item.value.slice('action:'.length);
     if (id === 'reload') void boot();
@@ -304,6 +356,8 @@ function runPaletteItem(item: PaletteItem): void {
     } else if (id === 'export') {
       if (state.view !== 'graph') switchView('graph');
       exportSvg();
+    } else if (id === 'help') {
+      keyboardHelp.show();
     }
   }
 }

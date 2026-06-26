@@ -29,6 +29,20 @@ export interface CommandPaletteHandlers {
   items: () => PaletteItem[];
   /** Run a chosen item. The palette closes first, then calls this. */
   onRun: (item: PaletteItem) => void;
+  /**
+   * Optional commit-search provider (W32): given the live query, return
+   * commit palette items (kind 'commit') to interleave below the commands.
+   * Called on every keystroke so it reflects the typed query. The match
+   * positions for subject highlighting ride along in `matchPositions`.
+   */
+  commitSearch?: (query: string) => PaletteCommitItem[];
+}
+
+/** A commit-search result enriched with its subject highlight positions. */
+export interface PaletteCommitItem extends PaletteItem {
+  kind: 'commit';
+  /** Positions into `label` to emphasise (subject fuzzy match). */
+  matchPositions?: number[];
 }
 
 const KIND_GLYPH: Record<PaletteItem['kind'], keyof typeof icons> = {
@@ -36,9 +50,12 @@ const KIND_GLYPH: Record<PaletteItem['kind'], keyof typeof icons> = {
   ref: 'branch',
   search: 'search',
   action: 'command',
+  commit: 'mark',
 };
 
 const MAX_RESULTS = 60;
+/** Commit results are capped tighter so they never bury the commands. */
+const MAX_COMMITS = 8;
 
 export class CommandPalette {
   private root: HTMLElement;
@@ -64,7 +81,7 @@ export class CommandPalette {
     head.innerHTML = `<span class="palette-ico">${icons.search}</span>`;
     this.input = el('input', 'palette-input');
     this.input.type = 'text';
-    this.input.placeholder = 'Jump to a view, branch, or action…';
+    this.input.placeholder = 'Search commits, jump to a view, branch, or action…';
     this.input.setAttribute('aria-label', 'Search commands');
     this.input.setAttribute('spellcheck', 'false');
     this.input.setAttribute('autocomplete', 'off');
@@ -115,8 +132,22 @@ export class CommandPalette {
   }
 
   private refilter(): void {
+    const query = this.input.value;
     const items = this.handlers.items();
-    this.ranked = rankItems(items, this.input.value).slice(0, MAX_RESULTS);
+    const commands = rankItems(items, query).slice(0, MAX_RESULTS);
+
+    // Interleave commit-search results (W32) below the commands. They're
+    // appended as RankedItems whose positions drive the subject highlight,
+    // so renderList stays uniform.
+    const commits: RankedItem[] = [];
+    if (this.handlers.commitSearch) {
+      const matches = this.handlers.commitSearch(query).slice(0, MAX_COMMITS);
+      for (const m of matches) {
+        commits.push({ item: m, match: { score: 0, positions: m.matchPositions ?? [] } });
+      }
+    }
+
+    this.ranked = [...commands, ...commits];
     this.active = 0;
     this.renderList();
   }

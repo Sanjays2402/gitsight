@@ -11,6 +11,7 @@ import {
   rankItems,
   isWordStart,
   highlightRuns,
+  matchCommits,
 } from './paletteSearch.ts';
 
 // ── fuzzyMatch ───────────────────────────────────────────────────────
@@ -122,4 +123,52 @@ test('highlightRuns coalesces non-adjacent matches into separate runs', () => {
 test('highlightRuns with no positions returns one plain run', () => {
   assert.deepEqual(highlightRuns('Graph', []), [{ text: 'Graph', match: false }]);
   assert.deepEqual(highlightRuns('', []), []);
+});
+
+// ── matchCommits (W32) ───────────────────────────────────────────────
+
+const COMMITS = [
+  { sha: 'aabbccdd1111', shortSha: 'aabbccd', subject: 'Fix the lane layout', author: 'Alice' },
+  { sha: 'bb22ee003344', shortSha: 'bb22ee0', subject: 'Add stash visualizer', author: 'Bob' },
+  { sha: 'ccaa118899ff', shortSha: 'ccaa118', subject: 'Refactor the renderer', author: 'Alice' },
+];
+
+test('matchCommits ignores too-short queries', () => {
+  assert.deepEqual(matchCommits(COMMITS, ''), []);
+  assert.deepEqual(matchCommits(COMMITS, 'a'), []);
+});
+
+test('matchCommits matches a sha prefix as the strongest signal', () => {
+  const r = matchCommits(COMMITS, 'aabb');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].commit.shortSha, 'aabbccd');
+  assert.equal(r[0].reason, 'sha');
+});
+
+test('matchCommits is case-insensitive on sha prefixes', () => {
+  const r = matchCommits(COMMITS, 'AABB');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].reason, 'sha');
+});
+
+test('matchCommits fuzzy-matches the subject and returns highlight positions', () => {
+  const r = matchCommits(COMMITS, 'stash');
+  assert.ok(r.length >= 1);
+  assert.equal(r[0].commit.subject, 'Add stash visualizer');
+  assert.equal(r[0].reason, 'subject');
+  assert.ok(r[0].positions.length > 0);
+});
+
+test('matchCommits falls back to an author substring match', () => {
+  const r = matchCommits(COMMITS, 'bob');
+  assert.ok(r.some(m => m.reason === 'author' && m.commit.author === 'Bob'));
+});
+
+test('matchCommits ranks sha > subject > author and caps the result', () => {
+  // "Alice" authored two; a subject hit should outrank a pure author hit.
+  const r = matchCommits(COMMITS, 'refactor');
+  assert.equal(r[0].reason, 'subject');
+  // Limit is honoured.
+  assert.ok(matchCommits(COMMITS, 'a', 2).length <= 2);
+  assert.ok(matchCommits(COMMITS, 'alice', 1).length <= 1);
 });
