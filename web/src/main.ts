@@ -24,6 +24,7 @@ import {
   loadRepos,
   loadActivity,
   loadContributors,
+  loadAuthor,
   loadBlame,
   loadCompare,
   loadStashes,
@@ -42,7 +43,8 @@ import { createRefRail, activeRefFromFilter } from './refRailView';
 import { CommitDetailPanel } from './detailPanel';
 import { DayPanel } from './dayPanel';
 import { renderActivity } from './activityView';
-import { renderContributors, contributorFilter } from './contributorsView';
+import { renderContributors } from './contributorsView';
+import { AuthorPanel } from './authorPanel';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
 import { renderCompare } from './compareView';
@@ -146,6 +148,25 @@ const dayPanel = new DayPanel({
 });
 
 /**
+ * Contributor detail panel (W23). Opened from a leaderboard row; shows the
+ * author's sparkline + most-touched files and routes into graph / blame.
+ */
+const authorPanel = new AuthorPanel({
+  load: email => loadAuthor(email, { repo: state.repo ?? undefined }),
+  onViewCommits: (email, name) => {
+    state.view = 'graph';
+    rebuildChrome();
+    const value = email || name;
+    applyFilter(/\s/.test(value) ? `author:"${value}"` : `author:${value}`);
+  },
+  onOpenFile: path => {
+    state.view = 'blame';
+    rebuildChrome();
+    void loadBlamePath(path);
+  },
+});
+
+/**
  * Live-refresh client (W17). Re-pulls the snapshot when the companion
  * reports the watched repo's graph changed, and reflects connection state
  * in the status bar. Auto-refresh only triggers in live mode; demo data
@@ -193,6 +214,7 @@ async function boot(): Promise<void> {
   showLoading();
   detailPanel.close();
   dayPanel.close();
+  authorPanel.close();
   const result = await loadSnapshot({ repo: state.repo ?? undefined });
   if (result.ok) {
     state.snapshot = result.snapshot;
@@ -355,6 +377,7 @@ function switchView(view: AppView): void {
   state.view = view;
   detailPanel.close();
   dayPanel.close();
+  authorPanel.close();
   rebuildChrome();
   // Lazily kick off the data load for the freshly-opened view.
   if (view === 'activity') void ensureActivity();
@@ -646,9 +669,7 @@ function renderContributorsView(): void {
   }
   const node = renderContributors(s.data, {
     onPick: c => {
-      state.view = 'graph';
-      rebuildChrome();
-      applyFilter(contributorFilter(c));
+      void authorPanel.open(c.email || c.name, c.name);
     },
   });
   surface.replaceChildren(node);

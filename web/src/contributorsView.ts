@@ -87,9 +87,3 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
   wrap.appendChild(list);
   return wrap;
 }
-
-/** The author: filter a contributor click should produce. */
-export function contributorFilter(c: Contributor): string {
-  const value = c.email || c.name;
-  return /\s/.test(value) ? `author:"${value}"` : `author:${value}`;
-}

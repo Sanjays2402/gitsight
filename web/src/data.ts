@@ -14,6 +14,7 @@ import type { RepoEntry } from '@shared/repoPicker';
 import type { BlameModel } from '@shared/blame';
 import type { ActivityCalendar } from '@shared/activity';
 import type { ContributorStats } from '@shared/contributors';
+import type { AuthorDetail } from '@shared/authorDetail';
 import type { RangeComparison } from '@shared/rangeCompare';
 import type { StashList } from '@shared/stashes';
 
@@ -316,6 +317,38 @@ export async function loadContributors(
   const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
   return fetchJson<ContributorsPayload>(`/api/contributors${qs}`, isContributorsPayload, opts.signal).then(r =>
     r.ok ? { ok: true, stats: r.value } : r,
+  );
+}
+
+// ── Author detail (W23) ──────────────────────────────────────────────
+
+export type AuthorDetailPayload = AuthorDetail & { repo: string; head: string };
+
+export type AuthorResult =
+  | { ok: true; detail: AuthorDetailPayload }
+  | { ok: false; error: string; offline: boolean };
+
+export function isAuthorPayload(v: unknown): v is AuthorDetailPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.email === 'string' &&
+    typeof o.commits === 'number' &&
+    Array.isArray(o.files) &&
+    !!o.sparkline &&
+    typeof o.sparkline === 'object'
+  );
+}
+
+/** Fetch the per-author detail dashboard (W23). */
+export async function loadAuthor(
+  email: string,
+  opts: { signal?: AbortSignal; repo?: string } = {},
+): Promise<AuthorResult> {
+  const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
+  const qs = `?email=${encodeURIComponent(email)}${repoParam}`;
+  return fetchJson<AuthorDetailPayload>(`/api/author${qs}`, isAuthorPayload, opts.signal).then(r =>
+    r.ok ? { ok: true, detail: r.value } : r,
   );
 }
 

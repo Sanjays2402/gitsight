@@ -46,6 +46,11 @@ import { parsePorcelainBlame } from '../../src/shared/blame.ts';
 import { buildActivityCalendar, isDayKey, filterCommitsByDay } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
 import {
+  buildAuthorSparkline,
+  aggregateAuthorFiles,
+  AUTHOR_FILES_FORMAT,
+} from '../../src/shared/authorDetail.ts';
+import {
   gitChangeTriggersRefresh,
   formatSseMessage,
 } from '../../src/shared/repoWatch.ts';
@@ -271,6 +276,60 @@ export async function buildContributorsForRepo(repo, max) {
   const snapshot = await buildSnapshotForRepo(repo, max);
   const stats = buildContributors(snapshot.commits);
   return { repo: snapshot.repo, head: snapshot.head, ...stats };
+}
+
+/**
+ * Build the per-author detail dashboard (W23): the author's commit
+ * sparkline (folded from the snapshot dates already in hand) + the files
+ * they touch most (a scoped `git log --author --numstat` read, exact-email
+ * filtered). The leaderboard supplies identity (name/email/counts); we just
+ * deepen one author. `email` is validated as a plausible address so it
+ * can't smuggle a flag into the argv.
+ */
+export function isPlausibleEmail(email) {
+  return typeof email === 'string' && email.length > 0 && email.length <= 320 && !/[\s]/.test(email) && !email.startsWith('-');
+}
+
+export async function buildAuthorDetailForRepo(repo, email, max, fileLimit = 40) {
+  await git(repo, ['rev-parse', '--git-dir']);
+  if (!isPlausibleEmail(email)) throw new Error(`invalid author: ${email}`);
+
+  const snapshot = await buildSnapshotForRepo(repo, max);
+  const want = email.trim().toLowerCase();
+  const mine = snapshot.commits.filter(c => (c.email || '').trim().toLowerCase() === want);
+  // Identity from the snapshot (newest spelling of the name).
+  const name = mine.length ? mine[0].author : email;
+  const dates = mine.map(c => c.date);
+  const sparkline = buildAuthorSparkline(dates, { weeks: 26 });
+  // Files: scope the log to this author by email, exact-filter in the parser.
+  // `-i --fixed-strings` makes `--author` a case-insensitive LITERAL match
+  // (emails carry regex-special chars like `+` and vary in case), and the
+  // parser then post-filters to the exact lowercased email.
+  const filesStdout = await git(repo, [
+    'log',
+    '-i',
+    '--fixed-strings',
+    `--author=${email}`,
+    '--all',
+    `--max-count=${max}`,
+    `--pretty=format:${AUTHOR_FILES_FORMAT}`,
+    '--numstat',
+  ]).catch(() => '');
+  const allFiles = aggregateAuthorFiles(filesStdout, email);
+  const files = allFiles.slice(0, fileLimit);
+
+  return {
+    repo: snapshot.repo,
+    head: snapshot.head,
+    name,
+    email: want,
+    commits: mine.length,
+    firstDate: dates.length ? dates[dates.length - 1] : '',
+    lastDate: dates.length ? dates[0] : '',
+    sparkline,
+    files,
+    filesTouched: allFiles.length,
+  };
 }
 
 /**
@@ -717,6 +776,19 @@ export function createCompanionServer(opts) {
           sendJson(res, 200, contributors);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });
+        }
+        return;
+      }
+      // GET /api/author?email= -> per-author detail dashboard (W23).
+      if (url.pathname === '/api/author') {
+        const email = url.searchParams.get('email') ?? '';
+        const max = Number(url.searchParams.get('max')) || 5000;
+        try {
+          const repo = resolveRequestRepo(url.searchParams, opts);
+          const detail = await buildAuthorDetailForRepo(repo, email, max);
+          sendJson(res, 200, detail);
+        } catch (e) {
+          sendJson(res, 400, { error: String(e?.message ?? e), email });
         }
         return;
       }

@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
+import { parseArgs, buildSnapshotForRepo, buildCommitDetailForRepo, buildFileDiffForRepo, scanReposUnder, resolveRequestRepo, isSafeRev, buildBlameForRepo, buildActivityForRepo, buildDayCommitsForRepo, buildContributorsForRepo, buildAuthorDetailForRepo, resolveGitDir, createWatcherRegistry, createCompanionServer, buildCompareForRepo, buildStashesForRepo, buildStashFileDiffForRepo } from './index.mjs';
 
 const pexec = promisify(execFile);
 
@@ -405,6 +405,58 @@ test('buildContributorsForRepo ranks authors by commit count', async () => {
     assert.equal(stats.contributors[0].name, 'Ada');
     assert.equal(stats.contributors[0].commits, 2);
     assert.equal(stats.contributors[1].name, 'Grace');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// ── buildAuthorDetailForRepo (W23, integration) ──────────────────────
+
+test('buildAuthorDetailForRepo folds one author\'s files + sparkline', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-author-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    const as = (name, email) => ({ GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'fallback@b.c']);
+    await git(['config', 'user.name', 'Fallback']);
+
+    await writeFile(join(dir, 'a.txt'), 'one\n');
+    await git(['add', 'a.txt']);
+    await git(['commit', '-q', '-m', 'ada c1'], as('Ada', 'ada@x.com'));
+    await writeFile(join(dir, 'a.txt'), 'one\ntwo\n');
+    await git(['add', 'a.txt']);
+    await git(['commit', '-q', '-m', 'ada c2'], as('Ada', 'ada@x.com'));
+    await writeFile(join(dir, 'b.txt'), 'b\n');
+    await git(['add', 'b.txt']);
+    await git(['commit', '-q', '-m', 'bob c1'], as('Bob', 'bob@y.com'));
+
+    const detail = await buildAuthorDetailForRepo(dir, 'ada@x.com', 100);
+    assert.equal(detail.email, 'ada@x.com');
+    assert.equal(detail.name, 'Ada');
+    assert.equal(detail.commits, 2);
+    // a.txt touched by both of Ada's commits; b.txt belongs to Bob (excluded).
+    assert.ok(detail.files.some(f => f.path === 'a.txt' && f.commits === 2));
+    assert.ok(!detail.files.some(f => f.path === 'b.txt'));
+    // Sparkline carries the 26-week window and counts Ada's commits.
+    assert.equal(detail.sparkline.weeks, 26);
+    assert.equal(detail.sparkline.total, 2);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildAuthorDetailForRepo rejects a flag-like author', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-authorbad-'));
+  try {
+    const git = (args) => pexec('git', args, { cwd: dir });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    await git(['commit', '--allow-empty', '-q', '-m', 'init']);
+    await assert.rejects(() => buildAuthorDetailForRepo(dir, '--output=evil', 100), /invalid author/);
+    await assert.rejects(() => buildAuthorDetailForRepo(dir, '', 100), /invalid author/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
