@@ -6,6 +6,9 @@ import {
   filterCommitsByDay,
   activityLevel,
   buildActivityCalendar,
+  buildActivityCalendarFromCounts,
+  parseChurnByDay,
+  buildChurnCalendar,
   buildStreaks,
   activeDaysOf,
 } from '../../src/shared/activity';
@@ -198,4 +201,64 @@ test('activeDaysOf pulls non-filler dated cells from a calendar', () => {
   // Feeding it straight into buildStreaks works end-to-end.
   const s = buildStreaks(active, { now: Date.parse('2026-06-04T00:00:00Z') });
   assert.equal(s.longest, 1);
+});
+
+// ── Churn calendar (W39) ─────────────────────────────────────────────
+
+test('parseChurnByDay sums insertions+deletions per author-local day', () => {
+  const stdout =
+    '\x1e2026-06-25T10:00:00-07:00\n' +
+    '10\t2\tsrc/a.ts\n' +
+    '3\t0\tsrc/b.ts\n' +
+    '\x1e2026-06-25T22:00:00-07:00\n' +
+    '1\t1\tsrc/a.ts\n' +
+    '\x1e2026-06-24T09:00:00-07:00\n' +
+    '5\t5\tsrc/c.ts\n';
+  const byDay = parseChurnByDay(stdout);
+  // 2026-06-25: (10+2)+(3+0)+(1+1) = 17 across two commits on the same day.
+  assert.equal(byDay.get('2026-06-25'), 17);
+  assert.equal(byDay.get('2026-06-24'), 10);
+});
+
+test('parseChurnByDay treats binary rows as zero churn and skips empty days', () => {
+  const stdout =
+    '\x1e2026-06-25T10:00:00-07:00\n' +
+    '-\t-\tassets/logo.png\n' + // binary -> 0
+    '\x1e2026-06-24T10:00:00-07:00\n' +
+    '4\t1\tsrc/x.ts\n';
+  const byDay = parseChurnByDay(stdout);
+  // The binary-only day contributes nothing, so it's omitted.
+  assert.equal(byDay.has('2026-06-25'), false);
+  assert.equal(byDay.get('2026-06-24'), 5);
+});
+
+test('buildActivityCalendarFromCounts buckets values like the commit calendar', () => {
+  const counts = new Map([
+    ['2026-06-01', 100],
+    ['2026-06-02', 25],
+  ]);
+  const cal = buildActivityCalendarFromCounts(counts);
+  assert.equal(cal.total, 125);
+  assert.equal(cal.max, 100);
+  assert.equal(cal.activeDays, 2);
+  assert.equal(cal.first, '2026-06-01');
+  assert.equal(cal.last, '2026-06-02');
+});
+
+test('buildChurnCalendar folds a numstat log into a churn heatmap', () => {
+  const stdout =
+    '\x1e2026-06-02T10:00:00-07:00\n' +
+    '40\t10\tsrc/big.ts\n' +
+    '\x1e2026-06-01T10:00:00-07:00\n' +
+    '2\t1\tsrc/small.ts\n';
+  const cal = buildChurnCalendar(stdout);
+  assert.equal(cal.total, 53); // 50 + 3
+  assert.equal(cal.max, 50);
+  assert.equal(cal.activeDays, 2);
+});
+
+test('buildChurnCalendar on empty output yields an empty calendar', () => {
+  const cal = buildChurnCalendar('');
+  assert.deepEqual(cal.weeks, []);
+  assert.equal(cal.total, 0);
 });

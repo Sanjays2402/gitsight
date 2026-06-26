@@ -357,7 +357,38 @@ test('buildActivityForRepo builds a calendar from real commits', async () => {
     assert.equal(cal.max, 2);
     assert.equal(cal.first, '2026-06-01');
     assert.equal(cal.last, '2026-06-03');
+    assert.equal(cal.metric, 'commits');
     // Every week column is a full 7 days.
+    for (const week of cal.weeks) assert.equal(week.length, 7);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('buildActivityForRepo with metric=churn counts lines changed per day (W39)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-churn-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    const day = (d) => ({ GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d });
+    // Day 1: add a 3-line file (3 insertions).
+    await writeFile(join(dir, 'f.txt'), 'a\nb\nc\n');
+    await git(['add', 'f.txt']);
+    await git(['commit', '-q', '-m', 'add'], day('2026-06-01T09:00:00'));
+    // Day 2: rewrite it to 5 lines (the diff is +5/-3 = 8 churn).
+    await writeFile(join(dir, 'f.txt'), 'x\ny\nz\nw\nv\n');
+    await git(['add', 'f.txt']);
+    await git(['commit', '-q', '-m', 'edit'], day('2026-06-02T09:00:00'));
+
+    const cal = await buildActivityForRepo(dir, 100, 'churn');
+    assert.equal(cal.metric, 'churn');
+    // Two active days, churn 3 then 8; busiest day = 8.
+    assert.equal(cal.activeDays, 2);
+    assert.equal(cal.total, 11);
+    assert.equal(cal.max, 8);
     for (const week of cal.weeks) assert.equal(week.length, 7);
   } finally {
     await rm(dir, { recursive: true, force: true });

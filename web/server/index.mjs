@@ -43,7 +43,7 @@ import {
   buildRepoEntries,
 } from '../../src/shared/repoPicker.ts';
 import { parsePorcelainBlame } from '../../src/shared/blame.ts';
-import { buildActivityCalendar, isDayKey, filterCommitsByDay } from '../../src/shared/activity.ts';
+import { buildActivityCalendar, buildChurnCalendar, CHURN_LOG_FORMAT, isDayKey, filterCommitsByDay } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
 import {
   buildAuthorSparkline,
@@ -261,11 +261,30 @@ export async function buildBlameForRepo(repo, rev, path) {
  * Build the contribution calendar (W13). Reuses the snapshot builder
  * (which already carries author dates) but pulls a larger history window
  * so the calendar reflects more than the graph's default cap.
+ *
+ * W39: `metric` selects what each cell counts. 'commits' (default) folds
+ * the snapshot's author dates; 'churn' shells a `--numstat` log and sums
+ * insertions+deletions per author-local day. Both share the calendar core
+ * so the grid geometry + intensity buckets are identical.
  */
-export async function buildActivityForRepo(repo, max) {
+export async function buildActivityForRepo(repo, max, metric = 'commits') {
+  if (metric === 'churn') {
+    await git(repo, ['rev-parse', '--git-dir']);
+    const head = await readHead(repo);
+    const toplevel = (await git(repo, ['rev-parse', '--show-toplevel'])).trim();
+    const stdout = await git(repo, [
+      'log',
+      '--all',
+      `--max-count=${max}`,
+      `--pretty=format:${CHURN_LOG_FORMAT}`,
+      '--numstat',
+    ]).catch(() => '');
+    const calendar = buildChurnCalendar(stdout, { maxWeeks: 53 });
+    return { repo: basename(toplevel) || 'repository', head, metric: 'churn', ...calendar };
+  }
   const snapshot = await buildSnapshotForRepo(repo, max);
   const calendar = buildActivityCalendar(snapshot.commits, { maxWeeks: 53 });
-  return { repo: snapshot.repo, head: snapshot.head, ...calendar };
+  return { repo: snapshot.repo, head: snapshot.head, metric: 'commits', ...calendar };
 }
 
 /**
@@ -816,13 +835,14 @@ export function createCompanionServer(opts) {
         }
         return;
       }
-      // GET /api/activity -> contribution calendar (W13). Pulls a wider
-      // history window than the graph so the calendar is meaningful.
+      // GET /api/activity?metric=commits|churn -> contribution calendar (W13;
+      // churn metric W39). Pulls a wider history window than the graph.
       if (url.pathname === '/api/activity') {
         const max = Number(url.searchParams.get('max')) || 5000;
+        const metric = url.searchParams.get('metric') === 'churn' ? 'churn' : 'commits';
         try {
           const repo = resolveRequestRepo(url.searchParams, opts);
-          const activity = await buildActivityForRepo(repo, max);
+          const activity = await buildActivityForRepo(repo, max, metric);
           sendJson(res, 200, activity);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });

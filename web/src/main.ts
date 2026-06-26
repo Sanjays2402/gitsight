@@ -14,6 +14,7 @@
 
 import './styles.css';
 import './diffSplit.css';
+import './activityMetric.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';
@@ -97,6 +98,8 @@ interface AppState {
   layout: Layout;
   /** Lazy-loaded view payloads. */
   activity: AsyncSlot<ActivityPayload>;
+  /** Which activity metric the calendar charts (W39). */
+  activityMetric: 'commits' | 'churn';
   contributors: AsyncSlot<ContributorsPayload>;
   blame: AsyncSlot<BlamePayload>;
   /** The file path currently being blamed. */
@@ -132,6 +135,7 @@ const state: AppState = {
   view: 'graph',
   layout: layoutFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
   activity: slot<ActivityPayload>(),
+  activityMetric: 'commits',
   contributors: slot<ContributorsPayload>(),
   blame: slot<BlamePayload>(),
   blamePath: null,
@@ -1012,9 +1016,21 @@ function renderActivityView(): void {
     onPickDay: day => {
       void dayPanel.open(day.date);
     },
+    metric: state.activityMetric,
+    onSwitchMetric: metric => switchActivityMetric(metric),
   });
   surface.replaceChildren(node);
-  updateCount(s.data.total, s.data.total, 'commits');
+  const noun = state.activityMetric === 'churn' ? 'lines' : 'commits';
+  updateCount(s.data.total, s.data.total, noun);
+}
+
+/** Switch the activity metric (W39) and re-fetch the calendar for it. */
+function switchActivityMetric(metric: 'commits' | 'churn'): void {
+  if (metric === state.activityMetric) return;
+  state.activityMetric = metric;
+  // The metric changes what the cells count, so the cached calendar is stale.
+  state.activity = slot<ActivityPayload>();
+  renderActivityView();
 }
 
 function renderContributorsView(): void {
@@ -1122,7 +1138,7 @@ function renderStashesView(): void {
 async function ensureActivity(): Promise<void> {
   if (state.activity.status === 'loading' || state.activity.status === 'ready') return;
   state.activity.status = 'loading';
-  const res = await loadActivity({ repo: state.repo ?? undefined });
+  const res = await loadActivity({ repo: state.repo ?? undefined, metric: state.activityMetric });
   if (res.ok) state.activity = { status: 'ready', data: res.activity, error: '' };
   else state.activity = { status: 'error', data: null, error: res.error };
   if (state.view === 'activity') renderActivityView();

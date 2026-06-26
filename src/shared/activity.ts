@@ -241,13 +241,27 @@ export function buildActivityCalendar(
   commits: Pick<GraphSnapshotCommit, 'date'>[],
   opts: CalendarOptions = {},
 ): ActivityCalendar {
-  const maxWeeks = Math.max(1, Math.floor(opts.maxWeeks ?? 53));
   const counts = new Map<string, number>();
   for (const c of commits) {
     const key = dayKey(c.date);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
+  return buildActivityCalendarFromCounts(counts, opts);
+}
+
+/**
+ * The shared calendar-assembly core (W39): turn a per-day VALUE map into the
+ * week×weekday grid. `buildActivityCalendar` feeds it commit counts; the
+ * churn calendar feeds it summed insertions+deletions. The value drives the
+ * cell count, the 0..4 intensity bucket, the totals, and the active-day
+ * tally identically for either metric.
+ */
+export function buildActivityCalendarFromCounts(
+  counts: Map<string, number>,
+  opts: CalendarOptions = {},
+): ActivityCalendar {
+  const maxWeeks = Math.max(1, Math.floor(opts.maxWeeks ?? 53));
 
   if (counts.size === 0) {
     return { weeks: [], months: [], total: 0, max: 0, activeDays: 0, first: null, last: null };
@@ -316,6 +330,47 @@ export function buildActivityCalendar(
     first,
     last,
   };
+}
+
+const RECORD = '\x1e';
+
+/** The git pretty-format the companion uses for the churn calendar read:
+ *  a RECORD separator (\x1e) then the author date (%aI), then --numstat rows. */
+export const CHURN_LOG_FORMAT = '%x1e%aI';
+
+/**
+ * Fold `git log --pretty=CHURN_LOG_FORMAT --numstat` output into per-day
+ * churn (W39). Each \x1e-delimited record begins with the commit's author
+ * date (%aI); the numstat rows that follow contribute insertions+deletions
+ * to that author-local day. Binary rows (`-\t-`) contribute 0. Days with no
+ * textual churn are omitted so the calendar's active-day set matches the
+ * days that actually changed code.
+ */
+export function parseChurnByDay(stdout: string): Map<string, number> {
+  const byDay = new Map<string, number>();
+  for (const record of stdout.split(RECORD)) {
+    const lines = record.split('\n').map(l => l.replace(/\r$/, ''));
+    let i = 0;
+    while (i < lines.length && lines[i].trim() === '') i++;
+    if (i >= lines.length) continue;
+    const key = dayKey(lines[i].trim());
+    if (!key) continue;
+    let churn = 0;
+    for (let j = i + 1; j < lines.length; j++) {
+      const m = /^(-|\d+)\t(-|\d+)\t(.+)$/.exec(lines[j]);
+      if (!m) continue;
+      const ins = m[1] === '-' ? 0 : parseInt(m[1], 10);
+      const del = m[2] === '-' ? 0 : parseInt(m[2], 10);
+      churn += ins + del;
+    }
+    if (churn > 0) byDay.set(key, (byDay.get(key) ?? 0) + churn);
+  }
+  return byDay;
+}
+
+/** Build the churn contribution calendar (W39) from a numstat log. */
+export function buildChurnCalendar(stdout: string, opts: CalendarOptions = {}): ActivityCalendar {
+  return buildActivityCalendarFromCounts(parseChurnByDay(stdout), opts);
 }
 
 /**

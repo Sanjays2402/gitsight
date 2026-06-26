@@ -275,6 +275,8 @@ export async function loadBlame(
 export interface ActivityPayload extends ActivityCalendar {
   repo: string;
   head: string;
+  /** Which metric the cells count (W39): 'commits' (default) or 'churn'. */
+  metric?: 'commits' | 'churn';
 }
 
 export type ActivityResult =
@@ -287,11 +289,17 @@ export function isActivityPayload(v: unknown): v is ActivityPayload {
   return Array.isArray(o.weeks) && Array.isArray(o.months) && typeof o.total === 'number';
 }
 
-/** Fetch the contribution calendar (W13). */
+/** The activity metric the calendar can chart (W39). */
+export type ActivityMetric = 'commits' | 'churn';
+
+/** Fetch the contribution calendar (W13; metric W39). */
 export async function loadActivity(
-  opts: { signal?: AbortSignal; repo?: string } = {},
+  opts: { signal?: AbortSignal; repo?: string; metric?: ActivityMetric } = {},
 ): Promise<ActivityResult> {
-  const qs = opts.repo ? `?repo=${encodeURIComponent(opts.repo)}` : '';
+  const params = new URLSearchParams();
+  if (opts.repo) params.set('repo', opts.repo);
+  if (opts.metric === 'churn') params.set('metric', 'churn');
+  const qs = params.toString() ? `?${params.toString()}` : '';
   return fetchJson<ActivityPayload>(`/api/activity${qs}`, isActivityPayload, opts.signal).then(r =>
     r.ok ? { ok: true, activity: r.value } : r,
   );

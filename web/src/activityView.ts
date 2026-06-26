@@ -18,18 +18,36 @@ import type { ActivityCalendar, ActivityDay } from '@shared/activity';
 
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
+/** The activity metric a calendar charts (W39). */
+export type ActivityMetric = 'commits' | 'churn';
+
 export interface ActivityViewOptions {
   /** Fired when a day cell with commits is clicked (drives a since/until filter). */
   onPickDay?: (day: ActivityDay) => void;
+  /** Which metric the calendar is charting (W39). Default 'commits'. */
+  metric?: ActivityMetric;
+  /** Fired when the user switches the metric segmented control (W39). */
+  onSwitchMetric?: (metric: ActivityMetric) => void;
 }
 
 /** Render the activity calendar into a detached node. */
 export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions = {}): HTMLElement {
   const wrap = el('div', 'activity');
+  const metric: ActivityMetric = opts.metric ?? 'commits';
+  const isChurn = metric === 'churn';
+  // Noun the cells count, used across the stats + tooltips so commits and
+  // churn read naturally from the same render path.
+  const unit = isChurn ? 'lines changed' : 'commits';
+
+  // Metric segmented control (W39) — commits vs churn. Always present so the
+  // toggle is discoverable even on an empty calendar.
+  if (opts.onSwitchMetric) {
+    wrap.appendChild(buildMetricToggle(metric, opts.onSwitchMetric));
+  }
 
   if (cal.weeks.length === 0) {
     const empty = el('div', 'activity-empty');
-    empty.textContent = 'No commit activity to chart yet.';
+    empty.textContent = isChurn ? 'No code churn to chart yet.' : 'No commit activity to chart yet.';
     wrap.appendChild(empty);
     return wrap;
   }
@@ -37,15 +55,15 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
   // Header: headline stats.
   const head = el('div', 'activity-head');
   head.innerHTML =
-    `<div class="activity-stat"><span class="n">${cal.total}</span><span class="l">commits</span></div>` +
+    `<div class="activity-stat"><span class="n">${cal.total.toLocaleString()}</span><span class="l">${escapeHtml(unit)}</span></div>` +
     `<div class="activity-stat"><span class="n">${cal.activeDays}</span><span class="l">active days</span></div>` +
-    `<div class="activity-stat"><span class="n">${cal.max}</span><span class="l">busiest day</span></div>`;
+    `<div class="activity-stat"><span class="n">${cal.max.toLocaleString()}</span><span class="l">${isChurn ? 'busiest day (lines)' : 'busiest day'}</span></div>`;
 
   // Streak readout (W33): current + longest runs of consecutive active days.
-  // The "current" run is dim when it has lapsed (live=false) so an unbroken
-  // streak reads as the live, accented one.
-  const streak = buildStreaks(activeDaysOf(cal));
-  if (streak.longest > 0) {
+  // Streaks are a commits story ("days I committed in a row"), so they only
+  // show on the commits metric — churn days don't carry the same meaning.
+  const streak = metric === 'commits' ? buildStreaks(activeDaysOf(cal)) : null;
+  if (streak && streak.longest > 0) {
     const curClass = streak.live ? 'activity-stat streak live' : 'activity-stat streak';
     const curTitle = streak.live
       ? `Current streak: ${dayLabel(streak.currentStart, streak.lastActive)}`
@@ -105,7 +123,11 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
     for (const day of week) {
       const cell = el('span', `activity-cell lvl-${day.level}` + (day.filler ? ' filler' : ''));
       if (!day.filler) {
-        const label = day.count === 1 ? '1 commit' : `${day.count} commits`;
+        const label = isChurn
+          ? `${day.count.toLocaleString()} ${day.count === 1 ? 'line' : 'lines'} changed`
+          : day.count === 1
+            ? '1 commit'
+            : `${day.count} commits`;
         cell.title = `${day.date} \u00b7 ${label}`;
         if (day.count > 0 && opts.onPickDay) {
           cell.setAttribute('role', 'button');
@@ -140,6 +162,33 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
 /** Helper: the since/until filter a day click should produce. */
 export function dayFilter(day: ActivityDay): string {
   return `since:${escapeHtml(day.date)} until:${escapeHtml(day.date)}`;
+}
+
+/**
+ * Segmented control to switch the calendar metric (W39): Commits | Churn.
+ * Monochrome chrome, accent on the active segment; clicking the inactive
+ * one fires onSwitchMetric so the host re-fetches.
+ */
+function buildMetricToggle(active: ActivityMetric, onSwitch: (m: ActivityMetric) => void): HTMLElement {
+  const bar = el('div', 'activity-metric');
+  bar.setAttribute('role', 'tablist');
+  bar.setAttribute('aria-label', 'Activity metric');
+  const segs: Array<[ActivityMetric, string, string]> = [
+    ['commits', 'Commits', 'Count commits per day'],
+    ['churn', 'Churn', 'Count lines changed (insertions + deletions) per day'],
+  ];
+  for (const [metric, label, title] of segs) {
+    const on = metric === active;
+    const btn = el('button', 'activity-metric-seg' + (on ? ' on' : ''));
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.title = title;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', String(on));
+    if (!on) btn.addEventListener('click', () => onSwitch(metric));
+    bar.appendChild(btn);
+  }
+  return bar;
 }
 
 /** Tooltip label for a streak span: "Jun 01 -> Jun 11" or a single day. */

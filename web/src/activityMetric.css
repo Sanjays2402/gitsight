@@ -1,0 +1,41 @@
+/*
+ * Activity metric segmented control (W39) — Commits | Churn toggle.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * in-flight editorial redesign) without hard-coding a colour.
+ */
+
+.activity-metric {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0;
+  margin: 0 0 14px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+}
+
+.activity-metric-seg {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 14px;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.activity-metric-seg:hover {
+  color: var(--fg);
+}
+
+.activity-metric-seg.on {
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: default;
+}
