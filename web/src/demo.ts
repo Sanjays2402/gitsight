@@ -25,6 +25,7 @@ export const DEMO_SNAPSHOT: GraphSnapshot = {
   head: 'main',
   generatedAt: new Date().toISOString(),
   commitCount: 9,
+  remote: 'https://github.com/Sanjays2402/gitsight.git',
   commits: [
     { sha: 'a0merge0', shortSha: 'a0merge', parents: ['b1main0', 'c2feat0'], author: 'Cake', email: 'cake@local', date: iso(0, 23), subject: 'Merge branch feat/web-frontend', refs: ['HEAD -> main'] },
     { sha: 'b1main0', shortSha: 'b1main0', parents: ['d3main0'], author: 'Sanjay', email: 's@local', date: iso(1, 14), subject: 'chore: bump version to 1.16', refs: ['origin/main'] },

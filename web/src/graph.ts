@@ -47,6 +47,8 @@ export interface GraphRenderOptions {
   onSelect?: (commit: GraphSnapshotCommit) => void;
   /** Called when a sha chip is clicked. */
   onCopySha?: (sha: string) => void;
+  /** Called on right-click of a row (W28 context menu) with the event. */
+  onContextMenu?: (commit: GraphSnapshotCommit, e: MouseEvent) => void;
   /**
    * The scroll container the rows live in. Required to enable W16
    * windowing; without it the graph falls back to mounting every row.
@@ -306,6 +308,16 @@ export class GraphController {
       this.markActive();
       this.opts.onSelect?.(c);
     });
+
+    if (this.opts.onContextMenu) {
+      row.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        // Select the row so the menu's target is visually anchored.
+        this.selected = i;
+        this.markActive();
+        this.opts.onContextMenu!(c, e);
+      });
+    }
 
     return row;
   }

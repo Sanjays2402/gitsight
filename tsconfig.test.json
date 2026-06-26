@@ -147,7 +147,8 @@
     "src/shared/repoWatch.ts",
     "src/shared/rangeCompare.ts",
     "src/shared/stashes.ts",
-    "src/shared/authorDetail.ts"
+    "src/shared/authorDetail.ts",
+    "src/shared/remoteUrl.ts"
   ],
   "exclude": ["node_modules", "out", "out-test"]
 }

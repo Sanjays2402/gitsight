@@ -40,6 +40,11 @@ export interface BlameViewOptions {
   onLoad: (path: string) => void;
   /** 1-based line to reveal once the heatmap is rendered (W21 jump-to-line). */
   revealLine?: number | null;
+  /**
+   * The revision being blamed (W28). Shown as a badge when it isn't HEAD so
+   * "Blame at this commit" reads clearly; omitted/`HEAD` shows no badge.
+   */
+  rev?: string;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -202,6 +207,17 @@ function buildForm(opts: BlameViewOptions): HTMLElement {
   btn.innerHTML = `${icons.blame}<span>Blame</span>`;
 
   form.append(input, btn);
+
+  // Revision badge (W28): when blaming AT a commit (not HEAD), show the
+  // short rev so the heatmap's scope is unambiguous.
+  const rev = opts.rev && opts.rev !== 'HEAD' ? opts.rev : '';
+  if (rev) {
+    const badge = el('span', 'blame-rev');
+    badge.innerHTML = `<span class="at">at</span><span class="rev">${escapeHtml(rev.slice(0, 12))}</span>`;
+    badge.title = `Blaming at ${rev}`;
+    form.appendChild(badge);
+  }
+
   form.addEventListener('submit', e => {
     e.preventDefault();
     const value = input.value.trim();

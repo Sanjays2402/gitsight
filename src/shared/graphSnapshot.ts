@@ -42,6 +42,12 @@ export interface GraphSnapshot {
   commitCount: number;
   /** Commits in `git log` order (newest first). */
   commits: GraphSnapshotCommit[];
+  /**
+   * The `origin` remote URL, when the repo has one (W28). Lets the web app
+   * build "Open on remote" links for a commit via the shared remoteUrl
+   * helper. Omitted when there's no origin (a local-only repo).
+   */
+  remote?: string;
 }
 
 /** The current snapshot wire-format version. Bumped if the shape changes

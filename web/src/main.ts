@@ -58,7 +58,9 @@ import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
 import type { PaletteItem } from './paletteSearch';
+import { openContextMenu, type ContextMenuItem } from './contextMenu';
 import { buildRailSections, refQuery } from '@shared/refRail';
+import { commitWebUrl } from '@shared/remoteUrl';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 
@@ -91,6 +93,8 @@ interface AppState {
   blame: AsyncSlot<BlamePayload>;
   /** The file path currently being blamed. */
   blamePath: string | null;
+  /** The revision currently being blamed (default HEAD; W28 blame-at-commit). */
+  blameRev: string;
   /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
   blameLine: number | null;
   /** Live-refresh connection status (W17). */
@@ -120,6 +124,7 @@ const state: AppState = {
   contributors: slot<ContributorsPayload>(),
   blame: slot<BlamePayload>(),
   blamePath: null,
+  blameRev: 'HEAD',
   blameLine: null,
   live: 'disconnected',
   compare: slot<ComparePayload>(),
@@ -286,6 +291,62 @@ function compareFromCommit(sha: string): void {
   rebuildChrome();
   syncHash();
   void runCompare(base, 'HEAD');
+}
+
+/**
+ * Right-click context menu for a commit row (W28). Copy SHA / Copy message
+ * / open the detail / Compare from here / Blame at this commit / Copy
+ * permalink / Open on remote (host-detected from the snapshot's origin).
+ * Mirrors the detail-panel actions but reachable straight from the graph.
+ */
+function showCommitMenu(c: GraphSnapshotCommit, e: MouseEvent): void {
+  const items: ContextMenuItem[] = [
+    { label: 'Open commit detail', icon: 'graph', run: () => openDetailFor(c.sha) },
+    { label: 'Copy SHA', icon: 'copy', run: () => void copySha(c.sha) },
+    { label: 'Copy message', icon: 'copy', run: () => void copyText(c.subject, 'Message copied') },
+    { label: 'Copy permalink', icon: 'link', separator: true, run: () => void copyCommitLink(c.sha) },
+    { label: 'Compare from here', icon: 'gitCompare', run: () => compareFromCommit(c.sha) },
+    { label: 'Blame at this commit', icon: 'blame', run: () => blameAtCommit(c.sha) },
+  ];
+
+  // "Open on remote" only when the snapshot carries a mappable origin (W28).
+  const target = commitWebUrl(state.snapshot.remote, c.sha);
+  items.push(
+    target
+      ? {
+          label: `Open on ${target.label}`,
+          icon: 'globe',
+          separator: true,
+          run: () => window.open(target.url, '_blank', 'noopener,noreferrer'),
+        }
+      : { label: 'Open on remote', icon: 'globe', separator: true, disabled: true, run: () => {} },
+  );
+
+  openContextMenu(e.clientX, e.clientY, items);
+}
+
+/**
+ * Blame the first file this commit touched, AT this commit (W28). We don't
+ * carry the file list in the snapshot, so fetch the commit detail, pick its
+ * first changed file, and open the Blame view scoped to that path. Falls
+ * back to a toast when the commit changed no files (e.g. an empty/merge).
+ */
+async function blameAtCommit(sha: string): Promise<void> {
+  const res = await loadCommitDetail(sha, { repo: state.repo ?? undefined });
+  if (!res.ok) {
+    toast(`Could not read ${sha.slice(0, 7)}`);
+    return;
+  }
+  const file = res.detail.files.find(f => f.status !== 'deleted') ?? res.detail.files[0];
+  if (!file) {
+    toast('Commit touched no files to blame');
+    return;
+  }
+  state.view = 'blame';
+  rebuildChrome();
+  syncHash();
+  // Blame the path at this revision so the heatmap reflects history up to it.
+  await loadBlameAt(sha, file.path);
 }
 
 function mount(): void {
@@ -754,6 +815,7 @@ function renderGraphView(): void {
       void detailPanel.open(c.sha);
     },
     onCopySha: (sha: string) => void copySha(sha),
+    onContextMenu: (c: GraphSnapshotCommit, e: MouseEvent) => showCommitMenu(c, e),
   });
   graphController = result.controller;
   if (result.rendered === 0) {
@@ -818,6 +880,7 @@ function renderBlameView(): void {
     path: state.blamePath ?? undefined,
     onLoad: (path: string) => loadBlamePath(path),
     revealLine: state.blameLine,
+    rev: state.blameRev,
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -982,11 +1045,23 @@ async function loadBlamePath(input: string): Promise<void> {
   // Accept `path`, `path:42`, or `path#L42` so the user can jump to a line.
   const target = parseBlameTarget(input);
   if (!target.path) return;
-  state.blamePath = target.path;
-  state.blameLine = target.line;
+  // A manual path entry blames at HEAD; W28 blame-at-commit uses loadBlameAt.
+  await runBlame('HEAD', target.path, target.line);
+}
+
+/** Blame a path at a specific revision (W28 "Blame at this commit"). */
+async function loadBlameAt(rev: string, path: string): Promise<void> {
+  await runBlame(rev, path, null);
+}
+
+/** Shared blame loader: fetch `path` at `rev`, optionally revealing a line. */
+async function runBlame(rev: string, path: string, line: number | null): Promise<void> {
+  state.blamePath = path;
+  state.blameRev = rev;
+  state.blameLine = line;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
-  const res = await loadBlame('HEAD', target.path, { repo: state.repo ?? undefined });
+  const res = await loadBlame(rev, path, { repo: state.repo ?? undefined });
   if (res.ok) state.blame = { status: 'ready', data: res.blame, error: '' };
   else state.blame = { status: 'error', data: null, error: res.error };
   if (state.view === 'blame') renderBlameView();
@@ -1257,6 +1332,16 @@ async function copySha(sha: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(sha);
     toast(`Copied ${sha.slice(0, 7)}`);
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/** Copy arbitrary text with a custom toast (W28 context-menu actions). */
+async function copyText(text: string, ok: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(ok);
   } catch {
     toast('Copy failed');
   }

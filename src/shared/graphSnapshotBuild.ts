@@ -78,6 +78,8 @@ export interface BuildSnapshotArgs {
   repo: string;
   head: string;
   stdout: string;
+  /** The origin remote URL, when present (W28). */
+  remote?: string;
   /** Override the generation timestamp (tests). Defaults to now. */
   now?: Date;
 }
@@ -85,13 +87,16 @@ export interface BuildSnapshotArgs {
 /** Assemble a complete GraphSnapshot from git log stdout + repo metadata. */
 export function buildGraphSnapshot(args: BuildSnapshotArgs): GraphSnapshot {
   const commits = parseLog(args.stdout);
-  return {
+  const snapshot: GraphSnapshot = {
     repo: args.repo || 'repository',
     head: args.head || 'HEAD',
     generatedAt: (args.now ?? new Date()).toISOString(),
     commitCount: commits.length,
     commits,
   };
+  const remote = args.remote?.trim();
+  if (remote) snapshot.remote = remote;
+  return snapshot;
 }
 
 /**

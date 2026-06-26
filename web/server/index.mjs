@@ -128,12 +128,28 @@ export async function buildSnapshotForRepo(repo, max) {
   await git(repo, ['rev-parse', '--git-dir']);
   const toplevel = (await git(repo, ['rev-parse', '--show-toplevel'])).trim();
   const head = await readHead(repo);
+  const remote = await readOriginRemote(repo);
   const stdout = await git(repo, buildLogArgs({ max, all: true }));
   return buildGraphSnapshot({
     repo: basename(toplevel) || 'repository',
     head,
+    remote,
     stdout,
   });
+}
+
+/**
+ * Read the `origin` remote URL so the snapshot can carry it (W28) and the
+ * web app can build "Open on remote" commit links. Returns undefined when
+ * the repo has no origin (a local-only clone), which the builder omits.
+ */
+async function readOriginRemote(repo) {
+  try {
+    const url = (await git(repo, ['remote', 'get-url', 'origin'])).trim();
+    return url || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
