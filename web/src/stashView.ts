@@ -42,6 +42,15 @@ export interface StashViewOptions {
   diffView?: () => 'split' | 'unified';
   /** Toggle the stash surface's diff layout (W53); re-renders in the new mode. */
   onToggleLayout?: () => void;
+  /**
+   * Initial filter query (W63) to pre-fill the search box with — from a
+   * `#stashes?q=` deep link. When non-empty the box shows even below the
+   * threshold (a shared link should always reveal its filter).
+   */
+  filterQuery?: string;
+  /** Fired (debounced by the host) when the filter query changes (W63), so
+   * the deep-link in the URL stays in sync. */
+  onFilterChange?: (query: string) => void;
 }
 
 /** Render the stash list into a detached node. */
@@ -79,12 +88,15 @@ export function renderStashes(list: StashList | null, opts: StashViewOptions = {
   wrap.appendChild(head);
 
   // Above a threshold, a message/branch filter box (W59) narrows the cards so
-  // a specific WIP is findable. Cards render into a re-renderable host.
+  // a specific WIP is findable. A deep-linked query (W63) shows the box even
+  // below the threshold so a shared link always reveals its filter. Cards
+  // render into a re-renderable host, pre-filtered by the initial query.
+  const initialQuery = (opts.filterQuery ?? '').trim();
   const cardsHost = el('div', 'stash-cards');
-  if (list.stashes.length >= STASH_FILTER_THRESHOLD) {
-    wrap.appendChild(buildStashFilter(list.stashes, cardsHost, opts));
+  if (list.stashes.length >= STASH_FILTER_THRESHOLD || initialQuery) {
+    wrap.appendChild(buildStashFilter(list.stashes, cardsHost, opts, initialQuery));
   }
-  renderStashCards(cardsHost, list.stashes, opts);
+  renderStashCards(cardsHost, initialQuery ? filterStashes(list.stashes, initialQuery) : list.stashes, opts);
   wrap.appendChild(cardsHost);
   return wrap;
 }
@@ -96,8 +108,16 @@ const STASH_FILTER_THRESHOLD = 6;
  * Message/branch filter box for the stash list (W59). Mirrors the compare /
  * file filters: a live re-render of the matching subset + an "N of M" count
  * when cards are hidden. Pure matching lives in stashes.filterStashes.
+ *
+ * W63: pre-fills from a deep-linked query + emits onFilterChange so the host
+ * can keep the `#stashes?q=` URL in sync.
  */
-function buildStashFilter(entries: StashEntry[], host: HTMLElement, opts: StashViewOptions): HTMLElement {
+function buildStashFilter(
+  entries: StashEntry[],
+  host: HTMLElement,
+  opts: StashViewOptions,
+  initialQuery = '',
+): HTMLElement {
   const wrap = el('div', 'stash-filter');
   const input = el('input', 'stash-filter-input') as HTMLInputElement;
   input.type = 'search';
@@ -105,12 +125,18 @@ function buildStashFilter(entries: StashEntry[], host: HTMLElement, opts: StashV
   input.setAttribute('aria-label', 'Filter stashes by message or branch');
   input.setAttribute('spellcheck', 'false');
   input.setAttribute('autocomplete', 'off');
+  input.value = initialQuery;
   const count = el('span', 'stash-filter-count');
-  input.addEventListener('input', () => {
+  const apply = () => {
     const matches = filterStashes(entries, input.value);
     renderStashCards(host, matches, opts);
     count.textContent = matches.length === entries.length ? '' : `${matches.length} of ${entries.length}`;
+  };
+  input.addEventListener('input', () => {
+    apply();
+    opts.onFilterChange?.(input.value.trim());
   });
+  if (initialQuery) apply();
   wrap.append(input, count);
   return wrap;
 }

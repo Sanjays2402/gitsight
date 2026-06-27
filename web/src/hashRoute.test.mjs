@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -295,6 +295,38 @@ test('parseHash reads a blame link back, dropping junk rev/line', () => {
 
 test('buildHash(parseHash(x)) round-trips a blame line link', () => {
   const original = 'blame?path=src%2Fweb%2Fmain.ts&rev=abc1234&line=128';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Stash filter deep-link (W63) ─────────────────────────────────────
+
+test('sanitizeStashQuery trims, strips control chars, bounds length', () => {
+  assert.equal(sanitizeStashQuery('  refactor  '), 'refactor');
+  assert.equal(sanitizeStashQuery('fix\u0000bug'), 'fix bug');
+  assert.equal(sanitizeStashQuery(''), null);
+  assert.equal(sanitizeStashQuery('   '), null);
+  assert.equal(sanitizeStashQuery(null), null);
+  assert.equal(sanitizeStashQuery('x'.repeat(250)).length, 200);
+});
+
+test('buildHash emits a stashes filter link, degrading a blank query', () => {
+  assert.equal(buildHash({ view: 'stashes', q: 'wip auth' }), 'stashes?q=wip+auth');
+  assert.equal(buildHash({ view: 'stashes', q: '   ' }), 'stashes');
+  assert.equal(buildHash({ view: 'stashes' }), 'stashes');
+});
+
+test('parseHash reads a stashes filter link back', () => {
+  assert.deepEqual(parseHash('#stashes?q=wip+auth'), { view: 'stashes', q: 'wip auth' });
+  assert.deepEqual(parseHash('#stashes?q=feature%2Fx'), { view: 'stashes', q: 'feature/x' });
+  // A blank/absent query degrades to the bare stashes tab.
+  assert.deepEqual(parseHash('#stashes?q='), { view: 'stashes' });
+  assert.deepEqual(parseHash('#stashes'), { view: 'stashes' });
+});
+
+test('buildHash(parseHash(x)) round-trips a stash filter link', () => {
+  const original = 'stashes?q=wip+auth';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

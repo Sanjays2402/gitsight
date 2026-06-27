@@ -61,8 +61,14 @@ export interface BlameRoute {
   line?: number;
 }
 
+export interface StashesRoute {
+  view: 'stashes';
+  /** A stash filter query to pre-fill (W63). Required; a blank degrades to the bare tab. */
+  q: string;
+}
+
 export interface PlainRoute {
-  view: Exclude<RouteView, 'compare' | 'contributors' | 'activity' | 'blame'>;
+  view: Exclude<RouteView, 'compare' | 'contributors' | 'activity' | 'blame' | 'stashes'>;
   /**
    * Only on a graph permalink (`#commit/<sha>`, W27): the commit to open
    * the detail panel for. Absent for a bare view route.
@@ -82,6 +88,12 @@ export interface ContributorsBareRoute {
   vs?: undefined;
 }
 
+/** A bare stashes tab (no filter) shares the PlainRoute-ish shape (W63). */
+export interface StashesBareRoute {
+  view: 'stashes';
+  q?: undefined;
+}
+
 export type Route =
   | CompareRoute
   | ContributorsRoute
@@ -89,6 +101,8 @@ export type Route =
   | ActivityRoute
   | BlameRoute
   | BlameBareRoute
+  | StashesRoute
+  | StashesBareRoute
   | PlainRoute;
 
 /** True when a string names a routable view. */
@@ -168,6 +182,21 @@ export function sanitizeLine(line: string | number | null | undefined): number |
 }
 
 /**
+ * Normalise + validate a stash filter query for a deep link (W63). The query
+ * is purely a client-side substring match against stash subjects/branches (it
+ * never reaches git), but the hash value is still cleaned so a crafted
+ * `#stashes?q=` can't smuggle control characters into the DOM: it's trimmed,
+ * control chars are stripped, and the length is bounded. Returns the cleaned
+ * query, or null when it's empty so the link degrades to the bare stashes tab.
+ */
+export function sanitizeStashQuery(query: string | null | undefined): string | null {
+  // eslint-disable-next-line no-control-regex
+  const q = (query ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  if (!q) return null;
+  return q.slice(0, 200);
+}
+
+/**
  * Build the hash string (without the leading '#') for a route. A compare
  * route with both refs emits `compare?base=..&head=..`; a graph route with
  * a sha emits `commit/<sha>`; everything else is the bare view name.
@@ -224,11 +253,25 @@ export function buildHash(route: Route): string {
     }
     return 'blame';
   }
+  if (route.view === 'stashes') {
+    // A filtered-stash deep-link (W63): stashes?q=<filter>. The query is
+    // optional; without a non-empty one, degrade to the bare stashes tab.
+    if (route.q) {
+      const q = sanitizeStashQuery(route.q);
+      if (q) {
+        const p = new URLSearchParams({ q });
+        return `stashes?${p.toString()}`;
+      }
+    }
+    return 'stashes';
+  }
   if (route.view === 'graph' && route.sha) {
     const sha = sanitizeSha(route.sha);
     return sha ? `commit/${sha}` : '';
   }
-  return route.view === 'graph' ? '' : route.view;
+  // All non-graph views are handled above; PlainRoute is now graph-only, so a
+  // bare graph route clears the hash.
+  return '';
 }
 
 /**
@@ -301,6 +344,16 @@ export function parseHash(hash: string): Route | null {
     const line = sanitizeLine(params.get('line'));
     if (line !== null) route.line = line;
     return route;
+  }
+
+  // Filtered-stash deep-link (W63): stashes?q=<filter>. The query is optional;
+  // a blank/junk one degrades to the bare stashes tab.
+  if (viewName === 'stashes') {
+    const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
+    const rawQ = params.get('q');
+    const q = rawQ !== null ? sanitizeStashQuery(decodeURIComponent(rawQ)) : null;
+    if (q) return { view: 'stashes', q };
+    return { view: 'stashes' };
   }
 
   return { view: viewName as PlainRoute['view'] };

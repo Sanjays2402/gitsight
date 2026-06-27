@@ -149,6 +149,8 @@ interface AppState {
   compareHead: string;
   /** Stash list payload (W19). */
   stashes: AsyncSlot<StashesPayload>;
+  /** Current stash filter query (W63), pre-filled from a deep link + kept in the URL. */
+  stashQuery: string;
   /** Whether the companion permits local stash mutations (W25). */
   allowMutations: boolean;
 }
@@ -185,6 +187,7 @@ const state: AppState = {
   compareBase: 'main',
   compareHead: 'HEAD',
   stashes: slot<StashesPayload>(),
+  stashQuery: '',
   allowMutations: false,
 };
 
@@ -580,6 +583,10 @@ async function boot(): Promise<void> {
   state.blameLine = null;
   state.compare = slot<ComparePayload>();
   state.stashes = slot<StashesPayload>();
+  // A fresh load clears the stash filter, except a deep-linked query (W63)
+  // which is restored from the pending stash so an #stashes?q= link survives.
+  state.stashQuery = pendingStashQuery ?? '';
+  pendingStashQuery = null;
   rebuildChrome();
   if (!result.ok && !result.offline) {
     setStatus(`API error: ${result.error}`);
@@ -1331,9 +1338,26 @@ function renderStashesView(): void {
     // onChange listener re-renders the stash view, so we don't double-render.
     diffView: () => diffSettings.layoutFor('stash'),
     onToggleLayout: () => diffSettings.toggleSurfaceLayout('stash'),
+    // Stash filter deep-link (W63): pre-fill from the URL + keep it in sync as
+    // the user types so a filtered view is shareable.
+    filterQuery: state.stashQuery,
+    onFilterChange: query => setStashQuery(query),
   });
   surface.replaceChildren(node);
   updateCount(s.data.total, s.data.total, s.data.total === 1 ? 'stash' : 'stashes');
+}
+
+/**
+ * Update the stash filter query (W63) and reflect it in the URL so a filtered
+ * stash view is shareable. The view owns the live re-render of its cards, so
+ * this only records the state + syncs the hash (no re-render here, which would
+ * steal focus from the box mid-type).
+ */
+function setStashQuery(query: string): void {
+  const next = query.trim();
+  if (next === state.stashQuery) return;
+  state.stashQuery = next;
+  syncHash();
 }
 
 /**
@@ -1828,6 +1852,13 @@ function applyInitialRoute(): void {
   if (route.view === 'blame' && route.path) {
     pendingBlame = { path: route.path, rev: route.rev, line: route.line };
   }
+  // Seed a stash filter deep-link (#stashes?q=, W63); the first Stashes render
+  // pre-fills the box + narrows the cards. boot() resets stashQuery, so stash
+  // the value and restore it after boot's reset (like pendingActivityYear).
+  if (route.view === 'stashes' && route.q) {
+    state.stashQuery = route.q;
+    pendingStashQuery = route.q;
+  }
 }
 
 /** A commit sha from a #commit/<sha> permalink, opened after boot (W27). */
@@ -1845,6 +1876,12 @@ let pendingBlame: { path: string; rev?: string; line?: number } | null = null;
  * boot has finished its reset, then clear it.
  */
 let pendingActivityYear: number | null = null;
+
+/**
+ * A stash filter query from a #stashes?q= deep-link (W63). boot() resets
+ * stashQuery, so we stash the value here and restore it after the reset.
+ */
+let pendingStashQuery: string | null = null;
 
 /** True while we're writing the hash ourselves, to ignore the echo event. */
 let writingHash = false;
@@ -1870,6 +1907,9 @@ function syncHash(): void {
   } else if (state.view === 'blame' && state.blamePath) {
     // A shareable file-blame deep-link (W57): path + rev + the revealed line.
     route = { view: 'blame', path: state.blamePath, rev: state.blameRev, line: state.blameLine ?? undefined };
+  } else if (state.view === 'stashes' && state.stashQuery) {
+    // A shareable filtered-stash deep-link (W63): the filter query.
+    route = { view: 'stashes', q: state.stashQuery };
   } else {
     // The compare + contributors views are handled above; the rest are
     // plain single-tab routes.
@@ -1969,6 +2009,25 @@ function installHashRouting(): void {
         rebuildChrome();
       }
       if (changed) void runBlame(targetRev, route.path, route.line ?? null);
+      return;
+    }
+    // Filtered-stash deep-link on back/forward (W63): switch to the Stashes
+    // tab if needed, then re-scope the filter to the URL's query. Only
+    // re-render when the query actually changed.
+    if (route.view === 'stashes') {
+      const nextQuery = route.q ?? '';
+      const changed = nextQuery !== state.stashQuery;
+      state.stashQuery = nextQuery;
+      if (state.view !== 'stashes') {
+        state.view = 'stashes';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+        void ensureStashes();
+      } else if (changed) {
+        renderStashesView();
+      }
       return;
     }
     if (route.view !== state.view) {
