@@ -79,6 +79,7 @@ import { KeyboardHelp } from './keyboardHelp';
 import { openContextMenu, type ContextMenuItem } from './contextMenu';
 import { SearchHistory } from './searchHistory';
 import { DiffSettingsStore } from './diffSettingsStore';
+import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear } from '@shared/activity';
@@ -1250,6 +1251,7 @@ function renderCompareView(): void {
     onOpenCommit: (sha: string) => openDetailFor(sha),
     onCopySha: (sha: string) => void copySha(sha),
     onShareLink: () => void shareCompareLink(),
+    onCopyPatch: () => void copyComparePatch(),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'compare-loading-wrap');
@@ -1367,6 +1369,51 @@ async function shareCompareLink(): Promise<void> {
     toast('Comparison link copied');
   } catch {
     toast('Copy failed');
+  }
+}
+
+/**
+ * Copy the whole comparison as a unified-diff patch (W52). Fetches each
+ * changed file's parsed diff in parallel (reusing the W7 /api/diff endpoint),
+ * assembles them with the pure patchAssemble helper, and writes the blob to
+ * the clipboard. Binary files and failed fetches are dropped; the toast
+ * reports how many files + how much churn made it into the patch.
+ */
+let copyingPatch = false;
+async function copyComparePatch(): Promise<void> {
+  if (copyingPatch) return;
+  const cmp = state.compare.data;
+  if (!cmp || cmp.files.length === 0) {
+    toast('Nothing to copy');
+    return;
+  }
+  copyingPatch = true;
+  toast('Building patch…');
+  try {
+    // Only textual files have a diff to assemble; binaries + deletions still
+    // fetch (a deletion has a real removal diff), but binaries are skipped.
+    const results = await Promise.all(
+      cmp.files
+        .filter(f => !f.binary)
+        .map(f => loadFileDiff(cmp.head, f.path, {
+          repo: state.repo ?? undefined,
+          ignoreWhitespace: diffSettings.get().ignoreWhitespace,
+        })),
+    );
+    const diffs = results
+      .filter((r): r is Extract<typeof r, { ok: true }> => r.ok && !!r.diff.file)
+      .map(r => r.diff.file!);
+    if (diffs.length === 0) {
+      toast('No textual diffs to copy');
+      return;
+    }
+    const patch = assemblePatch(diffs);
+    await navigator.clipboard.writeText(patch);
+    toast(`Patch copied — ${patchSummary(diffs)}`);
+  } catch {
+    toast('Copy failed');
+  } finally {
+    copyingPatch = false;
   }
 }
 

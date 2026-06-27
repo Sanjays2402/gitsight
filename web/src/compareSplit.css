@@ -19,3 +19,42 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/*
+ * Compare header actions (W52): the Split pill (W46) + "Copy as patch" button
+ * grouped at the right of the files header. Co-located + token-driven.
+ */
+.compare-files-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.compare-patch-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 5px);
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s var(--ease), border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.compare-patch-btn:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.compare-patch-btn svg {
+  width: 13px;
+  height: 13px;
+}

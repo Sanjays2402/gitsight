@@ -42,6 +42,8 @@ export interface CompareViewOptions {
   onCopySha?: (sha: string) => void;
   /** Copy a shareable deep link to this comparison (W24). */
   onShareLink?: () => void;
+  /** Copy the whole comparison as a unified-diff patch (W52). */
+  onCopyPatch?: () => void;
 }
 
 /**
@@ -148,6 +150,9 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
     const filesLabel = el('span', 'compare-files-label');
     filesLabel.textContent = `${cmp.filesChanged} ${cmp.filesChanged === 1 ? 'file' : 'files'} changed`;
     filesHead.appendChild(filesLabel);
+    // Header actions sit at the right: a per-surface diff layout toggle (W46)
+    // and a "Copy as patch" button (W52).
+    const headActions = el('div', 'compare-files-actions');
     // Per-surface diff layout toggle (W46): Split vs unified, remembered for
     // the compare surface independently of the detail panel.
     if (opts.onToggleLayout && opts.diffView) {
@@ -158,8 +163,19 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       splitBtn.title = 'Side-by-side (old | new) diff layout for this view';
       splitBtn.setAttribute('aria-pressed', String(split));
       splitBtn.addEventListener('click', () => opts.onToggleLayout!());
-      filesHead.appendChild(splitBtn);
+      headActions.appendChild(splitBtn);
     }
+    // Copy the whole comparison as a unified-diff patch (W52). Only shown
+    // when there are textual files to assemble + the host wired the handler.
+    if (opts.onCopyPatch) {
+      const patchBtn = el('button', 'compare-patch-btn');
+      patchBtn.type = 'button';
+      patchBtn.innerHTML = `${icons.copy}<span>Copy as patch</span>`;
+      patchBtn.title = 'Copy the changed files as a unified-diff patch';
+      patchBtn.addEventListener('click', () => opts.onCopyPatch!());
+      headActions.appendChild(patchBtn);
+    }
+    if (headActions.childElementCount > 0) filesHead.appendChild(headActions);
     filesWrap.appendChild(filesHead);
     // Path-substring filter (W50): narrow a big changed-file list. Skipped
     // below the threshold. Re-renders the rows host with the matching subset.
