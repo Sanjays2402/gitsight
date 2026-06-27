@@ -9,61 +9,69 @@
  * the whole surface. W5 wires the toggle; the tokens live here from W2.
  */
 
+/*
+ * GitSight web — EDITORIAL redesign (2026-06).
+ * Warm-paper light + warm-charcoal dark. Newsreader serif for display,
+ * Inter for UI, JetBrains Mono for code & figures. One warm-amber accent.
+ * Token names are preserved so the whole component layer inherits the new
+ * aesthetic without per-rule edits.
+ */
 :root {
-  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code",
+  --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Fira Code",
     Menlo, Consolas, monospace;
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
 
-  --row-h: 30px;
-  --header-h: 52px;
+  --row-h: 32px;
+  --header-h: 56px;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── Dark (default) ──────────────────────────────────────────────── */
+/* ── Dark (default) — warm charcoal, not blue-black ──────────────── */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0d10;
-  --bg-elev: #111418;
-  --bg-inset: #15191e;
-  --bg-hover: #1a1f25;
-  --bg-active: #20262e;
-  --border: #1e242b;
-  --border-strong: #2b333c;
-  --fg: #e6edf3;
-  --fg-muted: #9aa4af;
-  --fg-faint: #6b7682;
-  --accent: #4c8dff;
-  --accent-fg: #ffffff;
-  --accent-soft: #4c8dff22;
-  --danger: #f0596a;
-  --shadow-md: 0 4px 24px -8px rgba(0, 0, 0, 0.6);
+  --bg: #14110d;
+  --bg-elev: #1c1812;
+  --bg-inset: #221d16;
+  --bg-hover: #261f17;
+  --bg-active: #2f2619;
+  --border: #2c2720;
+  --border-strong: #3a332a;
+  --fg: #f3ede1;
+  --fg-muted: #c7bfb0;
+  --fg-faint: #8a8170;
+  --accent: #f08a3c;
+  --accent-fg: #1a130c;
+  --accent-soft: #f08a3c22;
+  --danger: #f0746a;
+  --shadow-md: 0 4px 28px -8px rgba(0, 0, 0, 0.7);
 }
 
-/* ── Light ───────────────────────────────────────────────────────── */
+/* ── Light — warm paper ──────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #ffffff;
-  --bg-elev: #f7f8fa;
-  --bg-inset: #f0f2f5;
-  --bg-hover: #f0f2f5;
-  --bg-active: #e6e9ee;
-  --border: #e6e8ec;
-  --border-strong: #d2d6dd;
-  --fg: #1a1f26;
-  --fg-muted: #5c6672;
-  --fg-faint: #8b94a0;
-  --accent: #2f6fed;
-  --accent-fg: #ffffff;
-  --accent-soft: #2f6fed18;
-  --danger: #d83a4b;
-  --shadow-md: 0 4px 24px -10px rgba(20, 28, 40, 0.18);
+  --bg: #f6f3ec;
+  --bg-elev: #fffdf8;
+  --bg-inset: #efe9dd;
+  --bg-hover: #f1ebe0;
+  --bg-active: #e7e0d2;
+  --border: #e3ddd0;
+  --border-strong: #d2cabb;
+  --fg: #1b1813;
+  --fg-muted: #4a443b;
+  --fg-faint: #8b8275;
+  --accent: #c2410c;
+  --accent-fg: #fffdf8;
+  --accent-soft: #c2410c18;
+  --danger: #c0392b;
+  --shadow-md: 0 4px 28px -10px rgba(40, 32, 20, 0.28);
 }
 
 * {
@@ -3665,4 +3673,129 @@ button.author-file:hover {
 
 .rd-action:hover .rd-ico {
   color: var(--accent);
+}
+
+/* ============================================================ *
+ *  EDITORIAL REFINEMENT LAYER  (2026-06)
+ *  Applied on top of the token swap to lift signature surfaces
+ *  from "themed VS Code" to premium editorial. Token-driven, so
+ *  it tracks both light + dark automatically.
+ * ============================================================ */
+
+/* warm paper grain on the canvas */
+body {
+  background-image:
+    radial-gradient(1100px 560px at 88% -8%, var(--accent-soft) 0%, transparent 55%),
+    radial-gradient(820px 460px at -6% 0%, rgba(120, 140, 160, 0.05) 0%, transparent 52%);
+  background-attachment: fixed;
+}
+
+/* Brand — serif wordmark with a kicker, like a masthead */
+.topbar {
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg-elev) 86%, transparent);
+}
+.brand {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand .mark {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+.brand .repo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Tabs — taller, with a sliding-feel underline and serif-adjacent weight */
+.tabs {
+  padding: 0 18px;
+  gap: 4px;
+}
+.tab {
+  height: 44px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  border-bottom-width: 2.5px;
+  position: relative;
+}
+.tab.active {
+  font-weight: 600;
+}
+.tab.active::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -2.5px;
+  height: 2.5px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 12px -2px var(--accent);
+}
+.tab.active {
+  border-bottom-color: transparent;
+}
+
+/* Sidebar section heads — refined tracking + a hairline accent tick */
+.rail-section-head {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--fg-faint);
+  padding: 8px 8px 5px;
+}
+
+/* Command palette — premium elevated sheet */
+.palette {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--fg) 4%, transparent) inset,
+    var(--shadow-md),
+    0 40px 80px -30px rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--bg-elev) 96%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}
+
+/* Section / panel headings that use the display serif */
+.empty-state .title,
+.section-heading,
+.panel-heading,
+.view-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Monospace numerals everywhere they count (sha, counts, dates) */
+.sha,
+.count,
+.commit-sha,
+.metric,
+.stat-num,
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accent-tinted primary buttons read warmer */
+.btn.primary,
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+.btn.primary:hover,
+.btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
 }

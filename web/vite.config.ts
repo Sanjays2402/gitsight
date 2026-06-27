@@ -10,6 +10,9 @@ import { fileURLToPath, URL } from 'node:url';
 // build time.
 export default defineConfig({
   root: '.',
+  // Project-page deploy: assets must resolve under /gitsight/ on GitHub Pages.
+  // Dev/preview stay at root via the conditional.
+  base: process.env.NODE_ENV === 'production' ? '/gitsight/' : '/',
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('../src/shared', import.meta.url)),
