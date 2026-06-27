@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, firstCompareMatch } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -159,7 +159,14 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   };
   renderCols('');
   if (totalCommits >= COMMIT_FILTER_THRESHOLD) {
-    result.appendChild(buildCommitFilter(totalCommits, renderCols));
+    result.appendChild(
+      buildCommitFilter(totalCommits, renderCols, query => {
+        // W62: Enter in the filter box opens the first matching commit's
+        // detail (ahead column first), so a search resolves to an action.
+        const match = firstCompareMatch(cmp.ahead, cmp.behind, query);
+        if (match && opts.onOpenCommit) opts.onOpenCommit(match.sha);
+      }),
+    );
   }
   result.appendChild(cols);
 
@@ -260,16 +267,31 @@ function renderCompareFileRows(
  * ahead and behind lists by a subject/author/sha substring so a specific
  * commit is findable in a wide range. Pure matching lives in
  * compareFormat.filterCompareCommits; this only owns the input + re-render.
+ *
+ * W62: pressing Enter resolves the query to an action — `onEnter` is fired so
+ * the host opens the first matching commit's detail (a hint nudges the user).
  */
-function buildCommitFilter(total: number, render: (query: string) => void): HTMLElement {
+function buildCommitFilter(
+  total: number,
+  render: (query: string) => void,
+  onEnter: (query: string) => void,
+): HTMLElement {
   const wrap = el('div', 'compare-commit-filter');
   const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
   input.type = 'search';
   input.placeholder = `Filter ${total} commits by subject, author, or sha\u2026`;
   input.setAttribute('aria-label', 'Filter compare commits');
+  input.title = 'Enter opens the first matching commit';
   input.setAttribute('spellcheck', 'false');
   input.setAttribute('autocomplete', 'off');
   input.addEventListener('input', () => render(input.value));
+  // Enter -> open the first match (W62). preventDefault stops a form-ish submit.
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onEnter(input.value);
+    }
+  });
   wrap.appendChild(input);
   return wrap;
 }

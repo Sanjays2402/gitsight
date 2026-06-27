@@ -15,6 +15,7 @@ import {
   normalizeCommitQuery,
   commitMatchesQuery,
   filterCompareCommits,
+  firstCompareMatch,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -102,4 +103,31 @@ test('filterCompareCommits narrows by query, preserving order + identity', () =>
   assert.notEqual(all, COMMITS); // new array
   // No matches -> empty.
   assert.deepEqual(filterCompareCommits(COMMITS, 'zzzzz'), []);
+});
+
+// ── First match -> jump (W62) ────────────────────────────────────────
+
+test('firstCompareMatch returns the first ahead-column match', () => {
+  const ahead = [COMMITS[1]]; // "Add stash split toggle" by Bjarne
+  const behind = [COMMITS[0], COMMITS[2]]; // both Ada
+  // "ada" matches only the behind column here.
+  assert.equal(firstCompareMatch(ahead, behind, 'ada'), COMMITS[0]);
+});
+
+test('firstCompareMatch searches ahead before behind', () => {
+  // Both columns carry an "ada" match; the ahead one wins.
+  const ahead = [COMMITS[2]];
+  const behind = [COMMITS[0]];
+  assert.equal(firstCompareMatch(ahead, behind, 'ada'), COMMITS[2]);
+});
+
+test('firstCompareMatch returns null for no match or empty query', () => {
+  assert.equal(firstCompareMatch(COMMITS, [], 'zzzzz'), null);
+  assert.equal(firstCompareMatch(COMMITS, COMMITS, ''), null);
+  assert.equal(firstCompareMatch(COMMITS, COMMITS, '   '), null);
+  assert.equal(firstCompareMatch([], [], 'ada'), null);
+});
+
+test('firstCompareMatch resolves a sha prefix', () => {
+  assert.equal(firstCompareMatch([], COMMITS, 'cccc333'), COMMITS[1]);
 });

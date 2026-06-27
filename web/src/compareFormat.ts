@@ -113,3 +113,22 @@ export function filterCompareCommits<T extends FilterableCommit>(commits: T[], q
   if (!q) return commits.slice();
   return commits.filter(c => commitMatchesQuery(c, q));
 }
+
+/**
+ * The first commit matching a query across the two compare columns (W62), or
+ * null when none match (or the query is empty). `ahead` is searched before
+ * `behind` so pressing Enter in the filter box resolves to the commit unique
+ * to head first — the side users are usually hunting in. Order within a column
+ * is preserved (newest-first as the columns render).
+ */
+export function firstCompareMatch<T extends FilterableCommit>(
+  ahead: T[],
+  behind: T[],
+  query: string,
+): T | null {
+  const q = normalizeCommitQuery(query);
+  if (!q) return null;
+  for (const c of ahead) if (commitMatchesQuery(c, q)) return c;
+  for (const c of behind) if (commitMatchesQuery(c, q)) return c;
+  return null;
+}
