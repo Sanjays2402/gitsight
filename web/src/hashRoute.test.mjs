@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -160,6 +160,71 @@ test('parseHash drops a malformed vs to the bare contributors tab', () => {
 
 test('buildHash(parseHash(x)) round-trips a contributors comparison link', () => {
   const original = 'contributors?vs=ada%40x.com%2Cbob%40y.io';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── activity scoped-calendar deep-link (W48) ─────────────────────────
+
+test('sanitizeYear accepts a plausible 4-digit year and rejects the rest', () => {
+  assert.equal(sanitizeYear('2026'), 2026);
+  assert.equal(sanitizeYear(2024), 2024);
+  assert.equal(sanitizeYear('  2020 '), 2020);
+  assert.equal(sanitizeYear('1969'), null); // before the epoch floor
+  assert.equal(sanitizeYear('10000'), null); // too big
+  assert.equal(sanitizeYear('20xx'), null); // non-numeric
+  assert.equal(sanitizeYear('2026.5'), null); // non-integer
+  assert.equal(sanitizeYear(''), null);
+  assert.equal(sanitizeYear(null), null);
+  assert.equal(sanitizeYear(undefined), null);
+});
+
+test('buildHash emits the bare activity tab when scoped to defaults', () => {
+  assert.equal(buildHash({ view: 'activity' }), 'activity');
+  assert.equal(buildHash({ view: 'activity', year: null, metric: 'commits' }), 'activity');
+});
+
+test('buildHash emits activity?year= for a scoped year', () => {
+  assert.equal(buildHash({ view: 'activity', year: 2026 }), 'activity?year=2026');
+});
+
+test('buildHash emits activity?metric=churn for the churn metric', () => {
+  assert.equal(buildHash({ view: 'activity', metric: 'churn' }), 'activity?metric=churn');
+});
+
+test('buildHash emits both year and metric when both diverge', () => {
+  assert.equal(
+    buildHash({ view: 'activity', year: 2025, metric: 'churn' }),
+    'activity?year=2025&metric=churn',
+  );
+});
+
+test('buildHash drops a junk year to the bare activity tab', () => {
+  assert.equal(buildHash({ view: 'activity', year: 99999 }), 'activity');
+});
+
+test('parseHash reads a bare activity tab into an activity route', () => {
+  assert.deepEqual(parseHash('#activity'), { view: 'activity' });
+});
+
+test('parseHash reads activity?year=&metric= into a scoped route', () => {
+  assert.deepEqual(parseHash('#activity?year=2026'), { view: 'activity', year: 2026 });
+  assert.deepEqual(parseHash('#activity?metric=churn'), { view: 'activity', metric: 'churn' });
+  assert.deepEqual(parseHash('#activity?year=2025&metric=churn'), {
+    view: 'activity',
+    year: 2025,
+    metric: 'churn',
+  });
+});
+
+test('parseHash drops a junk year + unknown metric to defaults', () => {
+  // Junk year -> rolling window (no year key); odd metric -> commits default.
+  assert.deepEqual(parseHash('#activity?year=nope&metric=bogus'), { view: 'activity' });
+});
+
+test('buildHash(parseHash(x)) round-trips a scoped activity link', () => {
+  const original = 'activity?year=2026&metric=churn';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

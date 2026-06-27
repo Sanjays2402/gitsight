@@ -10,10 +10,11 @@
  *   compare?base=<ref>&head=<ref>   the Compare view, pre-loaded
  *   commit/<sha>                    the graph with a commit detail open
  *   contributors?vs=<email>,<email> the contributor comparison, pre-loaded
+ *   activity?year=<YYYY>&metric=churn   the calendar scoped to a year/metric
  *   graph                           bare view name = just the tab, no params
- * Refs run through the compare sanitiser, a sha through `sanitizeSha`, and a
- * vs-email through `sanitizeEmail`, so a crafted hash can't inject a flag/
- * space toward the companion.
+ * Refs run through the compare sanitiser, a sha through `sanitizeSha`, a
+ * vs-email through `sanitizeEmail`, and a year through `sanitizeYear`, so a
+ * crafted hash can't inject a flag/space toward the companion.
  *
  * Tests: web/src/hashRoute.test.mjs
  */
@@ -25,10 +26,21 @@ export type RouteView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compa
 
 const ROUTE_VIEWS: RouteView[] = ['graph', 'activity', 'contributors', 'blame', 'compare', 'stashes'];
 
+/** The activity metric a calendar deep-link can carry (W48). */
+export type RouteActivityMetric = 'commits' | 'churn';
+
 export interface CompareRoute {
   view: 'compare';
   base: string;
   head: string;
+}
+
+export interface ActivityRoute {
+  view: 'activity';
+  /** A calendar year to scope to (W48), or absent/null for the rolling window. */
+  year?: number | null;
+  /** Which metric the cells count (W48): 'churn' is the only non-default. */
+  metric?: RouteActivityMetric;
 }
 
 export interface ContributorsRoute {
@@ -38,7 +50,7 @@ export interface ContributorsRoute {
 }
 
 export interface PlainRoute {
-  view: Exclude<RouteView, 'compare' | 'contributors'>;
+  view: Exclude<RouteView, 'compare' | 'contributors' | 'activity'>;
   /**
    * Only on a graph permalink (`#commit/<sha>`, W27): the commit to open
    * the detail panel for. Absent for a bare view route.
@@ -52,11 +64,29 @@ export interface ContributorsBareRoute {
   vs?: undefined;
 }
 
-export type Route = CompareRoute | ContributorsRoute | ContributorsBareRoute | PlainRoute;
+export type Route =
+  | CompareRoute
+  | ContributorsRoute
+  | ContributorsBareRoute
+  | ActivityRoute
+  | PlainRoute;
 
 /** True when a string names a routable view. */
 export function isRouteView(v: string): v is RouteView {
   return (ROUTE_VIEWS as string[]).includes(v);
+}
+
+/**
+ * Normalise + validate a calendar year for an activity deep-link (W48).
+ * Accepts a plausible 4-digit year (1970-9999); returns null for anything
+ * else so a junk `year=` param degrades to the rolling calendar rather than
+ * scoping to nonsense. Mirrors the shared `isCalendarYear` guard.
+ */
+export function sanitizeYear(year: string | number | null | undefined): number | null {
+  if (year === null || year === undefined || year === '') return null;
+  const n = typeof year === 'number' ? year : Number(String(year).trim());
+  if (!Number.isInteger(n) || n < 1970 || n > 9999) return null;
+  return n;
 }
 
 /**
@@ -113,6 +143,17 @@ export function buildHash(route: Route): string {
     }
     return 'contributors';
   }
+  if (route.view === 'activity') {
+    // A scoped-calendar deep-link (W48): activity?year=YYYY&metric=churn.
+    // Only emit params that diverge from the defaults (rolling window +
+    // commits) so the common case stays the bare `activity` tab.
+    const p = new URLSearchParams();
+    const year = sanitizeYear(route.year);
+    if (year !== null) p.set('year', String(year));
+    if (route.metric === 'churn') p.set('metric', 'churn');
+    const qs = p.toString();
+    return qs ? `activity?${qs}` : 'activity';
+  }
   if (route.view === 'graph' && route.sha) {
     const sha = sanitizeSha(route.sha);
     return sha ? `commit/${sha}` : '';
@@ -161,6 +202,19 @@ export function parseHash(hash: string): Route | null {
       }
     }
     return { view: 'contributors' };
+  }
+
+  // Scoped-calendar deep-link (W48): activity?year=YYYY&metric=churn. Both
+  // params are optional; a junk year drops to the rolling window, and any
+  // metric other than 'churn' falls back to the commits default.
+  if (viewName === 'activity') {
+    const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
+    const year = sanitizeYear(params.get('year'));
+    const metric: RouteActivityMetric = params.get('metric') === 'churn' ? 'churn' : 'commits';
+    const route: ActivityRoute = { view: 'activity' };
+    if (year !== null) route.year = year;
+    if (metric === 'churn') route.metric = 'churn';
+    return route;
   }
 
   return { view: viewName as PlainRoute['view'] };

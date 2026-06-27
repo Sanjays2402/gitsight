@@ -80,6 +80,7 @@ import { SearchHistory } from './searchHistory';
 import { DiffSettingsStore } from './diffSettingsStore';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
+import { adjacentYear } from '@shared/activity';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { Contributor } from '@shared/contributors';
@@ -553,8 +554,10 @@ async function boot(): Promise<void> {
   // Switching repos / reloading invalidates the cached view payloads.
   state.activity = slot<ActivityPayload>();
   // A fresh repo's calendar starts on the rolling window with no known years
-  // until the next load reports them (W43).
-  state.activityYear = null;
+  // until the next load reports them (W43). A deep-linked year (W48) is
+  // restored from the pending stash so an #activity?year= link survives boot.
+  state.activityYear = pendingActivityYear;
+  pendingActivityYear = null;
   state.activityYears = [];
   state.contributors = slot<ContributorsPayload>();
   state.blame = slot<BlamePayload>();
@@ -1109,6 +1112,8 @@ function switchActivityMetric(metric: 'commits' | 'churn'): void {
   state.activityMetric = metric;
   // The metric changes what the cells count, so the cached calendar is stale.
   state.activity = slot<ActivityPayload>();
+  // Reflect the metric in the URL so the scoped calendar is shareable (W48).
+  syncHash();
   renderActivityView();
 }
 
@@ -1120,7 +1125,21 @@ function switchActivityYear(year: number | null): void {
   if (year === state.activityYear) return;
   state.activityYear = year;
   state.activity = slot<ActivityPayload>();
+  // Reflect the year in the URL so the scoped calendar is shareable (W48).
+  syncHash();
   renderActivityView();
+}
+
+/**
+ * Step the scoped calendar year by one from the keyboard (W48): left arrow
+ * goes older, right arrow newer. Mirrors the year picker's prev/next so the
+ * Activity tab is navigable without the mouse. A no-op step (already at an
+ * edge) is ignored. Needs the year list learned from the last load.
+ */
+function stepActivityYear(delta: number): void {
+  const next = adjacentYear(state.activityYears, state.activityYear, delta);
+  if (next === state.activityYear) return;
+  switchActivityYear(next);
 }
 
 function renderContributorsView(): void {
@@ -1613,6 +1632,18 @@ function installKeyboard(): void {
       }
       return;
     }
+    // Activity tab (W48): left/right arrows step the scoped calendar year,
+    // mirroring the year picker's prev/next. Older = left, newer = right.
+    if (state.view === 'activity') {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        stepActivityYear(-1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepActivityYear(1);
+      }
+      return;
+    }
     if (state.view !== 'graph') return;
     if (e.key === 'j' || e.key === 'ArrowDown') {
       e.preventDefault();
@@ -1648,6 +1679,15 @@ function applyInitialRoute(): void {
     state.compareBase = route.base;
     state.compareHead = route.head;
   }
+  // A scoped-calendar deep-link (#activity?year=&metric=, W48): seed the
+  // year + metric so the first Activity render fetches the right slice.
+  // boot() resets activityYear to null, so stash the year in a pending var
+  // it restores after its reset (the metric survives boot untouched).
+  if (route.view === 'activity') {
+    state.activityYear = route.year ?? null;
+    state.activityMetric = route.metric ?? 'commits';
+    pendingActivityYear = route.year ?? null;
+  }
   // Remember a commit permalink (#commit/<sha>, W27); boot() opens the
   // detail panel once the snapshot has loaded.
   if (route.view === 'graph' && route.sha) {
@@ -1665,6 +1705,13 @@ let pendingCommitSha: string | null = null;
 
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
+
+/**
+ * A calendar year from an #activity?year= deep-link (W48). boot() resets
+ * activityYear, so we stash the deep-linked value here and re-apply it once
+ * boot has finished its reset, then clear it.
+ */
+let pendingActivityYear: number | null = null;
 
 /** True while we're writing the hash ourselves, to ignore the echo event. */
 let writingHash = false;
@@ -1684,6 +1731,9 @@ function syncHash(): void {
     route = { view: 'contributors', vs: [a.email, b.email] };
   } else if (state.view === 'contributors') {
     route = { view: 'contributors' };
+  } else if (state.view === 'activity') {
+    // A shareable scoped-calendar deep-link (W48): year + metric.
+    route = { view: 'activity', year: state.activityYear, metric: state.activityMetric };
   } else {
     // The compare + contributors views are handled above; the rest are
     // plain single-tab routes.
@@ -1741,6 +1791,28 @@ function installHashRouting(): void {
         rebuildChrome();
       }
       openCompareFromEmails(route.vs);
+      return;
+    }
+    // Scoped-calendar deep-link on back/forward (W48): switch to the Activity
+    // tab if needed, then re-scope the calendar to the URL's year + metric.
+    if (route.view === 'activity') {
+      const nextYear = route.year ?? null;
+      const nextMetric = route.metric ?? 'commits';
+      const scopeChanged = nextYear !== state.activityYear || nextMetric !== state.activityMetric;
+      state.activityYear = nextYear;
+      state.activityMetric = nextMetric;
+      if (state.view !== 'activity') {
+        state.view = 'activity';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        if (scopeChanged) state.activity = slot<ActivityPayload>();
+        rebuildChrome();
+        void ensureActivity();
+      } else if (scopeChanged) {
+        state.activity = slot<ActivityPayload>();
+        renderActivityView();
+      }
       return;
     }
     if (route.view !== state.view) {

@@ -76,6 +76,13 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
         { keys: ['author:', 'me'], description: 'Filter by author (also grep: ref: since: until: sha:)', views: ['graph'] },
       ],
     },
+    {
+      title: 'Activity',
+      shortcuts: [
+        { keys: ['\u2190'], description: 'Scope the calendar to the older year', views: ['activity'] },
+        { keys: ['\u2192'], description: 'Scope the calendar to the newer year', views: ['activity'] },
+      ],
+    },
   ];
 }
 
