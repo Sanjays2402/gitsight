@@ -7,6 +7,7 @@ import {
   sanitizeIgnoreRev,
   normalizeIgnoreRevs,
   buildIgnoreRevArgs,
+  commitsInRange,
 } from '../../src/shared/blame';
 
 // A compact but realistic porcelain stream: two commits, the first
@@ -152,4 +153,36 @@ test('buildIgnoreRevArgs emits one --ignore-rev pair per clean rev', () => {
   // Junk drops out; nothing valid -> no args.
   assert.deepEqual(buildIgnoreRevArgs(['--all', 'main']), []);
   assert.deepEqual(buildIgnoreRevArgs([]), []);
+});
+
+// ── Commits touching a line range (W69) ──────────────────────────────
+
+// A tiny model: lines 1-5, shas A,A,B,C,B (B repeats so distinctness matters).
+const RANGE_MODEL = {
+  lines: [
+    { line: 1, sha: 'aaaa' },
+    { line: 2, sha: 'aaaa' },
+    { line: 3, sha: 'bbbb' },
+    { line: 4, sha: 'cccc' },
+    { line: 5, sha: 'bbbb' },
+  ],
+};
+
+test('commitsInRange returns distinct shas in first-seen order', () => {
+  // Lines 1-4 touch A (x2), B, C -> distinct A,B,C in file order.
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 1, 4), ['aaaa', 'bbbb', 'cccc']);
+  // Lines 3-5 touch B, C, B -> B,C (B de-duped, first-seen order).
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 3, 5), ['bbbb', 'cccc']);
+});
+
+test('commitsInRange covers a single line and normalises a reversed range', () => {
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 4, 4), ['cccc']);
+  // Reversed bounds resolve the same as ascending.
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 4, 1), ['aaaa', 'bbbb', 'cccc']);
+});
+
+test('commitsInRange returns empty for an out-of-range or empty model', () => {
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 10, 20), []);
+  assert.deepEqual(commitsInRange(RANGE_MODEL, 0, 0), []);
+  assert.deepEqual(commitsInRange({ lines: [] }, 1, 5), []);
 });

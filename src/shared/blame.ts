@@ -233,3 +233,35 @@ export function buildIgnoreRevArgs(revs: readonly string[]): string[] {
   }
   return args;
 }
+
+// ── Commits touching a line range (W69) ──────────────────────────────
+
+/**
+ * The distinct commits that authored the lines in an inclusive 1-based range
+ * (W69). Walks the blame model's lines whose `line` falls in [start, end] and
+ * collects each line's sha once, in first-seen order (top-to-bottom of the
+ * file), so a copied blame range (W65) can drive a "view these commits" jump
+ * that filters the graph to exactly those commits.
+ *
+ * A reversed range (start > end) is normalised. Returns an empty array for a
+ * non-positive range or a model with no matching lines. Pure + model-shaped so
+ * it's testable without git.
+ */
+export function commitsInRange(
+  model: { lines: ReadonlyArray<Pick<BlameLineInfo, 'line' | 'sha'>> },
+  start: number,
+  end: number,
+): string[] {
+  const lo = Math.min(start, end);
+  const hi = Math.max(start, end);
+  if (hi < 1) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of model.lines ?? []) {
+    if (line.line < lo || line.line > hi) continue;
+    if (!line.sha || seen.has(line.sha)) continue;
+    seen.add(line.sha);
+    out.push(line.sha);
+  }
+  return out;
+}

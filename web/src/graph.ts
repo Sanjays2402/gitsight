@@ -45,6 +45,14 @@ export interface GraphRenderOptions {
   theme?: string;
   /** Case-insensitive substring filter on commit subject/author/sha. */
   filter?: string;
+  /**
+   * Restrict the graph to a specific set of commit shas (W69 "view these
+   * commits"). When set, only commits whose sha is in this set render (ANDed
+   * with the text filter). Empty/undefined = no sha restriction. Full or short
+   * shas are matched by prefix so a blame model's full shas line up with the
+   * snapshot's commits.
+   */
+  shaFilter?: string[];
   /** Called when a row is selected (click or keyboard). */
   onSelect?: (commit: GraphSnapshotCommit) => void;
   /** Called when a sha chip is clicked. */
@@ -92,10 +100,23 @@ export function renderGraph(
   const palette = paletteFor(opts.theme);
   // Parse the query once for the whole list (not per-commit).
   const query = parseQuery(opts.filter ?? '');
-  const filtered =
-    query.terms.length === 0
-      ? snapshot.commits
-      : snapshot.commits.filter(c => commitMatchesQuery(c, query));
+  // W69: an optional sha set restricts the graph to specific commits (e.g. the
+  // commits touching a blame line range). Lowercased for case-insensitive
+  // prefix matching against either sha form.
+  const shaSet = (opts.shaFilter ?? []).map(s => s.toLowerCase()).filter(Boolean);
+  const hasShaFilter = shaSet.length > 0;
+  const matchesShaSet = (c: GraphSnapshotCommit): boolean => {
+    const full = c.sha.toLowerCase();
+    const short = c.shortSha.toLowerCase();
+    // A target may be a full sha (from blame) or a short sha; match either by
+    // prefix so the two forms line up regardless of which side is longer.
+    return shaSet.some(t => full.startsWith(t) || t.startsWith(short));
+  };
+  const filtered = snapshot.commits.filter(c => {
+    if (hasShaFilter && !matchesShaSet(c)) return false;
+    if (query.terms.length > 0 && !commitMatchesQuery(c, query)) return false;
+    return true;
+  });
 
   // Shared lane layout — the SAME function the VS Code webview calls.
   const rows = assignLanes(filtered, palette);

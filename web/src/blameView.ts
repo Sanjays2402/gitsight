@@ -87,6 +87,13 @@ export interface BlameViewOptions {
    * is visible. The single revealed line (W57) still uses `revealLine`.
    */
   range?: { start: number; end: number } | null;
+  /**
+   * Fired when the user clicks "View these commits" for the active range (W69).
+   * The host filters the graph to the distinct commits touching those lines
+   * (computed via the shared commitsInRange over the blame model). Only shown
+   * when a range is set AND this is wired.
+   */
+  onViewRangeCommits?: (range: { start: number; end: number }) => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -178,6 +185,13 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
   // oldest (cold) -> newest (hot), with relative-age tick labels.
   wrap.appendChild(buildAgeLegend(model));
 
+  // Range action bar (W69): when a line range is selected, offer a jump to
+  // the distinct commits touching those lines. Sits between the legend and the
+  // rows so it's visible without scrolling.
+  if (opts.range && opts.range.end > opts.range.start && opts.onViewRangeCommits) {
+    wrap.appendChild(buildRangeActions(opts.range, opts.onViewRangeCommits));
+  }
+
   // Rows: windowed for big files, plain for small ones.
   const rows = el('div', 'blame-rows');
   // Delegated click for the line-number copy buttons (W57) — works for both
@@ -239,6 +253,28 @@ function buildAgeLegend(model: BlameModel): HTMLElement {
     `<span>newer</span>`;
   wrap.append(label, strip, ticks);
   return wrap;
+}
+
+/**
+ * Range action bar (W69): a compact bar shown when a multi-line blame range is
+ * selected, with a button that filters the graph to the distinct commits
+ * touching those lines. The host computes the sha set (shared commitsInRange)
+ * and switches to the graph; this only owns the affordance.
+ */
+function buildRangeActions(
+  range: { start: number; end: number },
+  onView: (range: { start: number; end: number }) => void,
+): HTMLElement {
+  const bar = el('div', 'blame-range-actions');
+  const label = el('span', 'blame-range-label');
+  label.textContent = `Lines ${range.start}\u2013${range.end} selected`;
+  const btn = el('button', 'btn blame-range-btn');
+  btn.type = 'button';
+  btn.innerHTML = `${icons.graph}<span>View these commits</span>`;
+  btn.title = `Filter the graph to the commits that authored lines ${range.start}-${range.end}`;
+  btn.addEventListener('click', () => onView(range));
+  bar.append(label, btn);
+  return bar;
 }
 
 /** Build one blame row element for a line. */

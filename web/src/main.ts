@@ -20,6 +20,7 @@ import './activityPeek.css';
 import './blameLegend.css';
 import './blameIgnore.css';
 import './blameLink.css';
+import './blameRangeCommits.css';
 import './graphMinimap.css';
 import './compareSplit.css';
 import './compareCommitFilter.css';
@@ -72,6 +73,7 @@ import { ContributorComparePanel } from './contributorCompareView';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter } from './blameLegend';
+import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
@@ -110,6 +112,13 @@ function slot<T>(): AsyncSlot<T> {
 interface AppState {
   snapshot: GraphSnapshot;
   filter: string;
+  /**
+   * An explicit commit-sha allow-list for the graph (W69 "view these commits"
+   * from a blame range). When non-empty the graph renders only these commits
+   * (ANDed with the text filter). Cleared on a fresh text search, repo switch,
+   * or reload.
+   */
+  graphShaFilter: string[];
   source: 'demo' | 'live' | 'loading';
   repos: RepoEntry[];
   repo: string | null;
@@ -166,6 +175,7 @@ const diffSettings = new DiffSettingsStore();
 const state: AppState = {
   snapshot: DEMO_SNAPSHOT,
   filter: '',
+  graphShaFilter: [],
   source: 'loading',
   repos: [],
   repo: null,
@@ -573,6 +583,8 @@ async function boot(): Promise<void> {
   }
   // Switching repos / reloading invalidates the cached view payloads.
   state.activity = slot<ActivityPayload>();
+  // A reload/repo-switch drops any W69 "view these commits" sha restriction.
+  state.graphShaFilter = [];
   // A fresh repo's calendar starts on the rolling window with no known years
   // until the next load reports them (W43). A deep-linked year (W48) is
   // restored from the pending stash so an #activity?year= link survives boot.
@@ -858,6 +870,8 @@ function buildToolbar(): HTMLElement {
     window.clearTimeout(t);
     t = window.setTimeout(() => {
       state.filter = input.value.trim();
+      // Typing a search supersedes a W69 sha restriction.
+      state.graphShaFilter = [];
       rebuildMainArea();
       renderView();
     }, 120);
@@ -1011,6 +1025,8 @@ function buildMainArea(): HTMLElement {
 /** Set the filter (from a rail/cell click), sync the input, and re-render. */
 function applyFilter(query: string): void {
   state.filter = query;
+  // A text filter supersedes the W69 "view these commits" sha restriction.
+  state.graphShaFilter = [];
   const input = document.getElementById('filter-input') as HTMLInputElement | null;
   if (input) input.value = query;
   // A deliberate filter (rail click, ref jump, search-syntax) is worth
@@ -1098,6 +1114,7 @@ function renderGraphView(): void {
   const result = renderGraph(state.snapshot, {
     theme: theme.palette,
     filter: state.filter,
+    shaFilter: state.graphShaFilter,
     scrollContainer: surface,
     onSelect: (c: GraphSnapshotCommit) => {
       setStatus(`${c.shortSha}  ${c.subject}`);
@@ -1112,9 +1129,36 @@ function renderGraphView(): void {
     graphController = null;
     surface.replaceChildren(emptyState());
   } else {
-    surface.replaceChildren(result.node);
+    // W69: when a blame-range sha restriction is active, show a dismissable
+    // banner above the graph so the narrowing is obvious + reversible.
+    if (state.graphShaFilter.length > 0) {
+      surface.replaceChildren(buildShaFilterBanner(result.rendered), result.node);
+    } else {
+      surface.replaceChildren(result.node);
+    }
   }
   updateCount(result.rendered, result.total);
+}
+
+/**
+ * A dismissable banner shown above the graph while a W69 "view these commits"
+ * sha restriction is active. Clicking clear drops the restriction + re-renders
+ * the full graph.
+ */
+function buildShaFilterBanner(shown: number): HTMLElement {
+  const bar = el('div', 'sha-filter-banner');
+  const label = el('span', 'sha-filter-label');
+  label.innerHTML = `${icons.blame}<span>Showing ${shown} ${shown === 1 ? 'commit' : 'commits'} from a blame selection</span>`;
+  const clear = el('button', 'sha-filter-clear');
+  clear.type = 'button';
+  clear.textContent = 'Show all';
+  clear.title = 'Clear the blame-range filter';
+  clear.addEventListener('click', () => {
+    state.graphShaFilter = [];
+    renderGraphView();
+  });
+  bar.append(label, clear);
+  return bar;
 }
 
 function renderActivityView(): void {
@@ -1281,6 +1325,8 @@ function renderBlameView(): void {
       state.blameLine && state.blameLineEnd
         ? { start: state.blameLine, end: state.blameLineEnd }
         : null,
+    // W69: jump from a selected blame range to the commits that authored it.
+    onViewRangeCommits: (range: { start: number; end: number }) => viewRangeCommits(range),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1678,6 +1724,35 @@ async function copyBlameLineRangeLink(start: number, end: number): Promise<void>
   } catch {
     toast('Copy failed');
   }
+}
+
+/**
+ * Filter the graph to the commits that authored a blame line range (W69).
+ * Computes the distinct shas touching the range from the loaded blame model
+ * (shared commitsInRange), sets them as the graph's sha allow-list, clears any
+ * text filter, and switches to the graph. A range that maps to no in-snapshot
+ * commits is reported rather than silently emptying the graph.
+ */
+function viewRangeCommits(range: { start: number; end: number }): void {
+  const model = state.blame.data;
+  if (!model) return;
+  const shas = commitsInRange(model, range.start, range.end);
+  if (shas.length === 0) {
+    toast('No commits found for those lines');
+    return;
+  }
+  // The sha set drives the graph; a stale text filter would over-narrow it.
+  state.filter = '';
+  state.graphShaFilter = shas;
+  state.view = 'graph';
+  detailPanel.close();
+  dayPanel.close();
+  authorPanel.close();
+  rebuildChrome();
+  syncHash();
+  renderView();
+  const n = shas.length;
+  toast(`Showing ${n} ${n === 1 ? 'commit' : 'commits'} from lines ${range.start}\u2013${range.end}`);
 }
 
 /**
