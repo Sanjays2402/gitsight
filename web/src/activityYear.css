@@ -1,0 +1,84 @@
+/*
+ * Activity year picker (W43) + the controls row that holds it alongside the
+ * W39 metric toggle.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * in-flight editorial redesign) without hard-coding a colour.
+ */
+
+/* Controls row: metric toggle on the left, year picker on the right. */
+.activity-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+/* The metric toggle keeps its own bottom margin off when inside the row. */
+.activity-controls .activity-metric {
+  margin: 0;
+}
+
+.activity-year {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+}
+
+.activity-year-arrow {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.activity-year-arrow:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.activity-year-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-year-select {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 8px;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  text-align: center;
+}
+
+.activity-year-select:hover {
+  background: var(--bg-hover);
+}
+
+.activity-year-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

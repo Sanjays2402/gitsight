@@ -43,7 +43,7 @@ import {
   buildRepoEntries,
 } from '../../src/shared/repoPicker.ts';
 import { parsePorcelainBlame } from '../../src/shared/blame.ts';
-import { buildActivityCalendar, buildChurnCalendar, CHURN_LOG_FORMAT, isDayKey, filterCommitsByDay } from '../../src/shared/activity.ts';
+import { buildActivityCalendar, parseChurnByDay, buildActivityCalendarFromCounts, CHURN_LOG_FORMAT, isDayKey, filterCommitsByDay, isCalendarYear, calendarYears, filterCountsByYear, inCalendarYear, YEAR_MAX_WEEKS } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
 import {
   buildAuthorSparkline,
@@ -267,8 +267,14 @@ export async function buildBlameForRepo(repo, rev, path) {
  * the snapshot's author dates; 'churn' shells a `--numstat` log and sums
  * insertions+deletions per author-local day. Both share the calendar core
  * so the grid geometry + intensity buckets are identical.
+ *
+ * W43: `year` scopes the calendar to one calendar year (null = the rolling
+ * recent window). The full list of years present in history is returned as
+ * `years` either way so the picker can offer every year while one is shown.
  */
-export async function buildActivityForRepo(repo, max, metric = 'commits') {
+export async function buildActivityForRepo(repo, max, metric = 'commits', year = null) {
+  const scopeYear = isCalendarYear(year) ? year : null;
+  const maxWeeks = scopeYear ? YEAR_MAX_WEEKS : 53;
   if (metric === 'churn') {
     await git(repo, ['rev-parse', '--git-dir']);
     const head = await readHead(repo);
@@ -280,12 +286,17 @@ export async function buildActivityForRepo(repo, max, metric = 'commits') {
       `--pretty=format:${CHURN_LOG_FORMAT}`,
       '--numstat',
     ]).catch(() => '');
-    const calendar = buildChurnCalendar(stdout, { maxWeeks: 53 });
-    return { repo: basename(toplevel) || 'repository', head, metric: 'churn', ...calendar };
+    const byDay = parseChurnByDay(stdout);
+    const years = calendarYears([...byDay.keys()].map(k => `${k}T00:00:00Z`));
+    const counts = scopeYear ? filterCountsByYear(byDay, scopeYear) : byDay;
+    const calendar = buildActivityCalendarFromCounts(counts, { maxWeeks });
+    return { repo: basename(toplevel) || 'repository', head, metric: 'churn', year: scopeYear, years, ...calendar };
   }
   const snapshot = await buildSnapshotForRepo(repo, max);
-  const calendar = buildActivityCalendar(snapshot.commits, { maxWeeks: 53 });
-  return { repo: snapshot.repo, head: snapshot.head, metric: 'commits', ...calendar };
+  const years = calendarYears(snapshot.commits.map(c => c.date));
+  const commits = scopeYear ? snapshot.commits.filter(c => inCalendarYear(c.date, scopeYear)) : snapshot.commits;
+  const calendar = buildActivityCalendar(commits, { maxWeeks });
+  return { repo: snapshot.repo, head: snapshot.head, metric: 'commits', year: scopeYear, years, ...calendar };
 }
 
 /**
@@ -871,14 +882,17 @@ export function createCompanionServer(opts) {
         }
         return;
       }
-      // GET /api/activity?metric=commits|churn -> contribution calendar (W13;
-      // churn metric W39). Pulls a wider history window than the graph.
+      // GET /api/activity?metric=commits|churn&year=YYYY -> contribution
+      // calendar (W13; churn metric W39; year scoping W43). Pulls a wider
+      // history window than the graph.
       if (url.pathname === '/api/activity') {
         const max = Number(url.searchParams.get('max')) || 5000;
         const metric = url.searchParams.get('metric') === 'churn' ? 'churn' : 'commits';
+        const yearParam = Number(url.searchParams.get('year'));
+        const year = Number.isInteger(yearParam) ? yearParam : null;
         try {
           const repo = resolveRequestRepo(url.searchParams, opts);
-          const activity = await buildActivityForRepo(repo, max, metric);
+          const activity = await buildActivityForRepo(repo, max, metric, year);
           sendJson(res, 200, activity);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), repo: opts.repo });

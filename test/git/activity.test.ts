@@ -11,6 +11,14 @@ import {
   buildChurnCalendar,
   buildStreaks,
   activeDaysOf,
+  commitYear,
+  isCalendarYear,
+  calendarYears,
+  yearBounds,
+  inCalendarYear,
+  filterCountsByYear,
+  adjacentYear,
+  YEAR_MAX_WEEKS,
 } from '../../src/shared/activity';
 
 // ── dayKey ───────────────────────────────────────────────────────────
@@ -261,4 +269,82 @@ test('buildChurnCalendar on empty output yields an empty calendar', () => {
   const cal = buildChurnCalendar('');
   assert.deepEqual(cal.weeks, []);
   assert.equal(cal.total, 0);
+});
+
+// ── Year scoping (W43) ───────────────────────────────────────────────
+
+test('commitYear extracts the 4-digit author-local year', () => {
+  assert.equal(commitYear('2026-06-25T23:30:00-07:00'), 2026);
+  assert.equal(commitYear('2024-01-02T00:00:00Z'), 2024);
+  assert.equal(commitYear('nope'), null);
+});
+
+test('isCalendarYear accepts a plausible year and rejects junk', () => {
+  assert.equal(isCalendarYear(2026), true);
+  assert.equal(isCalendarYear(1970), true);
+  assert.equal(isCalendarYear(1969), false);
+  assert.equal(isCalendarYear(2026.5), false);
+  assert.equal(isCalendarYear('2026'), false);
+  assert.equal(isCalendarYear(null), false);
+});
+
+test('calendarYears returns distinct years newest-first', () => {
+  const dates = [
+    '2026-06-25T10:00:00-07:00',
+    '2026-01-01T10:00:00-07:00',
+    '2024-12-31T10:00:00-07:00',
+    'garbage',
+  ];
+  assert.deepEqual(calendarYears(dates), [2026, 2024]);
+  assert.deepEqual(calendarYears([]), []);
+});
+
+test('yearBounds returns inclusive Jan 1 .. Dec 31 day keys', () => {
+  assert.deepEqual(yearBounds(2026), { since: '2026-01-01', until: '2026-12-31' });
+});
+
+test('inCalendarYear matches by author-local year', () => {
+  assert.equal(inCalendarYear('2026-12-31T23:00:00-07:00', 2026), true);
+  assert.equal(inCalendarYear('2025-12-31T23:00:00-07:00', 2026), false);
+});
+
+test('filterCountsByYear keeps only that year by key prefix', () => {
+  const counts = new Map([
+    ['2026-06-01', 5],
+    ['2026-12-31', 2],
+    ['2025-06-01', 9],
+  ]);
+  const out = filterCountsByYear(counts, 2026);
+  assert.equal(out.size, 2);
+  assert.equal(out.get('2026-06-01'), 5);
+  assert.equal(out.has('2025-06-01'), false);
+});
+
+test('adjacentYear walks newest-first years and the rolling view', () => {
+  const years = [2026, 2024, 2022]; // newest-first
+  // From rolling: older -> newest concrete year; newer -> stay rolling.
+  assert.equal(adjacentYear(years, null, -1), 2026);
+  assert.equal(adjacentYear(years, null, 1), null);
+  // Within the list: older steps down the timeline, newer steps up.
+  assert.equal(adjacentYear(years, 2026, -1), 2024);
+  assert.equal(adjacentYear(years, 2024, 1), 2026);
+  // Past the newest concrete year -> back to rolling.
+  assert.equal(adjacentYear(years, 2026, 1), null);
+  // Already the oldest -> clamp (stay put).
+  assert.equal(adjacentYear(years, 2022, -1), 2022);
+  // Empty option list -> always rolling.
+  assert.equal(adjacentYear([], 2026, -1), null);
+});
+
+test('YEAR_MAX_WEEKS spans a full padded year without trimming', () => {
+  assert.ok(YEAR_MAX_WEEKS >= 54);
+  // A whole leap year padded Sun..Sat never exceeds 54 columns.
+  const counts = new Map([
+    ['2024-01-01', 1],
+    ['2024-12-31', 1],
+  ]);
+  const cal = buildActivityCalendarFromCounts(counts, { maxWeeks: YEAR_MAX_WEEKS });
+  assert.ok(cal.weeks.length <= YEAR_MAX_WEEKS);
+  assert.equal(cal.first, '2024-01-01');
+  assert.equal(cal.last, '2024-12-31');
 });

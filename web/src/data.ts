@@ -277,6 +277,10 @@ export interface ActivityPayload extends ActivityCalendar {
   head: string;
   /** Which metric the cells count (W39): 'commits' (default) or 'churn'. */
   metric?: 'commits' | 'churn';
+  /** The calendar year this view is scoped to, or null for the rolling window (W43). */
+  year?: number | null;
+  /** All calendar years present in history, newest-first, for the picker (W43). */
+  years?: number[];
 }
 
 export type ActivityResult =
@@ -292,13 +296,14 @@ export function isActivityPayload(v: unknown): v is ActivityPayload {
 /** The activity metric the calendar can chart (W39). */
 export type ActivityMetric = 'commits' | 'churn';
 
-/** Fetch the contribution calendar (W13; metric W39). */
+/** Fetch the contribution calendar (W13; metric W39; year scoping W43). */
 export async function loadActivity(
-  opts: { signal?: AbortSignal; repo?: string; metric?: ActivityMetric } = {},
+  opts: { signal?: AbortSignal; repo?: string; metric?: ActivityMetric; year?: number | null } = {},
 ): Promise<ActivityResult> {
   const params = new URLSearchParams();
   if (opts.repo) params.set('repo', opts.repo);
   if (opts.metric === 'churn') params.set('metric', 'churn');
+  if (opts.year != null) params.set('year', String(opts.year));
   const qs = params.toString() ? `?${params.toString()}` : '';
   return fetchJson<ActivityPayload>(`/api/activity${qs}`, isActivityPayload, opts.signal).then(r =>
     r.ok ? { ok: true, activity: r.value } : r,

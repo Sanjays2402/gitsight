@@ -373,6 +373,93 @@ export function buildChurnCalendar(stdout: string, opts: CalendarOptions = {}): 
   return buildActivityCalendarFromCounts(parseChurnByDay(stdout), opts);
 }
 
+// ── Year scoping (W43) ───────────────────────────────────────────────
+
+/**
+ * The whole-week column count a single calendar year can span once padded
+ * to Sunday..Saturday: at most 366 + 6 + 6 = 378 days = 54 columns. Using
+ * this as the year view's `maxWeeks` means a year grid is never trimmed.
+ */
+export const YEAR_MAX_WEEKS = 54;
+
+/** Extract the 4-digit calendar year from an ISO date, or null when unparseable. */
+export function commitYear(iso: string): number | null {
+  const key = dayKey(iso);
+  return key ? Number(key.slice(0, 4)) : null;
+}
+
+/**
+ * True for a plausible 4-digit calendar year. Guards a `year` query param
+ * before it reaches the git read so a junk value degrades to the default
+ * (rolling) calendar rather than scoping to nonsense.
+ */
+export function isCalendarYear(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1970 && v <= 9999;
+}
+
+/**
+ * The distinct calendar years present across a set of ISO author dates,
+ * newest-first. Drives the year picker's option list (W43); derived from
+ * the UNFILTERED history so every year stays reachable while one is scoped.
+ */
+export function calendarYears(dates: string[]): number[] {
+  const set = new Set<number>();
+  for (const d of dates) {
+    const y = commitYear(d);
+    if (y !== null) set.add(y);
+  }
+  return [...set].sort((a, b) => b - a);
+}
+
+/** Inclusive day bounds (`YYYY-01-01` .. `YYYY-12-31`) for a calendar year. */
+export function yearBounds(year: number): { since: string; until: string } {
+  const y = String(year).padStart(4, '0');
+  return { since: `${y}-01-01`, until: `${y}-12-31` };
+}
+
+/** True when an ISO author date falls within the given calendar year. */
+export function inCalendarYear(iso: string, year: number): boolean {
+  return commitYear(iso) === year;
+}
+
+/**
+ * Filter a per-day count map (commit counts or churn) to a single calendar
+ * year (W43). Keys are `YYYY-MM-DD`, so a cheap prefix compare scopes the
+ * churn calendar by author-local year without a second git read.
+ */
+export function filterCountsByYear(counts: Map<string, number>, year: number): Map<string, number> {
+  const prefix = `${String(year).padStart(4, '0')}-`;
+  const out = new Map<string, number>();
+  for (const [key, value] of counts) {
+    if (key.startsWith(prefix)) out.set(key, value);
+  }
+  return out;
+}
+
+/**
+ * Resolve which year to navigate to from the picker's prev/next arrows
+ * (W43). `years` is the newest-first option list; `current` is the active
+ * year (or null for the rolling \"recent\" view); `delta` is +1 (newer) or
+ * -1 (older). From the rolling view, going older lands on the newest year;
+ * going newer is a no-op (you're already at the most recent window).
+ * Returns the target year, or null to mean the rolling view. Clamped to the
+ * available list so navigation never lands on a year with no data.
+ */
+export function adjacentYear(years: number[], current: number | null, delta: number): number | null {
+  if (years.length === 0) return null;
+  if (current === null) {
+    // Rolling view: older -> the most recent concrete year; newer -> stay.
+    return delta < 0 ? years[0] : null;
+  }
+  const idx = years.indexOf(current);
+  if (idx === -1) return delta < 0 ? years[0] : null;
+  // `years` is newest-first, so a NEWER year is a LOWER index.
+  const nextIdx = delta > 0 ? idx - 1 : idx + 1;
+  if (nextIdx < 0) return null; // past the newest concrete year -> rolling
+  if (nextIdx >= years.length) return current; // already the oldest
+  return years[nextIdx];
+}
+
 /**
  * Compute month labels: a label sits above the first week column whose
  * Sunday falls in a new month (skipping a label that would collide with

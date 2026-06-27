@@ -395,6 +395,42 @@ test('buildActivityForRepo with metric=churn counts lines changed per day (W39)'
   }
 });
 
+test('buildActivityForRepo scopes to one calendar year and reports the year list (W43)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-actyear-'));
+  try {
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'a@b.c']);
+    await git(['config', 'user.name', 'A']);
+    const day = (d) => ({ GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d });
+    await git(['commit', '--allow-empty', '-q', '-m', 'old1'], day('2024-03-02T09:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'old2'], day('2024-03-03T09:00:00'));
+    await git(['commit', '--allow-empty', '-q', '-m', 'new1'], day('2026-06-01T09:00:00'));
+
+    // Unscoped: all three commits, both years reported newest-first.
+    const all = await buildActivityForRepo(dir, 100, 'commits', null);
+    assert.equal(all.total, 3);
+    assert.equal(all.year, null);
+    assert.deepEqual(all.years, [2026, 2024]);
+
+    // Scoped to 2024: only the two old commits, year echoed, full list kept.
+    const y2024 = await buildActivityForRepo(dir, 100, 'commits', 2024);
+    assert.equal(y2024.total, 2);
+    assert.equal(y2024.year, 2024);
+    assert.equal(y2024.first, '2024-03-02');
+    assert.equal(y2024.last, '2024-03-03');
+    assert.deepEqual(y2024.years, [2026, 2024]);
+
+    // Scoped to a year with no commits: empty calendar, list still intact.
+    const y2025 = await buildActivityForRepo(dir, 100, 'commits', 2025);
+    assert.equal(y2025.total, 0);
+    assert.equal(y2025.year, 2025);
+    assert.deepEqual(y2025.years, [2026, 2024]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 // ── buildDayCommitsForRepo (W22, integration) ────────────────────────
 
 test('buildDayCommitsForRepo returns commits bucketed to one author-local day', async () => {

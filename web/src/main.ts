@@ -15,6 +15,7 @@
 import './styles.css';
 import './diffSplit.css';
 import './activityMetric.css';
+import './activityYear.css';
 import './blameLegend.css';
 import './contributorCompare.css';
 import './stashCreate.css';
@@ -107,6 +108,10 @@ interface AppState {
   activity: AsyncSlot<ActivityPayload>;
   /** Which activity metric the calendar charts (W39). */
   activityMetric: 'commits' | 'churn';
+  /** The calendar year the activity view is scoped to, or null for rolling (W43). */
+  activityYear: number | null;
+  /** Years available in history, newest-first, learned from the last load (W43). */
+  activityYears: number[];
   contributors: AsyncSlot<ContributorsPayload>;
   /** Authors marked for comparison (W35), up to two {email,name}. */
   compareSelection: Array<{ email: string; name: string }>;
@@ -147,6 +152,8 @@ const state: AppState = {
   layout: layoutFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
   activity: slot<ActivityPayload>(),
   activityMetric: 'commits',
+  activityYear: null,
+  activityYears: [],
   contributors: slot<ContributorsPayload>(),
   compareSelection: [],
   blame: slot<BlamePayload>(),
@@ -533,6 +540,10 @@ async function boot(): Promise<void> {
   }
   // Switching repos / reloading invalidates the cached view payloads.
   state.activity = slot<ActivityPayload>();
+  // A fresh repo's calendar starts on the rolling window with no known years
+  // until the next load reports them (W43).
+  state.activityYear = null;
+  state.activityYears = [];
   state.contributors = slot<ContributorsPayload>();
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
@@ -1048,6 +1059,9 @@ function renderActivityView(): void {
     },
     metric: state.activityMetric,
     onSwitchMetric: metric => switchActivityMetric(metric),
+    year: state.activityYear,
+    years: state.activityYears,
+    onPickYear: year => switchActivityYear(year),
   });
   surface.replaceChildren(node);
   const noun = state.activityMetric === 'churn' ? 'lines' : 'commits';
@@ -1059,6 +1073,17 @@ function switchActivityMetric(metric: 'commits' | 'churn'): void {
   if (metric === state.activityMetric) return;
   state.activityMetric = metric;
   // The metric changes what the cells count, so the cached calendar is stale.
+  state.activity = slot<ActivityPayload>();
+  renderActivityView();
+}
+
+/**
+ * Scope the activity calendar to a calendar year, or null for the rolling
+ * recent window (W43). A different scope invalidates the cached calendar.
+ */
+function switchActivityYear(year: number | null): void {
+  if (year === state.activityYear) return;
+  state.activityYear = year;
   state.activity = slot<ActivityPayload>();
   renderActivityView();
 }
@@ -1211,9 +1236,21 @@ async function createStash(opts: { message: string; includeUntracked: boolean; k
 async function ensureActivity(): Promise<void> {
   if (state.activity.status === 'loading' || state.activity.status === 'ready') return;
   state.activity.status = 'loading';
-  const res = await loadActivity({ repo: state.repo ?? undefined, metric: state.activityMetric });
-  if (res.ok) state.activity = { status: 'ready', data: res.activity, error: '' };
-  else state.activity = { status: 'error', data: null, error: res.error };
+  const res = await loadActivity({
+    repo: state.repo ?? undefined,
+    metric: state.activityMetric,
+    year: state.activityYear,
+  });
+  if (res.ok) {
+    state.activity = { status: 'ready', data: res.activity, error: '' };
+    // Learn the available years from the payload so the picker stays current
+    // even while one year is scoped (the server reports the full set).
+    if (Array.isArray(res.activity.years) && res.activity.years.length) {
+      state.activityYears = res.activity.years;
+    }
+  } else {
+    state.activity = { status: 'error', data: null, error: res.error };
+  }
   if (state.view === 'activity') renderActivityView();
 }
 

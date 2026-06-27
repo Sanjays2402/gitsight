@@ -13,7 +13,7 @@
 
 import { el } from './format';
 import { escapeHtml } from '@shared/graphCore';
-import { buildStreaks, activeDaysOf } from '@shared/activity';
+import { buildStreaks, activeDaysOf, adjacentYear } from '@shared/activity';
 import type { ActivityCalendar, ActivityDay } from '@shared/activity';
 
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -28,6 +28,12 @@ export interface ActivityViewOptions {
   metric?: ActivityMetric;
   /** Fired when the user switches the metric segmented control (W39). */
   onSwitchMetric?: (metric: ActivityMetric) => void;
+  /** The calendar year currently scoped, or null for the rolling window (W43). */
+  year?: number | null;
+  /** All years available in history, newest-first, for the picker (W43). */
+  years?: number[];
+  /** Fired when the user picks a year (number) or clears to rolling (null) (W43). */
+  onPickYear?: (year: number | null) => void;
 }
 
 /** Render the activity calendar into a detached node. */
@@ -39,15 +45,25 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
   // churn read naturally from the same render path.
   const unit = isChurn ? 'lines changed' : 'commits';
 
-  // Metric segmented control (W39) — commits vs churn. Always present so the
-  // toggle is discoverable even on an empty calendar.
-  if (opts.onSwitchMetric) {
-    wrap.appendChild(buildMetricToggle(metric, opts.onSwitchMetric));
+  // Metric segmented control (W39) + year picker (W43) sit in one controls
+  // row so the toggle is discoverable even on an empty calendar.
+  if (opts.onSwitchMetric || opts.onPickYear) {
+    const controls = el('div', 'activity-controls');
+    if (opts.onSwitchMetric) {
+      controls.appendChild(buildMetricToggle(metric, opts.onSwitchMetric));
+    }
+    if (opts.onPickYear) {
+      controls.appendChild(buildYearPicker(opts.year ?? null, opts.years ?? [], opts.onPickYear));
+    }
+    wrap.appendChild(controls);
   }
 
   if (cal.weeks.length === 0) {
     const empty = el('div', 'activity-empty');
-    empty.textContent = isChurn ? 'No code churn to chart yet.' : 'No commit activity to chart yet.';
+    const yr = opts.year != null ? ` in ${opts.year}` : '';
+    empty.textContent = isChurn
+      ? `No code churn to chart${yr}.`
+      : `No commit activity to chart${yr}.`;
     wrap.appendChild(empty);
     return wrap;
   }
@@ -195,4 +211,63 @@ function buildMetricToggle(active: ActivityMetric, onSwitch: (m: ActivityMetric)
 function dayLabel(start: string | null, end: string | null): string {
   if (!start || !end) return '';
   return start === end ? escapeHtml(start) : `${escapeHtml(start)} \u2192 ${escapeHtml(end)}`;
+}
+
+/**
+ * Year picker (W43): prev/next arrows flanking a select that scopes the
+ * calendar to one calendar year, plus a "Recent" option (null) for the
+ * rolling window. Older steps back in time, newer forward; the arrows are
+ * disabled at the ends. Monochrome chrome, no emoji.
+ */
+function buildYearPicker(
+  current: number | null,
+  years: number[],
+  onPick: (year: number | null) => void,
+): HTMLElement {
+  const wrap = el('div', 'activity-year');
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'Calendar year');
+
+  // Older = step back in time. years is newest-first, so "older" moves to a
+  // later index; from Recent it lands on the newest concrete year.
+  const older = adjacentYear(years, current, -1);
+  const newer = adjacentYear(years, current, 1);
+
+  const prev = el('button', 'activity-year-arrow');
+  prev.type = 'button';
+  prev.innerHTML = '\u2039';
+  prev.title = 'Older year';
+  prev.setAttribute('aria-label', 'Older year');
+  // Disable when stepping older wouldn't move (already oldest).
+  prev.disabled = older === current;
+  if (!prev.disabled) prev.addEventListener('click', () => onPick(older));
+
+  const select = el('select', 'activity-year-select') as HTMLSelectElement;
+  select.setAttribute('aria-label', 'Select calendar year');
+  const recent = el('option', '', 'Recent') as HTMLOptionElement;
+  recent.value = '';
+  recent.selected = current === null;
+  select.appendChild(recent);
+  for (const y of years) {
+    const opt = el('option', '', String(y)) as HTMLOptionElement;
+    opt.value = String(y);
+    opt.selected = current === y;
+    select.appendChild(opt);
+  }
+  select.addEventListener('change', () => {
+    const v = select.value;
+    onPick(v === '' ? null : Number(v));
+  });
+
+  const next = el('button', 'activity-year-arrow');
+  next.type = 'button';
+  next.innerHTML = '\u203a';
+  next.title = 'Newer year';
+  next.setAttribute('aria-label', 'Newer year');
+  // Disable when already at the rolling (newest) view.
+  next.disabled = current === null || newer === current;
+  if (!next.disabled) next.addEventListener('click', () => onPick(newer));
+
+  wrap.append(prev, select, next);
+  return wrap;
 }
