@@ -18,6 +18,7 @@ import './activityMetric.css';
 import './activityYear.css';
 import './blameLegend.css';
 import './blameIgnore.css';
+import './graphMinimap.css';
 import './contributorCompare.css';
 import './stashCreate.css';
 import { renderGraph, type GraphController } from './graph';

@@ -34,6 +34,8 @@ import {
   VIRTUAL_THRESHOLD,
   type WindowRange,
 } from './virtual';
+import { GraphMinimap } from './minimapView';
+import { MINIMAP_THRESHOLD } from './minimap';
 
 const ROW_H = 30;
 const COL_W = 16;
@@ -129,6 +131,21 @@ export function renderGraph(
     scrollContainer: opts.scrollContainer,
   });
 
+  // Minimap (W45): a condensed lane strip for fast scroll-to-region on long
+  // histories. Needs a scroll container to drive; only worth it above a
+  // threshold (a short graph fits on screen already).
+  if (opts.scrollContainer && rows.length >= MINIMAP_THRESHOLD) {
+    const maxLanes = Math.max(...rows.map(r => r.lanes.length), 1);
+    const minimap = new GraphMinimap({
+      rows: rows.map(r => ({ lane: r.lane, color: r.color })),
+      scrollContainer: opts.scrollContainer,
+      contentHeight: rows.length * ROW_H,
+      maxLanes,
+    });
+    wrap.appendChild(minimap.node);
+    controller.attachMinimap(minimap);
+  }
+
   return { node: wrap, rendered: rows.length, total: snapshot.commits.length, controller };
 }
 
@@ -153,6 +170,7 @@ export class GraphController {
   private selected = -1;
   private win: WindowRange = { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
   private onScroll: (() => void) | null = null;
+  private minimap: GraphMinimap | null = null;
 
   constructor(args: GraphControllerArgs) {
     this.rows = args.rows;
@@ -172,12 +190,19 @@ export class GraphController {
     }
   }
 
+  /** Attach a minimap (W45) so its lifecycle is tied to this controller. */
+  attachMinimap(minimap: GraphMinimap): void {
+    this.minimap = minimap;
+  }
+
   /** Drop the scroll listener. Call before swapping in a fresh graph. */
   dispose(): void {
     if (this.onScroll && this.scrollContainer) {
       this.scrollContainer.removeEventListener('scroll', this.onScroll);
     }
     this.onScroll = null;
+    this.minimap?.dispose();
+    this.minimap = null;
   }
 
   count(): number {

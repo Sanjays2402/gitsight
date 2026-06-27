@@ -1,0 +1,64 @@
+/*
+ * Graph minimap strip (W45) — a condensed lane overview for fast
+ * scroll-to-region on long histories. Click or drag to navigate.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * in-flight editorial redesign) without hard-coding a colour.
+ */
+
+.graph-minimap {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  flex: 0 0 var(--minimap-w, 56px);
+  width: var(--minimap-w, 56px);
+  height: 100%;
+  max-height: 100vh;
+  margin-left: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elev);
+  cursor: pointer;
+  overflow: hidden;
+  /* Sit above the rows so the viewport indicator + marks stay grabbable. */
+  z-index: 2;
+}
+
+.graph-minimap-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--fg-faint);
+  opacity: 0.85;
+  /* Don't intercept pointer events — the wrapper owns click/drag-to-seek. */
+  pointer-events: none;
+}
+
+/* The draggable viewport indicator: a translucent block over the visible
+   slice. Hairline border + accent tint so it reads against the marks. */
+.graph-minimap-viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  pointer-events: none;
+  transition: background 0.12s var(--ease);
+}
+
+.graph-minimap:hover .graph-minimap-viewport {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.graph-minimap.dragging {
+  cursor: grabbing;
+}
+
+.graph-minimap.dragging .graph-minimap-viewport {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* On compact (mobile) layouts the strip would crowd the rows — hide it. */
+#app[data-compact='true'] .graph-minimap {
+  display: none;
+}
