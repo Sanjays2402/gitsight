@@ -14,7 +14,13 @@ import { el } from './format';
 import { timeAgo } from './format';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
-import { sharePercent, type ContributorStats, type Contributor } from '@shared/contributors';
+import {
+  sharePercent,
+  contributorChurn,
+  type ContributorStats,
+  type Contributor,
+  type ContributorSort,
+} from '@shared/contributors';
 
 export interface ContributorsViewOptions {
   /** Fired when a row is clicked (drives an author: filter). */
@@ -23,7 +29,19 @@ export interface ContributorsViewOptions {
   onCompareToggle?: (c: Contributor) => void;
   /** Emails currently selected for comparison (W35), to mark rows. */
   selectedForCompare?: string[];
+  /** Active sort key for the leaderboard (W60). Default 'commits'. */
+  sort?: ContributorSort;
+  /** Fired when the user picks a sort segment (W60); host re-sorts + re-renders. */
+  onSort?: (sort: ContributorSort) => void;
 }
+
+/** The sort segments shown in the leaderboard header (W60). */
+const SORT_SEGMENTS: Array<[ContributorSort, string, string]> = [
+  ['commits', 'Commits', 'Most commits first'],
+  ['churn', 'Churn', 'Most lines changed first'],
+  ['recent', 'Recent', 'Most recently active first'],
+  ['name', 'Name', 'Alphabetical by name'],
+];
 
 /** Render the contributor leaderboard into a detached node. */
 export function renderContributors(stats: ContributorStats, opts: ContributorsViewOptions = {}): HTMLElement {
@@ -40,12 +58,19 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
   head.innerHTML =
     `<div class="activity-stat"><span class="n">${stats.totalAuthors}</span><span class="l">contributors</span></div>` +
     `<div class="activity-stat"><span class="n">${stats.totalCommits}</span><span class="l">commits</span></div>`;
+  // Sort segmented control (W60): commits / churn / recent / name. Only shown
+  // when the host wires onSort (i.e. the payload carries churn so churn-sort is
+  // meaningful). Mirrors the activity metric toggle's chrome.
+  if (opts.onSort) {
+    head.appendChild(buildSortControl(opts.sort ?? 'commits', opts.onSort));
+  }
   wrap.appendChild(head);
 
   const list = el('div', 'contributors-list');
   list.setAttribute('role', 'list');
   const topShare = stats.contributors[0].share || 1;
   const selected = new Set((opts.selectedForCompare ?? []).map(e => e.toLowerCase()));
+  const sortKey = opts.sort ?? 'commits';
 
   stats.contributors.forEach((c, i) => {
     const row = el('div', 'contributor-row');
@@ -86,9 +111,22 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
     barWrap.appendChild(bar);
 
     const count = el('div', 'contributor-count');
+    // The count cell leads with commits + share; when there's churn data it
+    // appends a +ins/-del readout. Sorting by churn promotes the churn line so
+    // the ordering key is the prominent number (W60).
+    const churn = contributorChurn(c);
+    const churnHtml =
+      churn > 0
+        ? `<span class="contributor-churn">` +
+          (c.insertions > 0 ? `<span class="add">+${c.insertions}</span>` : '') +
+          (c.deletions > 0 ? `<span class="del">-${c.deletions}</span>` : '') +
+          `</span>`
+        : '';
     count.innerHTML =
       `<span class="commits">${c.commits}</span>` +
-      `<span class="pct">${sharePercent(c)}%</span>`;
+      `<span class="pct">${sharePercent(c)}%</span>` +
+      churnHtml;
+    if (sortKey === 'churn' && churn > 0) count.classList.add('by-churn');
 
     main.append(rank, dot, info, barWrap, count);
     row.appendChild(main);
@@ -111,4 +149,29 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
 
   wrap.appendChild(list);
   return wrap;
+}
+
+/**
+ * Segmented sort control for the leaderboard header (W60). Commits / Churn /
+ * Recent / Name; the active segment is accented, and clicking an inactive one
+ * fires onSort so the host re-sorts the (client-side) list and re-renders.
+ * Monochrome chrome, accent on the active segment — mirrors the activity
+ * metric toggle so the two views feel consistent.
+ */
+function buildSortControl(active: ContributorSort, onSort: (s: ContributorSort) => void): HTMLElement {
+  const bar = el('div', 'contributor-sort');
+  bar.setAttribute('role', 'tablist');
+  bar.setAttribute('aria-label', 'Sort contributors');
+  for (const [key, label, title] of SORT_SEGMENTS) {
+    const on = key === active;
+    const btn = el('button', 'contributor-sort-seg' + (on ? ' on' : ''));
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.title = title;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', String(on));
+    if (!on) btn.addEventListener('click', () => onSort(key));
+    bar.appendChild(btn);
+  }
+  return bar;
 }

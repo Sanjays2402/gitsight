@@ -1,0 +1,80 @@
+/*
+ * Contributor leaderboard sort control + churn readout (W60).
+ *
+ * Co-located, token-only styling so it inherits the app's theme. The sort
+ * segmented control mirrors the activity metric toggle; the churn readout sits
+ * under the commit count and brightens when the list is sorted by churn.
+ */
+
+.contributor-sort {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bg-elev, #161b22);
+}
+
+.contributor-sort-seg {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-faint, #7d8590);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-right: 1px solid var(--border, #2a2f37);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.contributor-sort-seg:last-child {
+  border-right: 0;
+}
+
+.contributor-sort-seg:hover:not(.on) {
+  color: var(--fg, #e6edf3);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+.contributor-sort-seg.on {
+  color: var(--accent-fg, #fff);
+  background: var(--accent, #2f81f7);
+  cursor: default;
+}
+
+.contributor-sort-seg:focus-visible {
+  outline: 2px solid var(--accent, #2f81f7);
+  outline-offset: -2px;
+}
+
+/* The +ins/-del churn readout below the commit count. Muted by default; the
+ * `by-churn` modifier lifts it when churn is the active sort key. */
+.contributor-churn {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.78;
+  margin-top: 2px;
+}
+
+.contributor-churn .add {
+  color: var(--add-fg, #3fb950);
+}
+
+.contributor-churn .del {
+  color: var(--del-fg, #f85149);
+}
+
+.contributor-count.by-churn .contributor-churn {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.contributor-count.by-churn .commits,
+.contributor-count.by-churn .pct {
+  opacity: 0.72;
+}

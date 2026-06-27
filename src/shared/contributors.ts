@@ -32,6 +32,14 @@ export interface Contributor {
   firstDate: string;
   /** ISO date of this author's latest commit in the snapshot. */
   lastDate: string;
+  /**
+   * Lines inserted across this author's commits (W60). 0 until a churn fold
+   * (`applyChurn`) merges a numstat pass over history — `buildContributors`
+   * alone has only commit metadata, no per-line counts.
+   */
+  insertions: number;
+  /** Lines deleted across this author's commits (W60). 0 until churn-folded. */
+  deletions: number;
 }
 
 export interface ContributorStats {
@@ -104,6 +112,9 @@ export function buildContributors(commits: AuthorCommit[]): ContributorStats {
       share: total ? a.commits / total : 0,
       firstDate: a.firstDate,
       lastDate: a.lastDate,
+      // Churn starts at zero; a later `applyChurn` fold fills it from numstat.
+      insertions: 0,
+      deletions: 0,
     }))
     .sort((x, y) => y.commits - x.commits || x.name.toLowerCase().localeCompare(y.name.toLowerCase()));
 
@@ -113,4 +124,111 @@ export function buildContributors(commits: AuthorCommit[]): ContributorStats {
 /** Render one contributor's share as a rounded integer percentage. */
 export function sharePercent(c: Contributor): number {
   return Math.round(c.share * 100);
+}
+
+// ── Churn aggregate + sort (W60) ─────────────────────────────────────
+
+/**
+ * The git pretty-format the companion uses for the contributor churn fold
+ * (W60): a RECORD separator (\x1e) then the author email (%aE) as the record
+ * header, followed by the commit's --numstat rows. Mirrors AUTHOR_FILES_FORMAT
+ * but folded across ALL authors in one pass rather than scoped to one.
+ */
+export const CONTRIBUTOR_CHURN_FORMAT = '%x1e%aE';
+
+const CHURN_RECORD = '\x1e';
+
+/** Per-email churn totals folded from a numstat log. */
+export interface EmailChurn {
+  insertions: number;
+  deletions: number;
+}
+
+/**
+ * Fold `git log --pretty=format:CONTRIBUTOR_CHURN_FORMAT --numstat` output
+ * into per-email insertion/deletion totals (W60). Each \x1e-delimited record
+ * begins with the commit's author email (%aE) followed by its numstat rows.
+ * Emails are lowercased to match the leaderboard's identity key. Binary rows
+ * (`-\t-`) contribute nothing. One pass over all authors — far cheaper than a
+ * per-author `--author` read each.
+ */
+export function parseChurnByEmail(stdout: string): Map<string, EmailChurn> {
+  const byEmail = new Map<string, EmailChurn>();
+  for (const record of (stdout ?? '').split(CHURN_RECORD)) {
+    const lines = record.split('\n').map(l => l.replace(/\r$/, ''));
+    let i = 0;
+    while (i < lines.length && lines[i].trim() === '') i++;
+    if (i >= lines.length) continue;
+    const email = lines[i].trim().toLowerCase();
+    if (!email) continue;
+    const entry = byEmail.get(email) ?? { insertions: 0, deletions: 0 };
+    for (let j = i + 1; j < lines.length; j++) {
+      const m = /^(-|\d+)\t(-|\d+)\t/.exec(lines[j]);
+      if (!m) continue;
+      if (m[1] !== '-') entry.insertions += parseInt(m[1], 10);
+      if (m[2] !== '-') entry.deletions += parseInt(m[2], 10);
+    }
+    byEmail.set(email, entry);
+  }
+  return byEmail;
+}
+
+/**
+ * Merge per-email churn totals onto a contributor list (W60), returning a
+ * fresh list (inputs are not mutated). An email with no churn entry keeps its
+ * zero totals. Order is preserved — callers sort separately so the fold and
+ * the ordering stay independent.
+ */
+export function applyChurn(contributors: Contributor[], churn: Map<string, EmailChurn>): Contributor[] {
+  return contributors.map(c => {
+    const ch = churn.get((c.email || '').toLowerCase());
+    return ch ? { ...c, insertions: ch.insertions, deletions: ch.deletions } : { ...c };
+  });
+}
+
+/** How the leaderboard can be ordered (W60). */
+export type ContributorSort = 'commits' | 'churn' | 'recent' | 'name';
+
+const CONTRIBUTOR_SORTS: ContributorSort[] = ['commits', 'churn', 'recent', 'name'];
+
+/** True when a string names a supported contributor sort key (W60). */
+export function isContributorSort(s: unknown): s is ContributorSort {
+  return typeof s === 'string' && (CONTRIBUTOR_SORTS as string[]).includes(s);
+}
+
+/** Total churn (insertions + deletions) for a contributor (W60). */
+export function contributorChurn(c: Pick<Contributor, 'insertions' | 'deletions'>): number {
+  return Math.max(0, c.insertions) + Math.max(0, c.deletions);
+}
+
+/**
+ * Sort a contributor list by a chosen key (W60), returning a fresh array
+ * (the input is not mutated). Every ordering breaks ties by name A→Z so the
+ * result is stable + deterministic:
+ *   - commits: most commits first (the default leaderboard order);
+ *   - churn:   most lines changed first (needs a prior `applyChurn` fold);
+ *   - recent:  most-recently-active first (latest lastDate);
+ *   - name:    alphabetical by display name.
+ */
+export function sortContributors(contributors: Contributor[], key: ContributorSort): Contributor[] {
+  const byName = (x: Contributor, y: Contributor) =>
+    x.name.toLowerCase().localeCompare(y.name.toLowerCase());
+  const list = contributors.slice();
+  switch (key) {
+    case 'churn':
+      return list.sort((x, y) => contributorChurn(y) - contributorChurn(x) || byName(x, y));
+    case 'recent':
+      return list.sort((x, y) => {
+        const dx = Date.parse(x.lastDate);
+        const dy = Date.parse(y.lastDate);
+        const ny = Number.isNaN(dy) ? -Infinity : dy;
+        const nx = Number.isNaN(dx) ? -Infinity : dx;
+        return ny - nx || byName(x, y);
+      });
+    case 'name':
+      return list.sort(byName);
+    case 'commits':
+    default:
+      return list.sort((x, y) => y.commits - x.commits || byName(x, y));
+  }
 }

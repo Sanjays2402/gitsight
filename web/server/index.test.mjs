@@ -547,6 +547,39 @@ test('buildContributorsForRepo ranks authors by commit count', async () => {
   }
 });
 
+test('buildContributorsForRepo folds per-author churn (W60)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-contrib-churn-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    const as = (name, email) => ({ GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email });
+    await git(['init', '-q', '-b', 'main']);
+    await git(['config', 'user.email', 'fallback@b.c']);
+    await git(['config', 'user.name', 'Fallback']);
+
+    // Ada writes three lines across two commits; Grace one.
+    await writeFile(join(dir, 'a.txt'), 'one\ntwo\n');
+    await git(['add', 'a.txt']);
+    await git(['commit', '-q', '-m', 'ada c1'], as('Ada', 'ada@x.com'));
+    await writeFile(join(dir, 'a.txt'), 'one\ntwo\nthree\n');
+    await git(['add', 'a.txt']);
+    await git(['commit', '-q', '-m', 'ada c2'], as('Ada', 'ada@x.com'));
+    await writeFile(join(dir, 'b.txt'), 'b\n');
+    await git(['add', 'b.txt']);
+    await git(['commit', '-q', '-m', 'grace c1'], as('Grace', 'grace@x.com'));
+
+    const stats = await buildContributorsForRepo(dir, 100);
+    const ada = stats.contributors.find(c => c.email === 'ada@x.com');
+    const grace = stats.contributors.find(c => c.email === 'grace@x.com');
+    // Ada inserted 2 lines, then 1 more = 3 insertions, 0 deletions.
+    assert.equal(ada.insertions, 3);
+    assert.equal(ada.deletions, 0);
+    assert.equal(grace.insertions, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 // ── buildAuthorDetailForRepo (W23, integration) ──────────────────────
 
 test('buildAuthorDetailForRepo folds one author\'s files + sparkline', async () => {

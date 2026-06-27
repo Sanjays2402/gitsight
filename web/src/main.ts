@@ -24,6 +24,7 @@ import './graphMinimap.css';
 import './compareSplit.css';
 import './compareCommitFilter.css';
 import './contributorCompare.css';
+import './contributorSort.css';
 import './stashCreate.css';
 import './stashSplit.css';
 import './stashFilter.css';
@@ -88,6 +89,7 @@ import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear } from '@shared/activity';
+import { sortContributors, type ContributorSort } from '@shared/contributors';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { Contributor } from '@shared/contributors';
@@ -124,6 +126,8 @@ interface AppState {
   /** Years available in history, newest-first, learned from the last load (W43). */
   activityYears: number[];
   contributors: AsyncSlot<ContributorsPayload>;
+  /** Active leaderboard sort key (W60). */
+  contributorSort: ContributorSort;
   /** Authors marked for comparison (W35), up to two {email,name}. */
   compareSelection: Array<{ email: string; name: string }>;
   blame: AsyncSlot<BlamePayload>;
@@ -168,6 +172,7 @@ const state: AppState = {
   activityYear: null,
   activityYears: [],
   contributors: slot<ContributorsPayload>(),
+  contributorSort: 'commits',
   compareSelection: [],
   blame: slot<BlamePayload>(),
   blamePath: null,
@@ -568,6 +573,7 @@ async function boot(): Promise<void> {
   pendingActivityYear = null;
   state.activityYears = [];
   state.contributors = slot<ContributorsPayload>();
+  state.contributorSort = 'commits';
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
   state.blameIgnoreRevs = [];
@@ -1174,15 +1180,31 @@ function renderContributorsView(): void {
     surface.replaceChildren(errorState('Could not load contributors', s.error));
     return;
   }
-  const node = renderContributors(s.data, {
-    onPick: c => {
-      void authorPanel.open(c.email || c.name, c.name);
+  const node = renderContributors(
+    { ...s.data, contributors: sortContributors(s.data.contributors, state.contributorSort) },
+    {
+      onPick: c => {
+        void authorPanel.open(c.email || c.name, c.name);
+      },
+      onCompareToggle: c => toggleCompareSelection(c),
+      selectedForCompare: state.compareSelection.map(e => e.email),
+      sort: state.contributorSort,
+      onSort: key => switchContributorSort(key),
     },
-    onCompareToggle: c => toggleCompareSelection(c),
-    selectedForCompare: state.compareSelection.map(e => e.email),
-  });
+  );
   surface.replaceChildren(node);
   updateCount(s.data.totalAuthors, s.data.totalAuthors, 'contributors');
+}
+
+/**
+ * Switch the leaderboard sort key (W60). The payload already carries each
+ * author's churn (the companion folds it in one numstat pass), so re-sorting
+ * is a pure client-side re-order — no refetch. A no-op pick is ignored.
+ */
+function switchContributorSort(sort: ContributorSort): void {
+  if (sort === state.contributorSort) return;
+  state.contributorSort = sort;
+  renderContributorsView();
 }
 
 /**

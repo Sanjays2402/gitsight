@@ -44,7 +44,7 @@ import {
 } from '../../src/shared/repoPicker.ts';
 import { parsePorcelainBlame, buildIgnoreRevArgs } from '../../src/shared/blame.ts';
 import { buildActivityCalendar, parseChurnByDay, buildActivityCalendarFromCounts, CHURN_LOG_FORMAT, isDayKey, filterCommitsByDay, isCalendarYear, calendarYears, filterCountsByYear, inCalendarYear, YEAR_MAX_WEEKS } from '../../src/shared/activity.ts';
-import { buildContributors } from '../../src/shared/contributors.ts';
+import { buildContributors, parseChurnByEmail, applyChurn, CONTRIBUTOR_CHURN_FORMAT } from '../../src/shared/contributors.ts';
 import {
   buildAuthorSparkline,
   aggregateAuthorFiles,
@@ -324,12 +324,25 @@ export async function buildDayCommitsForRepo(repo, date, max) {
 }
 
 /**
- * Build the contributor leaderboard (W14) from the snapshot's commits.
+ * Build the contributor leaderboard (W14) from the snapshot's commits, then
+ * fold per-author churn from a single `--numstat` log pass (W60) so the
+ * leaderboard can sort by lines-changed. The numstat read is one pass over
+ * history (cheap), keyed by author email — far less work than a per-author
+ * `--author` read each. Churn fields are 0 when the numstat read is empty.
  */
 export async function buildContributorsForRepo(repo, max) {
   const snapshot = await buildSnapshotForRepo(repo, max);
   const stats = buildContributors(snapshot.commits);
-  return { repo: snapshot.repo, head: snapshot.head, ...stats };
+  // One numstat pass over all authors -> per-email insertions/deletions (W60).
+  const churnStdout = await git(repo, [
+    'log',
+    '--all',
+    `--max-count=${max}`,
+    `--pretty=format:${CONTRIBUTOR_CHURN_FORMAT}`,
+    '--numstat',
+  ]).catch(() => '');
+  const contributors = applyChurn(stats.contributors, parseChurnByEmail(churnStdout));
+  return { repo: snapshot.repo, head: snapshot.head, ...stats, contributors };
 }
 
 /**
