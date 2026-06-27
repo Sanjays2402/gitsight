@@ -1,0 +1,54 @@
+/*
+ * Path-substring file filter (W50) — a small search box above the changed-
+ * file list in the commit detail panel and the compare view. Shared class
+ * names so both surfaces look identical.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * in-flight editorial redesign) without hard-coding a colour.
+ */
+
+.file-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 6px;
+}
+
+.file-filter-input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  padding: 5px 9px;
+  transition: border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.file-filter-input::placeholder {
+  color: var(--fg-faint);
+}
+
+.file-filter-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
+
+.file-filter-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.file-filter-empty {
+  padding: 12px 4px;
+  font-size: 12px;
+  color: var(--fg-faint);
+  text-align: center;
+}

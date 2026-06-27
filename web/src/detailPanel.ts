@@ -25,6 +25,10 @@ import {
 } from './detailFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
+import { filterFileChanges } from './fileFilter';
+
+/** Below this many files the filter box isn't worth the clutter (W50). */
+const FILE_FILTER_THRESHOLD = 8;
 
 export interface DetailPanelHandlers {
   /** Fetch a commit's detail. Returns ok/detail or an error. */
@@ -274,10 +278,52 @@ export class CommitDetailPanel {
     }
     filesWrap.appendChild(filesHead);
 
-    for (const f of d.files) {
-      filesWrap.appendChild(this.fileEntry(f, d));
+    // Path-substring filter (W50): on commits that touch many files, a small
+    // box narrows the list. Below the threshold it's just clutter, so skip it.
+    const rowsHost = el('div', 'detail-files-list');
+    if (d.files.length >= FILE_FILTER_THRESHOLD) {
+      filesWrap.appendChild(this.fileFilter(d, rowsHost));
     }
+    this.renderFileRows(rowsHost, d, d.files);
+    filesWrap.appendChild(rowsHost);
     this.body.appendChild(filesWrap);
+  }
+
+  /**
+   * Build the path-filter box (W50). Filtering re-renders the rows host with
+   * the matching subset; an empty query restores the full list. A live count
+   * shows "N of M" so it's clear when rows are hidden.
+   */
+  private fileFilter(d: CommitDetail, rowsHost: HTMLElement): HTMLElement {
+    const wrap = el('div', 'file-filter');
+    const input = el('input', 'file-filter-input') as HTMLInputElement;
+    input.type = 'search';
+    input.placeholder = `Filter ${d.files.length} files…`;
+    input.setAttribute('aria-label', 'Filter changed files by path');
+    input.setAttribute('spellcheck', 'false');
+    input.setAttribute('autocomplete', 'off');
+    const count = el('span', 'file-filter-count');
+    count.textContent = '';
+    input.addEventListener('input', () => {
+      const matches = filterFileChanges(d.files, input.value);
+      this.renderFileRows(rowsHost, d, matches);
+      count.textContent =
+        matches.length === d.files.length ? '' : `${matches.length} of ${d.files.length}`;
+    });
+    wrap.append(input, count);
+    return wrap;
+  }
+
+  /** (Re)render the file rows into a host, replacing any prior contents. */
+  private renderFileRows(host: HTMLElement, d: CommitDetail, files: CommitFileChange[]): void {
+    if (files.length === 0) {
+      const empty = el('div', 'file-filter-empty', 'No files match.');
+      host.replaceChildren(empty);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const f of files) frag.appendChild(this.fileEntry(f, d));
+    host.replaceChildren(frag);
   }
 
   /** A file row plus a collapsible diff region beneath it (W7). */

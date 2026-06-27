@@ -22,6 +22,7 @@ import './graphMinimap.css';
 import './compareSplit.css';
 import './contributorCompare.css';
 import './stashCreate.css';
+import './fileFilter.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
 import { el } from './format';

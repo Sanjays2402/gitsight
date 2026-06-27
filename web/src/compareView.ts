@@ -20,6 +20,10 @@ import { compareHeadline, type RangeComparison, type CompareCommit, type Compare
 import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
+import { filterFileChanges } from './fileFilter';
+
+/** Below this many files the compare path-filter box isn't worth it (W50). */
+const FILE_FILTER_THRESHOLD = 8;
 
 export interface CompareViewOptions {
   base: string;
@@ -157,11 +161,62 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       filesHead.appendChild(splitBtn);
     }
     filesWrap.appendChild(filesHead);
-    for (const f of cmp.files) filesWrap.appendChild(fileEntry(f, cmp.head, opts));
+    // Path-substring filter (W50): narrow a big changed-file list. Skipped
+    // below the threshold. Re-renders the rows host with the matching subset.
+    const rowsHost = el('div', 'compare-files-list');
+    if (cmp.files.length >= FILE_FILTER_THRESHOLD) {
+      filesWrap.appendChild(buildFileFilter(cmp.files, rowsHost, cmp.head, opts));
+    }
+    renderCompareFileRows(rowsHost, cmp.files, cmp.head, opts);
+    filesWrap.appendChild(rowsHost);
     result.appendChild(filesWrap);
   }
 
   return result;
+}
+
+/**
+ * Path-filter box for the compare file list (W50). Mirrors the detail
+ * panel's filter: live re-render of the matching subset + an "N of M" count
+ * when rows are hidden. Pure matching lives in fileFilter.filterFileChanges.
+ */
+function buildFileFilter(
+  files: CompareFile[],
+  rowsHost: HTMLElement,
+  headRev: string,
+  opts: CompareViewOptions,
+): HTMLElement {
+  const wrap = el('div', 'file-filter');
+  const input = el('input', 'file-filter-input') as HTMLInputElement;
+  input.type = 'search';
+  input.placeholder = `Filter ${files.length} files…`;
+  input.setAttribute('aria-label', 'Filter changed files by path');
+  input.setAttribute('spellcheck', 'false');
+  input.setAttribute('autocomplete', 'off');
+  const count = el('span', 'file-filter-count');
+  input.addEventListener('input', () => {
+    const matches = filterFileChanges(files, input.value);
+    renderCompareFileRows(rowsHost, matches, headRev, opts);
+    count.textContent = matches.length === files.length ? '' : `${matches.length} of ${files.length}`;
+  });
+  wrap.append(input, count);
+  return wrap;
+}
+
+/** (Re)render the compare file rows into a host, replacing prior contents. */
+function renderCompareFileRows(
+  host: HTMLElement,
+  files: CompareFile[],
+  headRev: string,
+  opts: CompareViewOptions,
+): void {
+  if (files.length === 0) {
+    host.replaceChildren(el('div', 'file-filter-empty', 'No files match.'));
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const f of files) frag.appendChild(fileEntry(f, headRev, opts));
+  host.replaceChildren(frag);
 }
 
 function commitColumn(
