@@ -19,6 +19,7 @@ import './activityYear.css';
 import './blameLegend.css';
 import './blameIgnore.css';
 import './graphMinimap.css';
+import './compareSplit.css';
 import './contributorCompare.css';
 import './stashCreate.css';
 import { renderGraph, type GraphController } from './graph';
@@ -196,12 +197,17 @@ const detailPanel = new CommitDetailPanel({
   onClosed: () => {
     if (state.view === 'graph') syncHash();
   },
-  // Diff display toggles (W31; split added W38) live in the panel's files header.
+  // Diff display toggles (W31; split added W38; per-surface W46) live in the
+  // panel's files header. `split` is resolved for the detail surface so it
+  // can differ from the compare view's remembered layout.
   diffSettings: {
-    get: () => diffSettings.get(),
+    get: () => {
+      const s = diffSettings.get();
+      return { ...s, split: diffSettings.layoutFor('detail') === 'split' };
+    },
     toggleWrap: () => diffSettings.toggleWrap(),
     toggleIgnoreWhitespace: () => diffSettings.toggleIgnoreWhitespace(),
-    toggleSplit: () => diffSettings.toggleSplit(),
+    toggleSplit: () => diffSettings.toggleSurfaceLayout('detail'),
   },
 });
 
@@ -1183,7 +1189,10 @@ function renderCompareView(): void {
         repo: state.repo ?? undefined,
         ignoreWhitespace: diffSettings.get().ignoreWhitespace,
       }),
-    diffView: () => (diffSettings.get().split ? 'split' : 'unified'),
+    diffView: () => diffSettings.layoutFor('compare'),
+    // Toggle persists + notifies; the store's onChange listener re-renders
+    // the compare view, so we don't double-render here.
+    onToggleLayout: () => diffSettings.toggleSurfaceLayout('compare'),
     onOpenCommit: (sha: string) => openDetailFor(sha),
     onCopySha: (sha: string) => void copySha(sha),
     onShareLink: () => void shareCompareLink(),

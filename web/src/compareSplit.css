@@ -1,0 +1,21 @@
+/*
+ * Per-surface diff layout toggle in the Compare view (W46).
+ *
+ * The compare files header gains a Split pill (reusing the W31 .diff-opt
+ * styling); this turns the header into a flex row so the label and the pill
+ * sit at opposite ends. Co-located + token-driven so it tracks the theme.
+ */
+
+.compare-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.compare-files-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

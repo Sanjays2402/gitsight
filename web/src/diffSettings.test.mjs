@@ -15,6 +15,10 @@ import {
   wsParam,
   coerceDiffSettings,
   diffSettingsEqual,
+  layoutForSurface,
+  toggleSurfaceLayout,
+  coerceSurfaceLayouts,
+  DIFF_SURFACES,
 } from './diffSettings.ts';
 
 test('defaultDiffSettings is scroll + show-whitespace + unified', () => {
@@ -104,4 +108,49 @@ test('diffSettingsEqual compares by value', () => {
     ),
     false,
   );
+});
+
+// ── Per-surface layout (W46) ─────────────────────────────────────────
+
+test('layoutForSurface inherits the global split when no override is set', () => {
+  const globalUnified = { wrap: false, ignoreWhitespace: false, split: false };
+  const globalSplit = { wrap: false, ignoreWhitespace: false, split: true };
+  assert.equal(layoutForSurface(globalUnified, {}, 'compare'), 'unified');
+  assert.equal(layoutForSurface(globalSplit, {}, 'compare'), 'split');
+  assert.equal(layoutForSurface(globalSplit, {}, 'detail'), 'split');
+});
+
+test('layoutForSurface prefers a surface override over the global flag', () => {
+  const globalUnified = { wrap: false, ignoreWhitespace: false, split: false };
+  // Compare overridden to split while detail still inherits unified.
+  assert.equal(layoutForSurface(globalUnified, { compare: true }, 'compare'), 'split');
+  assert.equal(layoutForSurface(globalUnified, { compare: true }, 'detail'), 'unified');
+  // An explicit false override wins even when global is split.
+  const globalSplit = { wrap: false, ignoreWhitespace: false, split: true };
+  assert.equal(layoutForSurface(globalSplit, { compare: false }, 'compare'), 'unified');
+});
+
+test('toggleSurfaceLayout flips one surface from its resolved value', () => {
+  const globalUnified = { wrap: false, ignoreWhitespace: false, split: false };
+  // First toggle: inherit unified -> override split.
+  const a = toggleSurfaceLayout(globalUnified, {}, 'compare');
+  assert.equal(a.compare, true);
+  // Toggling again flips back to unified, and doesn't touch detail.
+  const b = toggleSurfaceLayout(globalUnified, a, 'compare');
+  assert.equal(b.compare, false);
+  assert.equal(b.detail, undefined);
+});
+
+test('coerceSurfaceLayouts keeps only known surfaces with boolean values', () => {
+  assert.deepEqual(coerceSurfaceLayouts({ compare: true, detail: false }), {
+    compare: true,
+    detail: false,
+  });
+  assert.deepEqual(coerceSurfaceLayouts({ compare: 'yes', bogus: true }), {});
+  assert.deepEqual(coerceSurfaceLayouts(null), {});
+  assert.deepEqual(coerceSurfaceLayouts('nope'), {});
+});
+
+test('DIFF_SURFACES lists the two diff surfaces', () => {
+  assert.deepEqual(DIFF_SURFACES, ['detail', 'compare']);
 });

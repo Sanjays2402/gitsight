@@ -19,17 +19,25 @@ import {
   toggleSplit,
   coerceDiffSettings,
   diffSettingsEqual,
+  layoutForSurface,
+  toggleSurfaceLayout,
+  coerceSurfaceLayouts,
   type DiffSettings,
+  type DiffSurface,
+  type SurfaceLayouts,
 } from './diffSettings';
 
 const STORE_KEY = 'gitsight.diffSettings';
+const SURFACE_KEY = 'gitsight.diffSurfaceLayouts';
 
 export class DiffSettingsStore {
   private settings: DiffSettings;
+  private surfaces: SurfaceLayouts;
   private listeners = new Set<(s: DiffSettings) => void>();
 
   constructor() {
     this.settings = coerceDiffSettings(read(STORE_KEY));
+    this.surfaces = coerceSurfaceLayouts(read(SURFACE_KEY));
   }
 
   get(): DiffSettings {
@@ -49,9 +57,28 @@ export class DiffSettingsStore {
     this.set(toggleIgnoreWhitespace(this.settings));
   }
 
-  /** Flip the side-by-side layout (W38). */
+  /** Flip the global side-by-side layout (W38). */
   toggleSplit(): void {
     this.set(toggleSplit(this.settings));
+  }
+
+  /**
+   * The resolved diff layout for a surface (W46): its own remembered choice,
+   * else the global split flag. The detail panel + compare view each call
+   * this with their own surface id so they can differ.
+   */
+  layoutFor(surface: DiffSurface): 'split' | 'unified' {
+    return layoutForSurface(this.settings, this.surfaces, surface);
+  }
+
+  /**
+   * Flip one surface's layout (W46) and persist it. Notifies listeners so the
+   * affected surface re-renders its diffs in the new mode.
+   */
+  toggleSurfaceLayout(surface: DiffSurface): void {
+    this.surfaces = toggleSurfaceLayout(this.settings, this.surfaces, surface);
+    write(SURFACE_KEY, this.surfaces);
+    for (const fn of this.listeners) fn(this.settings);
   }
 
   /** Subscribe to changes; returns an unsubscribe fn. */

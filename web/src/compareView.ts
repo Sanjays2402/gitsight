@@ -28,8 +28,10 @@ export interface CompareViewOptions {
   onCompare: (base: string, head: string) => void;
   /** Fetch a single file's parsed diff for the head ref (W7). */
   loadDiff?: (rev: string, path: string) => Promise<FileDiffResult>;
-  /** Current diff layout mode (W38): split when enabled, else unified. */
+  /** Current diff layout mode (W38; per-surface W46): split or unified. */
   diffView?: () => 'split' | 'unified';
+  /** Toggle this surface's diff layout (W46); re-renders in the new mode. */
+  onToggleLayout?: () => void;
   /** Open a commit in the detail panel (W6 reuse). */
   onOpenCommit?: (sha: string) => void;
   /** Copy a sha to the clipboard. */
@@ -139,7 +141,21 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   if (cmp.files.length > 0) {
     const filesWrap = el('div', 'compare-files');
     const filesHead = el('div', 'compare-files-head');
-    filesHead.textContent = `${cmp.filesChanged} ${cmp.filesChanged === 1 ? 'file' : 'files'} changed`;
+    const filesLabel = el('span', 'compare-files-label');
+    filesLabel.textContent = `${cmp.filesChanged} ${cmp.filesChanged === 1 ? 'file' : 'files'} changed`;
+    filesHead.appendChild(filesLabel);
+    // Per-surface diff layout toggle (W46): Split vs unified, remembered for
+    // the compare surface independently of the detail panel.
+    if (opts.onToggleLayout && opts.diffView) {
+      const split = opts.diffView() === 'split';
+      const splitBtn = el('button', 'diff-opt' + (split ? ' on' : ''));
+      splitBtn.type = 'button';
+      splitBtn.textContent = 'Split';
+      splitBtn.title = 'Side-by-side (old | new) diff layout for this view';
+      splitBtn.setAttribute('aria-pressed', String(split));
+      splitBtn.addEventListener('click', () => opts.onToggleLayout!());
+      filesHead.appendChild(splitBtn);
+    }
     filesWrap.appendChild(filesHead);
     for (const f of cmp.files) filesWrap.appendChild(fileEntry(f, cmp.head, opts));
     result.appendChild(filesWrap);
