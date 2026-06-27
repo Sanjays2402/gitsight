@@ -15,6 +15,8 @@ import { el } from './format';
 import { escapeHtml } from '@shared/graphCore';
 import { buildStreaks, activeDaysOf, adjacentYear } from '@shared/activity';
 import type { ActivityCalendar, ActivityDay } from '@shared/activity';
+import { popoverPosition, tooltipSummary, truncateSubject } from './activityTooltip';
+import type { DayResult } from './data';
 
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
@@ -34,6 +36,13 @@ export interface ActivityViewOptions {
   years?: number[];
   /** Fired when the user picks a year (number) or clears to rolling (null) (W43). */
   onPickYear?: (year: number | null) => void;
+  /**
+   * Fetch a day's commits for the hover popover (W55). When wired (and the
+   * metric is commits), hovering a populated cell shows the top 1-2 commit
+   * subjects. Results are debounced + cached by the controller. Omit to keep
+   * the plain native-title tooltip.
+   */
+  peekDay?: (date: string) => Promise<DayResult>;
 }
 
 /** Render the activity calendar into a detached node. */
@@ -135,6 +144,11 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
 
   const cells = el('div', 'activity-cells');
   cells.style.gridTemplateColumns = `repeat(${cal.weeks.length}, var(--cell))`;
+  // Hover popover (W55): only on the commits metric (churn cells have no
+  // commit subjects to preview) and only when the host wired a day fetcher.
+  // The popover mounts inside `wrap`, so it's removed automatically when a
+  // re-render replaces the calendar — no external disposal needed.
+  const peek = !isChurn && opts.peekDay ? new DayPeekController(wrap, opts.peekDay) : null;
   for (const week of cal.weeks) {
     for (const day of week) {
       const cell = el('span', `activity-cell lvl-${day.level}` + (day.filler ? ' filler' : ''));
@@ -155,6 +169,12 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
               opts.onPickDay!(day);
             }
           });
+        }
+        // Rich hover popover (W55): show the day's top subjects. Suppressing
+        // the native title while the popover is up avoids a double tooltip.
+        if (day.count > 0 && peek) {
+          cell.addEventListener('mouseenter', () => peek.enter(cell, day.date));
+          cell.addEventListener('mouseleave', () => peek.leave());
         }
       }
       cells.appendChild(cell);
@@ -270,4 +290,109 @@ function buildYearPicker(
 
   wrap.append(prev, select, next);
   return wrap;
+}
+
+/**
+ * Hover popover controller for the activity calendar (W55).
+ *
+ * On `enter(cell, date)` it starts a short hover-intent timer; if the pointer
+ * lingers, it fetches that day's commits (via the injected loader), caches the
+ * result by date, and shows a small popover with the top 1-2 subjects + a
+ * "+N more" count, positioned above/below the cell and clamped to the
+ * viewport (pure maths in activityTooltip.ts). `leave()` cancels a pending
+ * fetch and hides the popover after a brief grace so moving between adjacent
+ * cells doesn't flicker. The popover element lives inside the calendar wrap,
+ * so a calendar re-render disposes it automatically.
+ */
+class DayPeekController {
+  private readonly load: (date: string) => Promise<DayResult>;
+  private readonly pop: HTMLElement;
+  private readonly cache = new Map<string, { subjects: string[]; more: number }>();
+  private enterTimer: number | null = null;
+  private leaveTimer: number | null = null;
+  private activeDate: string | null = null;
+
+  constructor(host: HTMLElement, load: (date: string) => Promise<DayResult>) {
+    this.load = load;
+    this.pop = el('div', 'activity-peek');
+    this.pop.hidden = true;
+    this.pop.setAttribute('role', 'tooltip');
+    host.appendChild(this.pop);
+  }
+
+  enter(cell: HTMLElement, date: string): void {
+    this.cancelLeave();
+    this.activeDate = date;
+    // Hover-intent: wait a beat so a quick sweep across the grid doesn't fetch.
+    if (this.enterTimer !== null) clearTimeout(this.enterTimer);
+    this.enterTimer = window.setTimeout(() => void this.show(cell, date), 140);
+  }
+
+  leave(): void {
+    if (this.enterTimer !== null) {
+      clearTimeout(this.enterTimer);
+      this.enterTimer = null;
+    }
+    this.activeDate = null;
+    // Grace period so moving onto an adjacent cell doesn't flash the popover.
+    this.cancelLeave();
+    this.leaveTimer = window.setTimeout(() => this.hide(), 80);
+  }
+
+  private async show(cell: HTMLElement, date: string): Promise<void> {
+    let summary = this.cache.get(date);
+    if (!summary) {
+      const res = await this.load(date);
+      // Superseded by a later hover / a leave -> drop this result.
+      if (this.activeDate !== date) return;
+      if (!res.ok) return;
+      summary = tooltipSummary(res.day.commits, 2);
+      this.cache.set(date, summary);
+    }
+    if (this.activeDate !== date) return;
+    if (summary.subjects.length === 0) return;
+    this.renderInto(summary);
+    this.position(cell);
+  }
+
+  private renderInto(summary: { subjects: string[]; more: number }): void {
+    const items = summary.subjects
+      .map(s => `<span class="activity-peek-subject">${escapeHtml(truncateSubject(s))}</span>`)
+      .join('');
+    const more = summary.more > 0 ? `<span class="activity-peek-more">+${summary.more} more</span>` : '';
+    this.pop.innerHTML = items + more;
+    this.pop.hidden = false;
+  }
+
+  private position(cell: HTMLElement): void {
+    const anchor = cell.getBoundingClientRect();
+    const box = this.pop.getBoundingClientRect();
+    const place = popoverPosition(
+      { left: anchor.left, top: anchor.top, right: anchor.right, bottom: anchor.bottom },
+      { width: box.width, height: box.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    // Fixed positioning so the viewport-relative rect maths line up directly.
+    this.pop.style.position = 'fixed';
+    this.pop.style.left = `${Math.round(place.left)}px`;
+    this.pop.style.top = `${Math.round(place.top)}px`;
+    this.pop.dataset.side = place.side;
+  }
+
+  private hide(): void {
+    this.pop.hidden = true;
+  }
+
+  private cancelLeave(): void {
+    if (this.leaveTimer !== null) {
+      clearTimeout(this.leaveTimer);
+      this.leaveTimer = null;
+    }
+  }
+
+  dispose(): void {
+    if (this.enterTimer !== null) clearTimeout(this.enterTimer);
+    this.cancelLeave();
+    this.pop.remove();
+  }
 }

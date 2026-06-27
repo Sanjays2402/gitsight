@@ -16,6 +16,7 @@ import './styles.css';
 import './diffSplit.css';
 import './activityMetric.css';
 import './activityYear.css';
+import './activityPeek.css';
 import './blameLegend.css';
 import './blameIgnore.css';
 import './graphMinimap.css';
@@ -1105,6 +1106,9 @@ function renderActivityView(): void {
     year: state.activityYear,
     years: state.activityYears,
     onPickYear: year => switchActivityYear(year),
+    // W55: hovering a populated commits-metric cell previews the day's top
+    // subjects. Reuses the W22 /api/day endpoint; the view debounces + caches.
+    peekDay: (date: string) => loadDay(date, { repo: state.repo ?? undefined }),
   });
   surface.replaceChildren(node);
   const noun = state.activityMetric === 'churn' ? 'lines' : 'commits';

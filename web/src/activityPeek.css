@@ -1,0 +1,49 @@
+/*
+ * Activity day hover popover (W55) — a small custom tooltip that previews a
+ * day's top 1-2 commit subjects on hover, replacing the bare native title.
+ *
+ * Fixed-positioned (the controller computes a viewport-clamped left/top), with
+ * a hairline card and a faint arrow on the side facing the cell. Co-located +
+ * token-driven so it tracks the active theme automatically. Monochrome chrome,
+ * no emoji.
+ */
+
+.activity-peek {
+  position: fixed;
+  z-index: 60;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: var(--shadow-md, 0 6px 20px rgba(0, 0, 0, 0.18));
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.activity-peek[hidden] {
+  display: none;
+}
+
+.activity-peek-subject {
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-peek-subject::before {
+  content: '\2022';
+  color: var(--fg-faint);
+  margin-right: 6px;
+}
+
+.activity-peek-more {
+  color: var(--fg-faint);
+  font-size: 11px;
+  margin-top: 1px;
+}
