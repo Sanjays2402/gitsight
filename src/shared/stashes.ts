@@ -324,3 +324,38 @@ export function buildStashPushArgs(opts: StashPushOptions = {}): string[] {
   if (message) args.push('-m', message);
   return args;
 }
+
+// ── Stash search / filter (W59) ──────────────────────────────────────
+
+/** The minimal fields the stash filter matches against. */
+export type FilterableStash = Pick<StashEntry, 'subject' | 'branch'>;
+
+/** Normalise a stash-filter query: trimmed + lowercased. */
+export function normalizeStashQuery(query: string): string {
+  return (query ?? '').trim().toLowerCase();
+}
+
+/**
+ * Whether a single stash matches a (raw) query (W59). An empty/whitespace
+ * query matches everything. Otherwise the lowercased query must be a substring
+ * of the stash's subject (the WIP message) or the branch it was taken on, so
+ * a specific work-in-progress is findable by what you remember about it.
+ */
+export function stashMatchesQuery(entry: FilterableStash, query: string): boolean {
+  const q = normalizeStashQuery(query);
+  if (!q) return true;
+  if ((entry.subject ?? '').toLowerCase().includes(q)) return true;
+  if ((entry.branch ?? '').toLowerCase().includes(q)) return true;
+  return false;
+}
+
+/**
+ * Filter a stash list by a subject/branch query (W59). Preserves the input
+ * order and identity (returns the same objects). An empty query returns a
+ * fresh copy of the list so callers can treat the result uniformly.
+ */
+export function filterStashes<T extends FilterableStash>(entries: T[], query: string): T[] {
+  const q = normalizeStashQuery(query);
+  if (!q) return entries.slice();
+  return entries.filter(e => stashMatchesQuery(e, q));
+}

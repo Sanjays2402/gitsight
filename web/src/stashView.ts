@@ -15,7 +15,7 @@ import { el } from './format';
 import { timeAgo, absoluteTime } from './format';
 import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
-import { stashSummary, type StashList, type StashEntry, type StashFile } from '@shared/stashes';
+import { stashSummary, filterStashes, type StashList, type StashEntry, type StashFile } from '@shared/stashes';
 import { compareGlyph, compareLabel, compareChurn, splitComparePath } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult, StashActionKind } from './data';
@@ -78,8 +78,52 @@ export function renderStashes(list: StashList | null, opts: StashViewOptions = {
   }
   wrap.appendChild(head);
 
-  for (const entry of list.stashes) wrap.appendChild(stashCard(entry, opts));
+  // Above a threshold, a message/branch filter box (W59) narrows the cards so
+  // a specific WIP is findable. Cards render into a re-renderable host.
+  const cardsHost = el('div', 'stash-cards');
+  if (list.stashes.length >= STASH_FILTER_THRESHOLD) {
+    wrap.appendChild(buildStashFilter(list.stashes, cardsHost, opts));
+  }
+  renderStashCards(cardsHost, list.stashes, opts);
+  wrap.appendChild(cardsHost);
   return wrap;
+}
+
+/** Above this many stashes the filter box is worth showing (W59). */
+const STASH_FILTER_THRESHOLD = 6;
+
+/**
+ * Message/branch filter box for the stash list (W59). Mirrors the compare /
+ * file filters: a live re-render of the matching subset + an "N of M" count
+ * when cards are hidden. Pure matching lives in stashes.filterStashes.
+ */
+function buildStashFilter(entries: StashEntry[], host: HTMLElement, opts: StashViewOptions): HTMLElement {
+  const wrap = el('div', 'stash-filter');
+  const input = el('input', 'stash-filter-input') as HTMLInputElement;
+  input.type = 'search';
+  input.placeholder = `Filter ${entries.length} stashes by message or branch\u2026`;
+  input.setAttribute('aria-label', 'Filter stashes by message or branch');
+  input.setAttribute('spellcheck', 'false');
+  input.setAttribute('autocomplete', 'off');
+  const count = el('span', 'stash-filter-count');
+  input.addEventListener('input', () => {
+    const matches = filterStashes(entries, input.value);
+    renderStashCards(host, matches, opts);
+    count.textContent = matches.length === entries.length ? '' : `${matches.length} of ${entries.length}`;
+  });
+  wrap.append(input, count);
+  return wrap;
+}
+
+/** (Re)render the stash cards into a host, replacing prior contents (W59). */
+function renderStashCards(host: HTMLElement, entries: StashEntry[], opts: StashViewOptions): void {
+  if (entries.length === 0) {
+    host.replaceChildren(el('div', 'stash-filter-empty', 'No stashes match.'));
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const entry of entries) frag.appendChild(stashCard(entry, opts));
+  host.replaceChildren(frag);
 }
 
 /**

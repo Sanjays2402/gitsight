@@ -26,6 +26,7 @@ import './compareCommitFilter.css';
 import './contributorCompare.css';
 import './stashCreate.css';
 import './stashSplit.css';
+import './stashFilter.css';
 import './fileFilter.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';

@@ -18,6 +18,9 @@ import {
   normalizeStashMessage,
   buildStashPushArgs,
   STASH_MESSAGE_MAX,
+  normalizeStashQuery,
+  stashMatchesQuery,
+  filterStashes,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -226,4 +229,46 @@ test('buildStashPushArgs never lets a flag-like message smuggle an option', () =
   assert.equal(args[args.indexOf('-m') + 1], '--include-untracked --evil');
   // A whitespace-only message is dropped (no empty -m value).
   assert.deepEqual(buildStashPushArgs({ message: '   ' }), ['stash', 'push']);
+});
+
+// ── Stash search / filter (W59) ──────────────────────────────────────
+
+const FILTER_STASHES = [
+  { subject: 'WIP on main: fix the lane layout', branch: 'main' },
+  { subject: 'On feature/web: compare patch assembly', branch: 'feature/web' },
+  { subject: 'WIP on main: blame ignore revs', branch: 'main' },
+];
+
+test('normalizeStashQuery trims and lowercases', () => {
+  assert.equal(normalizeStashQuery('  Lane  '), 'lane');
+  assert.equal(normalizeStashQuery(''), '');
+  assert.equal(normalizeStashQuery('   '), '');
+});
+
+test('stashMatchesQuery matches the subject or the branch', () => {
+  // Subject substring (case-insensitive).
+  assert.equal(stashMatchesQuery(FILTER_STASHES[0], 'lane'), true);
+  assert.equal(stashMatchesQuery(FILTER_STASHES[0], 'LANE'), true);
+  // Branch substring.
+  assert.equal(stashMatchesQuery(FILTER_STASHES[1], 'feature'), true);
+  // No match.
+  assert.equal(stashMatchesQuery(FILTER_STASHES[1], 'lane'), false);
+  // Empty query matches everything.
+  assert.equal(stashMatchesQuery(FILTER_STASHES[1], ''), true);
+  assert.equal(stashMatchesQuery(FILTER_STASHES[1], '   '), true);
+  // Missing fields don't throw.
+  assert.equal(stashMatchesQuery({ subject: '', branch: '' }, 'x'), false);
+});
+
+test('filterStashes narrows by query, preserving order + identity', () => {
+  const onMain = filterStashes(FILTER_STASHES, 'main');
+  assert.equal(onMain.length, 2);
+  assert.equal(onMain[0], FILTER_STASHES[0]); // same object, original order
+  assert.equal(onMain[1], FILTER_STASHES[2]);
+  // Empty query returns a fresh copy of the whole list.
+  const all = filterStashes(FILTER_STASHES, '');
+  assert.deepEqual(all, FILTER_STASHES);
+  assert.notEqual(all, FILTER_STASHES); // new array
+  // No matches -> empty.
+  assert.deepEqual(filterStashes(FILTER_STASHES, 'zzzzz'), []);
 });

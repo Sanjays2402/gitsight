@@ -1,0 +1,60 @@
+/*
+ * Stash list filter (W59) — a message/branch search box above the stash cards,
+ * shown only above a threshold so short stash lists stay clean. Mirrors the
+ * W50 file-filter layout + empty state.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * editorial redesign) without hard-coding a colour.
+ */
+
+.stash-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.stash-filter-input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  padding: 6px 10px;
+  transition: border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.stash-filter-input::placeholder {
+  color: var(--fg-faint);
+}
+
+.stash-filter-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
+
+.stash-filter-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stash-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stash-filter-empty {
+  padding: 16px 4px;
+  font-size: 12px;
+  color: var(--fg-faint);
+  text-align: center;
+}
