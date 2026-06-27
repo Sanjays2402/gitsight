@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -386,6 +386,59 @@ test('parseHash reads a stashes filter link back', () => {
 
 test('buildHash(parseHash(x)) round-trips a stash filter link', () => {
   const original = 'stashes?q=wip+auth';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Contributor sort deep-link (W66) ─────────────────────────────────
+
+test('sanitizeContributorSort accepts the real sort keys, rejects junk', () => {
+  assert.equal(sanitizeContributorSort('churn'), 'churn');
+  assert.equal(sanitizeContributorSort('Recent'), 'recent'); // case-insensitive
+  assert.equal(sanitizeContributorSort('  name  '), 'name'); // trimmed
+  assert.equal(sanitizeContributorSort('commits'), 'commits');
+  assert.equal(sanitizeContributorSort('bogus'), null);
+  assert.equal(sanitizeContributorSort(''), null);
+  assert.equal(sanitizeContributorSort(null), null);
+  assert.equal(sanitizeContributorSort(undefined), null);
+});
+
+test('buildHash emits a contributors sort link, omitting the default', () => {
+  assert.equal(buildHash({ view: 'contributors', sort: 'churn' }), 'contributors?sort=churn');
+  assert.equal(buildHash({ view: 'contributors', sort: 'recent' }), 'contributors?sort=recent');
+  // The commits default stays the bare tab (no noisy param for the common case).
+  assert.equal(buildHash({ view: 'contributors', sort: 'commits' }), 'contributors');
+  // A junk sort degrades to the bare tab.
+  assert.equal(buildHash({ view: 'contributors', sort: 'bogus' }), 'contributors');
+});
+
+test('a vs comparison link wins over a sort param', () => {
+  // vs takes precedence; a sort alongside it is ignored (mutually exclusive).
+  assert.equal(
+    buildHash({ view: 'contributors', vs: ['a@x.com', 'b@x.com'] }),
+    'contributors?vs=a%40x.com%2Cb%40x.com',
+  );
+});
+
+test('parseHash reads a contributors sort link back', () => {
+  assert.deepEqual(parseHash('#contributors?sort=churn'), { view: 'contributors', sort: 'churn' });
+  assert.deepEqual(parseHash('#contributors?sort=name'), { view: 'contributors', sort: 'name' });
+  // The commits default + a junk sort both degrade to the bare tab.
+  assert.deepEqual(parseHash('#contributors?sort=commits'), { view: 'contributors' });
+  assert.deepEqual(parseHash('#contributors?sort=bogus'), { view: 'contributors' });
+  assert.deepEqual(parseHash('#contributors'), { view: 'contributors' });
+});
+
+test('a vs param is read in preference to a sort param', () => {
+  assert.deepEqual(parseHash('#contributors?vs=a%40x.com%2Cb%40x.com&sort=churn'), {
+    view: 'contributors',
+    vs: ['a@x.com', 'b@x.com'],
+  });
+});
+
+test('buildHash(parseHash(x)) round-trips a contributors sort link', () => {
+  const original = 'contributors?sort=churn';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

@@ -22,6 +22,7 @@
  */
 
 import { sanitizeRef } from './compareFormat.ts';
+import { isContributorSort, type ContributorSort } from '../../src/shared/contributors.ts';
 
 /** Views that participate in hash routing. */
 export type RouteView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare' | 'stashes';
@@ -49,6 +50,14 @@ export interface ContributorsRoute {
   view: 'contributors';
   /** Exactly two author emails to pre-load a comparison (W47). */
   vs: [string, string];
+}
+
+/** A contributors tab scoped only by a leaderboard sort (W66), no comparison. */
+export interface ContributorsSortRoute {
+  view: 'contributors';
+  vs?: undefined;
+  /** The leaderboard sort key (W66): only emitted when it diverges from the default. */
+  sort: ContributorSort;
 }
 
 export interface BlameRoute {
@@ -103,6 +112,7 @@ export interface StashesBareRoute {
 export type Route =
   | CompareRoute
   | ContributorsRoute
+  | ContributorsSortRoute
   | ContributorsBareRoute
   | ActivityRoute
   | BlameRoute
@@ -142,6 +152,18 @@ export function sanitizeEmail(email: string): string | null {
   if (/\s/.test(e)) return null;
   if (e.startsWith('-')) return null;
   return e;
+}
+
+/**
+ * Normalise + validate a contributor sort key for a leaderboard deep-link
+ * (W66). Reuses the shared `isContributorSort` guard (the single source of
+ * truth for the sort keys) so the URL can only carry a real sort. Trimmed +
+ * lowercased; returns null for anything else so a junk `sort=` param degrades
+ * to the default (commits) ordering rather than scoping to nonsense.
+ */
+export function sanitizeContributorSort(sort: string | null | undefined): ContributorSort | null {
+  const s = (sort ?? '').trim().toLowerCase();
+  return isContributorSort(s) ? s : null;
 }
 
 /**
@@ -266,6 +288,15 @@ export function buildHash(route: Route): string {
         const p = new URLSearchParams({ vs: `${a},${b}` });
         return `contributors?${p.toString()}`;
       }
+      return 'contributors';
+    }
+    // A sort-scoped deep-link (W66): contributors?sort=churn. Only emit the
+    // param when it diverges from the default (commits) so the common case
+    // stays the bare `contributors` tab.
+    const sort = sanitizeContributorSort((route as ContributorsSortRoute).sort);
+    if (sort && sort !== 'commits') {
+      const p = new URLSearchParams({ sort });
+      return `contributors?${p.toString()}`;
     }
     return 'contributors';
   }
@@ -351,6 +382,7 @@ export function parseHash(hash: string): Route | null {
   }
 
   // Contributor comparison deep-link (W47): contributors?vs=a,b.
+  // Sort-scoped deep-link (W66): contributors?sort=churn.
   if (viewName === 'contributors') {
     const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
     const raw = params.get('vs') ?? '';
@@ -360,6 +392,9 @@ export function parseHash(hash: string): Route | null {
         return { view: 'contributors', vs: [parts[0], parts[1]] };
       }
     }
+    // No (valid) comparison -> a sort scope, if one is present + non-default.
+    const sort = sanitizeContributorSort(params.get('sort'));
+    if (sort && sort !== 'commits') return { view: 'contributors', sort };
     return { view: 'contributors' };
   }
 

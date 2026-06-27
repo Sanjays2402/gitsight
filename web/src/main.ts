@@ -580,6 +580,11 @@ async function boot(): Promise<void> {
   state.activityYears = [];
   state.contributors = slot<ContributorsPayload>();
   state.contributorSort = 'commits';
+  // A deep-linked sort (W66) survives boot's reset via the pending stash.
+  if (pendingContributorSort) {
+    state.contributorSort = pendingContributorSort;
+    pendingContributorSort = null;
+  }
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
   state.blameIgnoreRevs = [];
@@ -1215,6 +1220,8 @@ function renderContributorsView(): void {
 function switchContributorSort(sort: ContributorSort): void {
   if (sort === state.contributorSort) return;
   state.contributorSort = sort;
+  // Reflect the sort in the URL so a sorted leaderboard is shareable (W66).
+  syncHash();
   renderContributorsView();
 }
 
@@ -1891,6 +1898,16 @@ function applyInitialRoute(): void {
   if (route.view === 'contributors' && route.vs) {
     pendingCompareEmails = route.vs;
   }
+  // Seed a contributor sort deep-link (#contributors?sort=churn, W66). boot()
+  // resets contributorSort to commits, so stash the value + restore it after
+  // boot's reset (like pendingActivityYear), and apply it to first paint.
+  if (route.view === 'contributors' && !route.vs) {
+    const sort = (route as { sort?: ContributorSort }).sort;
+    if (sort) {
+      state.contributorSort = sort;
+      pendingContributorSort = sort;
+    }
+  }
   // Remember a file-blame deep link (#blame?path=&rev=&line=, W57; range W65);
   // boot() loads the file + jumps to the line once the app is up.
   if (route.view === 'blame' && route.path) {
@@ -1910,6 +1927,13 @@ let pendingCommitSha: string | null = null;
 
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
+
+/**
+ * A leaderboard sort key from a #contributors?sort= deep-link (W66). boot()
+ * resets contributorSort, so we stash the value here and restore it after the
+ * reset, then clear it.
+ */
+let pendingContributorSort: ContributorSort | null = null;
 
 /** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65). */
 let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number } | null = null;
@@ -1943,6 +1967,9 @@ function syncHash(): void {
     // A shareable two-author comparison deep-link (W47).
     const [a, b] = state.compareSelection;
     route = { view: 'contributors', vs: [a.email, b.email] };
+  } else if (state.view === 'contributors' && state.contributorSort !== 'commits') {
+    // A shareable sort-scoped leaderboard deep-link (W66): non-default sort.
+    route = { view: 'contributors', sort: state.contributorSort };
   } else if (state.view === 'contributors') {
     route = { view: 'contributors' };
   } else if (state.view === 'activity') {
@@ -2020,6 +2047,30 @@ function installHashRouting(): void {
       openCompareFromEmails(route.vs);
       return;
     }
+    // Sort-scoped leaderboard deep-link on back/forward (W66): switch to the
+    // contributors tab if needed, then re-sort to the URL's key (or back to the
+    // commits default when the param is gone). Closes any open comparison since
+    // a sort route carries no vs.
+    if (route.view === 'contributors') {
+      const nextSort = (route as { sort?: ContributorSort }).sort ?? 'commits';
+      const sortChanged = nextSort !== state.contributorSort;
+      state.contributorSort = nextSort;
+      if (state.view !== 'contributors') {
+        state.view = 'contributors';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+        void ensureContributors();
+      } else {
+        if (contributorComparePanel.isOpen()) {
+          contributorComparePanel.close();
+          state.compareSelection = [];
+        }
+        if (sortChanged) renderContributorsView();
+      }
+      return;
+    }
     // Scoped-calendar deep-link on back/forward (W48): switch to the Activity
     // tab if needed, then re-scope the calendar to the URL's year + metric.
     if (route.view === 'activity') {
@@ -2086,11 +2137,6 @@ function installHashRouting(): void {
       switchView(route.view);
     } else if (route.view === 'compare') {
       void ensureCompare();
-    } else if (route.view === 'contributors' && contributorComparePanel.isOpen()) {
-      // Same tab, no vs in the URL -> close an open comparison (W47).
-      contributorComparePanel.close();
-      state.compareSelection = [];
-      renderContributorsView();
     } else if (route.view === 'graph' && detailPanel.isOpen()) {
       // Same view, no sha in the URL -> close an open permalink.
       detailPanel.close();
