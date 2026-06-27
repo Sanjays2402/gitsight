@@ -12,10 +12,11 @@
  */
 
 import { el } from './format';
+import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { buildStreaks, activeDaysOf, adjacentYear } from '@shared/activity';
 import type { ActivityCalendar, ActivityDay } from '@shared/activity';
-import { popoverPosition, tooltipSummary, truncateSubject } from './activityTooltip';
+import { popoverPosition, tooltipSummary, truncateSubject, isPointInAnyRect } from './activityTooltip';
 import type { DayResult } from './data';
 
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -183,6 +184,15 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
           cell.addEventListener('mouseleave', () => peek.leave());
           cell.addEventListener('focus', () => peek.enter(cell, day.date));
           cell.addEventListener('blur', () => peek.leave());
+          // W68: `p` pins the hovered/focused peek so it stays open for
+          // reading (Esc or an outside click dismisses it). The pin keeps the
+          // popover up without the day panel's full slide-in.
+          cell.addEventListener('keydown', e => {
+            if (e.key === 'p' || e.key === 'P') {
+              e.preventDefault();
+              peek.pin(cell, day.date);
+            }
+          });
         }
       }
       cells.appendChild(cell);
@@ -301,7 +311,7 @@ function buildYearPicker(
 }
 
 /**
- * Hover popover controller for the activity calendar (W55).
+ * Hover popover controller for the activity calendar (W55; pinnable W68).
  *
  * On `enter(cell, date)` it starts a short hover-intent timer; if the pointer
  * lingers, it fetches that day's commits (via the injected loader), caches the
@@ -311,6 +321,12 @@ function buildYearPicker(
  * fetch and hides the popover after a brief grace so moving between adjacent
  * cells doesn't flicker. The popover element lives inside the calendar wrap,
  * so a calendar re-render disposes it automatically.
+ *
+ * W68 adds PINNING: `pin(cell, date)` (or the popover's pin button) keeps the
+ * popover open for reading regardless of pointer movement. A pinned popover
+ * becomes interactive (pointer-events on), shows a close affordance, and is
+ * dismissed by Esc or a click outside both it and its anchor cell — without
+ * the W22 day panel's full slide-in.
  */
 class DayPeekController {
   private readonly load: (date: string) => Promise<DayResult>;
@@ -319,6 +335,12 @@ class DayPeekController {
   private enterTimer: number | null = null;
   private leaveTimer: number | null = null;
   private activeDate: string | null = null;
+  // W68 pinned state: the cell + date a pinned popover is anchored to, plus
+  // the window listeners that dismiss it (removed on unpin/dispose).
+  private pinned = false;
+  private pinnedCell: HTMLElement | null = null;
+  private readonly onDocPointer: (e: MouseEvent) => void;
+  private readonly onKeydown: (e: KeyboardEvent) => void;
 
   constructor(host: HTMLElement, load: (date: string) => Promise<DayResult>) {
     this.load = load;
@@ -326,9 +348,21 @@ class DayPeekController {
     this.pop.hidden = true;
     this.pop.setAttribute('role', 'tooltip');
     host.appendChild(this.pop);
+    // Dismiss a pinned peek on an outside click or Esc. Bound once; the
+    // handlers no-op while unpinned so they're cheap to leave attached.
+    this.onDocPointer = e => this.handleOutsidePointer(e);
+    this.onKeydown = e => {
+      if (this.pinned && e.key === 'Escape') {
+        e.preventDefault();
+        this.unpin();
+        this.pinnedCell?.focus();
+      }
+    };
   }
 
   enter(cell: HTMLElement, date: string): void {
+    // A pinned popover owns the screen; ignore incidental hovers elsewhere.
+    if (this.pinned) return;
     this.cancelLeave();
     this.activeDate = date;
     // Hover-intent: wait a beat so a quick sweep across the grid doesn't fetch.
@@ -337,6 +371,8 @@ class DayPeekController {
   }
 
   leave(): void {
+    // While pinned, leaving the cell must NOT hide the popover.
+    if (this.pinned) return;
     if (this.enterTimer !== null) {
       clearTimeout(this.enterTimer);
       this.enterTimer = null;
@@ -347,28 +383,66 @@ class DayPeekController {
     this.leaveTimer = window.setTimeout(() => this.hide(), 80);
   }
 
-  private async show(cell: HTMLElement, date: string): Promise<void> {
+  /** Pin the peek to a cell so it stays open for reading (W68). */
+  pin(cell: HTMLElement, date: string): void {
+    if (this.enterTimer !== null) {
+      clearTimeout(this.enterTimer);
+      this.enterTimer = null;
+    }
+    this.cancelLeave();
+    this.activeDate = date;
+    void this.show(cell, date, true);
+  }
+
+  private async show(cell: HTMLElement, date: string, asPin = false): Promise<void> {
     let summary = this.cache.get(date);
     if (!summary) {
       const res = await this.load(date);
       // Superseded by a later hover / a leave -> drop this result.
       if (this.activeDate !== date) return;
       if (!res.ok) return;
-      summary = tooltipSummary(res.day.commits, 2);
+      summary = tooltipSummary(res.day.commits, asPin ? 6 : 2);
+      // Cache the richer pinned summary too; a later hover re-trims from it is
+      // fine since a pin shows more, a hover shows fewer of the same subjects.
       this.cache.set(date, summary);
     }
     if (this.activeDate !== date) return;
     if (summary.subjects.length === 0) return;
-    this.renderInto(summary);
+    if (asPin) {
+      this.pinned = true;
+      this.pinnedCell = cell;
+    }
+    this.renderInto(summary, date);
     this.position(cell);
+    if (asPin) this.installPinListeners();
   }
 
-  private renderInto(summary: { subjects: string[]; more: number }): void {
+  private renderInto(summary: { subjects: string[]; more: number }, date: string): void {
     const items = summary.subjects
       .map(s => `<span class="activity-peek-subject">${escapeHtml(truncateSubject(s))}</span>`)
       .join('');
     const more = summary.more > 0 ? `<span class="activity-peek-more">+${summary.more} more</span>` : '';
-    this.pop.innerHTML = items + more;
+    if (this.pinned) {
+      // Pinned: a header with the date + a close button, then the subjects.
+      // The popover is interactive so the close button is clickable.
+      this.pop.classList.add('pinned');
+      this.pop.innerHTML =
+        `<div class="activity-peek-head"><span class="activity-peek-date">${escapeHtml(date)}</span>` +
+        `<button class="activity-peek-close" type="button" aria-label="Close" title="Close (Esc)">${icons.close}</button></div>` +
+        items +
+        more;
+      this.pop.querySelector<HTMLElement>('.activity-peek-close')?.addEventListener('click', () => {
+        this.unpin();
+        this.pinnedCell?.focus();
+      });
+    } else {
+      this.pop.classList.remove('pinned');
+      // A faint hint that the peek can be pinned for reading (W68). Only shown
+      // when a day cell is keyboard-focusable (the peek is reachable), so it
+      // doesn't promise an action the user can't take.
+      const hint = `<span class="activity-peek-hint">Press <kbd>p</kbd> to pin</span>`;
+      this.pop.innerHTML = items + more + hint;
+    }
     this.pop.hidden = false;
   }
 
@@ -387,6 +461,42 @@ class DayPeekController {
     this.pop.dataset.side = place.side;
   }
 
+  /** Wire the outside-click + Esc listeners for a freshly-pinned popover. */
+  private installPinListeners(): void {
+    // Defer the pointer listener so the click that pinned (if any) doesn't
+    // immediately dismiss it.
+    setTimeout(() => {
+      if (this.pinned) document.addEventListener('mousedown', this.onDocPointer, true);
+    }, 0);
+    document.addEventListener('keydown', this.onKeydown, true);
+  }
+
+  /** Dismiss a pinned popover when a click lands outside it AND its anchor (W68). */
+  private handleOutsidePointer(e: MouseEvent): void {
+    if (!this.pinned) return;
+    const popRect = this.pop.getBoundingClientRect();
+    const cellRect = this.pinnedCell?.getBoundingClientRect() ?? null;
+    const inside = isPointInAnyRect(
+      e.clientX,
+      e.clientY,
+      [
+        { left: popRect.left, top: popRect.top, right: popRect.right, bottom: popRect.bottom },
+        cellRect ? { left: cellRect.left, top: cellRect.top, right: cellRect.right, bottom: cellRect.bottom } : null,
+      ],
+    );
+    if (!inside) this.unpin();
+  }
+
+  /** Clear the pinned state + listeners and hide the popover (W68). */
+  private unpin(): void {
+    this.pinned = false;
+    this.pinnedCell = null;
+    this.pop.classList.remove('pinned');
+    document.removeEventListener('mousedown', this.onDocPointer, true);
+    document.removeEventListener('keydown', this.onKeydown, true);
+    this.hide();
+  }
+
   private hide(): void {
     this.pop.hidden = true;
   }
@@ -401,6 +511,8 @@ class DayPeekController {
   dispose(): void {
     if (this.enterTimer !== null) clearTimeout(this.enterTimer);
     this.cancelLeave();
+    document.removeEventListener('mousedown', this.onDocPointer, true);
+    document.removeEventListener('keydown', this.onKeydown, true);
     this.pop.remove();
   }
 }

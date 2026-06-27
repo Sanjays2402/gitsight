@@ -62,3 +62,78 @@
   z-index: 1;
 }
 
+/*
+ * Pinned peek (W68) — pressing `p` on a focused/hovered cell keeps the popover
+ * open for reading without the day panel's full slide-in. A pinned popover is
+ * interactive (so its close button + text selection work), shows a date header
+ * + close affordance, and gets a slightly stronger shadow so it reads as
+ * "stuck open" vs. a transient hover.
+ */
+.activity-peek.pinned {
+  pointer-events: auto;
+  max-width: 380px;
+  box-shadow: var(--shadow-lg, 0 10px 32px rgba(0, 0, 0, 0.28));
+  z-index: 61;
+}
+
+.activity-peek-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-peek-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.activity-peek-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: -2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.activity-peek-close:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.activity-peek-close svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* The faint "press p to pin" hint under a hover peek. Small, muted; the kbd
+ * chip mirrors the keyboard-help overlay so the affordance reads as a key. */
+.activity-peek-hint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  opacity: 0.8;
+}
+
+.activity-peek-hint kbd {
+  font: inherit;
+  font-size: 10px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-inset);
+}
+

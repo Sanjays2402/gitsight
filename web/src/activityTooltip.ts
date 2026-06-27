@@ -106,3 +106,28 @@ export function truncateSubject(subject: string, max = 72): string {
   if (s.length <= max) return s;
   return s.slice(0, Math.max(0, max - 1)).trimEnd() + '\u2026';
 }
+
+// ── Pinned peek dismiss geometry (W68) ───────────────────────────────
+
+/**
+ * Whether a point (a click's clientX/clientY) falls inside a rectangle,
+ * inclusive of the edges (W68). Used to decide whether an outside-click should
+ * dismiss a pinned peek. Pure so it's testable without a DOM.
+ */
+export function pointInRect(x: number, y: number, rect: AnchorRect): boolean {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+/**
+ * Whether a point lies within ANY of the given rectangles (W68). A pinned peek
+ * stays open while a click lands on the popover OR its anchor cell, and only
+ * dismisses when the click is outside both — this folds that "outside
+ * everything" test into one pure predicate. Null/undefined rects are skipped
+ * so a missing anchor (e.g. after a re-render) doesn't throw.
+ */
+export function isPointInAnyRect(x: number, y: number, rects: Array<AnchorRect | null | undefined>): boolean {
+  for (const r of rects) {
+    if (r && pointInRect(x, y, r)) return true;
+  }
+  return false;
+}

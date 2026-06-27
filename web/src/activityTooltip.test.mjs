@@ -10,6 +10,8 @@ import {
   popoverPosition,
   tooltipSummary,
   truncateSubject,
+  pointInRect,
+  isPointInAnyRect,
 } from './activityTooltip.ts';
 
 const VIEWPORT = { width: 1000, height: 800 };
@@ -96,4 +98,30 @@ test('truncateSubject ellipsises long subjects only', () => {
   assert.ok(t.endsWith('\u2026'));
   // Exactly at the limit is untouched.
   assert.equal(truncateSubject('y'.repeat(20), 20), 'y'.repeat(20));
+});
+
+// ── Pinned peek dismiss geometry (W68) ───────────────────────────────
+
+const RECT = { left: 100, top: 100, right: 200, bottom: 150 };
+
+test('pointInRect is true inside + on the edges, false outside', () => {
+  assert.equal(pointInRect(150, 125, RECT), true); // centre
+  assert.equal(pointInRect(100, 100, RECT), true); // top-left corner (inclusive)
+  assert.equal(pointInRect(200, 150, RECT), true); // bottom-right corner (inclusive)
+  assert.equal(pointInRect(99, 125, RECT), false); // just left
+  assert.equal(pointInRect(150, 151, RECT), false); // just below
+  assert.equal(pointInRect(0, 0, RECT), false);
+});
+
+test('isPointInAnyRect is true when inside any rect, skipping null anchors', () => {
+  const popRect = { left: 300, top: 300, right: 400, bottom: 380 };
+  // Inside the cell rect.
+  assert.equal(isPointInAnyRect(150, 125, [RECT, popRect]), true);
+  // Inside the popover rect.
+  assert.equal(isPointInAnyRect(350, 340, [RECT, popRect]), true);
+  // Outside both -> dismiss.
+  assert.equal(isPointInAnyRect(10, 10, [RECT, popRect]), false);
+  // A null anchor (e.g. cell removed by a re-render) is skipped, not thrown.
+  assert.equal(isPointInAnyRect(350, 340, [null, popRect]), true);
+  assert.equal(isPointInAnyRect(10, 10, [null, undefined]), false);
 });
