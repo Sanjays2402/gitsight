@@ -59,6 +59,12 @@ export interface BlameRoute {
   rev?: string;
   /** A 1-based line to jump to once the heatmap renders (W57). */
   line?: number;
+  /**
+   * A 1-based end line for a multi-line range permalink (W65). When present and
+   * greater than `line`, the link covers `line=N-M` and the range is
+   * highlighted. Absent for a single-line link.
+   */
+  lineEnd?: number;
 }
 
 export interface StashesRoute {
@@ -181,6 +187,45 @@ export function sanitizeLine(line: string | number | null | undefined): number |
   return n;
 }
 
+/** A 1-based blame line range: `start <= end` (W65). */
+export interface LineRange {
+  start: number;
+  end: number;
+}
+
+/**
+ * Parse a blame `line=` value into a 1-based range (W65). Accepts a single
+ * line (`42` -> {42,42}) or an inclusive range (`42-58` -> {42,58}). Both ends
+ * are validated via sanitizeLine; a reversed range (`58-42`) is normalised to
+ * ascending order so a backwards selection still resolves. Returns null for
+ * anything unparseable so a junk value just drops the jump.
+ */
+export function parseLineRange(value: string | number | null | undefined): LineRange | null {
+  if (value === null || value === undefined || value === '') return null;
+  const raw = String(value).trim();
+  const dash = raw.indexOf('-');
+  if (dash > 0) {
+    const start = sanitizeLine(raw.slice(0, dash));
+    const end = sanitizeLine(raw.slice(dash + 1));
+    if (start === null || end === null) return null;
+    return start <= end ? { start, end } : { start: end, end: start };
+  }
+  const single = sanitizeLine(raw);
+  return single === null ? null : { start: single, end: single };
+}
+
+/**
+ * Format a 1-based line (or range) for a blame `line=` param (W65). A single
+ * line emits `N`; a range with a larger end emits `N-M`. A non-positive or
+ * out-of-order pair degrades to the single start line.
+ */
+export function formatLineParam(start: number, end?: number | null): string {
+  const s = sanitizeLine(start);
+  if (s === null) return '';
+  const e = sanitizeLine(end ?? null);
+  return e !== null && e > s ? `${s}-${e}` : String(s);
+}
+
 /**
  * Normalise + validate a stash filter query for a deep link (W63). The query
  * is purely a client-side substring match against stash subjects/branches (it
@@ -246,8 +291,9 @@ export function buildHash(route: Route): string {
         const p = new URLSearchParams({ path });
         const rev = route.rev ? sanitizeRef(route.rev) : null;
         if (rev && rev !== 'HEAD') p.set('rev', rev);
+        // W57 single line, or W65 range (line=N-M) when lineEnd extends it.
         const line = sanitizeLine(route.line);
-        if (line !== null) p.set('line', String(line));
+        if (line !== null) p.set('line', formatLineParam(line, route.lineEnd));
         return `blame?${p.toString()}`;
       }
     }
@@ -341,8 +387,12 @@ export function parseHash(hash: string): Route | null {
     const route: BlameRoute = { view: 'blame', path };
     const rev = sanitizeRef(params.get('rev') ?? '');
     if (rev && rev !== 'HEAD') route.rev = rev;
-    const line = sanitizeLine(params.get('line'));
-    if (line !== null) route.line = line;
+    // W57 single line or W65 range (N-M) -> line + optional lineEnd.
+    const range = parseLineRange(params.get('line'));
+    if (range) {
+      route.line = range.start;
+      if (range.end > range.start) route.lineEnd = range.end;
+    }
     return route;
   }
 

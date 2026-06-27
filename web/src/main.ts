@@ -141,6 +141,8 @@ interface AppState {
   blameIgnoreRevs: string[];
   /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
   blameLine: number | null;
+  /** 1-based end line of a copied/deep-linked blame range (W65), or null. */
+  blameLineEnd: number | null;
   /** Live-refresh connection status (W17). */
   live: LiveStatus;
   /** Range-compare payload + the ref pair (W18). */
@@ -182,6 +184,7 @@ const state: AppState = {
   blameAuthor: null,
   blameIgnoreRevs: [],
   blameLine: null,
+  blameLineEnd: null,
   live: 'disconnected',
   compare: slot<ComparePayload>(),
   compareBase: 'main',
@@ -581,6 +584,7 @@ async function boot(): Promise<void> {
   state.blamePath = null;
   state.blameIgnoreRevs = [];
   state.blameLine = null;
+  state.blameLineEnd = null;
   state.compare = slot<ComparePayload>();
   state.stashes = slot<StashesPayload>();
   // A fresh load clears the stash filter, except a deep-linked query (W63)
@@ -633,12 +637,12 @@ async function boot(): Promise<void> {
     openCompareFromEmails(pair);
   }
 
-  // Load a deep-linked file blame once the app is up (W57). loadBlameAt blames
-  // at the linked rev; the revealLine jump is threaded through runBlame.
+  // Load a deep-linked file blame once the app is up (W57; range W65). loadBlameAt
+  // blames at the linked rev; the revealLine + range jump are threaded through runBlame.
   if (pendingBlame && state.view === 'blame') {
-    const { path, rev, line } = pendingBlame;
+    const { path, rev, line, lineEnd } = pendingBlame;
     pendingBlame = null;
-    void runBlame(rev ?? 'HEAD', path, line ?? null);
+    void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null);
   }
 }
 
@@ -1263,6 +1267,12 @@ function renderBlameView(): void {
     onRemoveIgnoreRev: (rev: string) => removeBlameIgnoreRev(rev),
     // W57: clicking a line number copies a #blame?path=&rev=&line=N permalink.
     onCopyLine: (line: number) => void copyBlameLineLink(line),
+    // W65: shift-clicking a second line number copies a line=N-M range link.
+    onCopyLineRange: (start: number, end: number) => void copyBlameLineRangeLink(start, end),
+    range:
+      state.blameLine && state.blameLineEnd
+        ? { start: state.blameLine, end: state.blameLineEnd }
+        : null,
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1564,10 +1574,12 @@ async function loadBlameAt(rev: string, path: string): Promise<void> {
 }
 
 /** Shared blame loader: fetch `path` at `rev`, optionally revealing a line. */
-async function runBlame(rev: string, path: string, line: number | null): Promise<void> {
+async function runBlame(rev: string, path: string, line: number | null, lineEnd: number | null = null): Promise<void> {
   state.blamePath = path;
   state.blameRev = rev;
   state.blameLine = line;
+  // A range deep-link (W65) carries an end line; a plain load clears it.
+  state.blameLineEnd = lineEnd;
   // A fresh file/rev starts with no author isolated (W40).
   state.blameAuthor = null;
   state.blame = { status: 'loading', data: null, error: '' };
@@ -1611,6 +1623,9 @@ function removeBlameIgnoreRev(rev: string): void {
  */
 async function copyBlameLineLink(line: number): Promise<void> {
   if (!state.blamePath) return;
+  // A single-line copy clears any prior range highlight + sets the anchor.
+  state.blameLine = line;
+  state.blameLineEnd = null;
   // Sync the hash so the address bar matches the copied link + survives reload.
   syncHash();
   const hash = buildHash({
@@ -1623,6 +1638,35 @@ async function copyBlameLineLink(line: number): Promise<void> {
   try {
     await navigator.clipboard.writeText(url);
     toast(`Link to line ${line} copied`);
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/**
+ * Copy a shareable permalink to a blamed line RANGE (W65). Shift-clicking a
+ * second line number selects from the anchor to that line; we copy a
+ * #blame?...&line=N-M link, record the range so the rows highlight, and sync
+ * the hash so a reload lands on the same selection.
+ */
+async function copyBlameLineRangeLink(start: number, end: number): Promise<void> {
+  if (!state.blamePath) return;
+  state.blameLine = start;
+  state.blameLineEnd = end;
+  // Re-render so the spanned rows pick up the in-range highlight.
+  if (state.view === 'blame') renderBlameView();
+  syncHash();
+  const hash = buildHash({
+    view: 'blame',
+    path: state.blamePath,
+    rev: state.blameRev,
+    line: start,
+    lineEnd: end,
+  });
+  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(`Link to lines ${start}\u2013${end} copied`);
   } catch {
     toast('Copy failed');
   }
@@ -1847,10 +1891,10 @@ function applyInitialRoute(): void {
   if (route.view === 'contributors' && route.vs) {
     pendingCompareEmails = route.vs;
   }
-  // Remember a file-blame deep link (#blame?path=&rev=&line=, W57); boot()
-  // loads the file + jumps to the line once the app is up.
+  // Remember a file-blame deep link (#blame?path=&rev=&line=, W57; range W65);
+  // boot() loads the file + jumps to the line once the app is up.
   if (route.view === 'blame' && route.path) {
-    pendingBlame = { path: route.path, rev: route.rev, line: route.line };
+    pendingBlame = { path: route.path, rev: route.rev, line: route.line, lineEnd: route.lineEnd };
   }
   // Seed a stash filter deep-link (#stashes?q=, W63); the first Stashes render
   // pre-fills the box + narrows the cards. boot() resets stashQuery, so stash
@@ -1867,8 +1911,8 @@ let pendingCommitSha: string | null = null;
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
 
-/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57). */
-let pendingBlame: { path: string; rev?: string; line?: number } | null = null;
+/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65). */
+let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number } | null = null;
 
 /**
  * A calendar year from an #activity?year= deep-link (W48). boot() resets
@@ -1905,8 +1949,15 @@ function syncHash(): void {
     // A shareable scoped-calendar deep-link (W48): year + metric.
     route = { view: 'activity', year: state.activityYear, metric: state.activityMetric };
   } else if (state.view === 'blame' && state.blamePath) {
-    // A shareable file-blame deep-link (W57): path + rev + the revealed line.
-    route = { view: 'blame', path: state.blamePath, rev: state.blameRev, line: state.blameLine ?? undefined };
+    // A shareable file-blame deep-link (W57): path + rev + the revealed line,
+    // or a line range (W65) when an end line is selected.
+    route = {
+      view: 'blame',
+      path: state.blamePath,
+      rev: state.blameRev,
+      line: state.blameLine ?? undefined,
+      lineEnd: state.blameLineEnd ?? undefined,
+    };
   } else if (state.view === 'stashes' && state.stashQuery) {
     // A shareable filtered-stash deep-link (W63): the filter query.
     route = { view: 'stashes', q: state.stashQuery };
@@ -2000,7 +2051,8 @@ function installHashRouting(): void {
       const changed =
         route.path !== state.blamePath ||
         targetRev !== state.blameRev ||
-        (route.line ?? null) !== state.blameLine;
+        (route.line ?? null) !== state.blameLine ||
+        (route.lineEnd ?? null) !== state.blameLineEnd;
       if (state.view !== 'blame') {
         state.view = 'blame';
         detailPanel.close();
@@ -2008,7 +2060,7 @@ function installHashRouting(): void {
         authorPanel.close();
         rebuildChrome();
       }
-      if (changed) void runBlame(targetRev, route.path, route.line ?? null);
+      if (changed) void runBlame(targetRev, route.path, route.line ?? null, route.lineEnd ?? null);
       return;
     }
     // Filtered-stash deep-link on back/forward (W63): switch to the Stashes

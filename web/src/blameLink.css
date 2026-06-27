@@ -29,3 +29,20 @@ button.blame-ln.link:focus-visible {
   text-underline-offset: 2px;
   outline: none;
 }
+
+/*
+ * Multi-line range selection (W65) — shift-clicking a second line number
+ * copies a line=N-M permalink; the spanned rows get the `in-range` class so
+ * the copied selection is visible. A faint accent wash + a left accent rail
+ * marks the band without fighting the heat strip. A hint nudges discovery of
+ * the shift-click via the title attribute (set in the view).
+ */
+.blame-row.in-range {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.blame-row.in-range .blame-ln {
+  color: var(--accent);
+}
+

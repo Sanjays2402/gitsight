@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -295,6 +295,65 @@ test('parseHash reads a blame link back, dropping junk rev/line', () => {
 
 test('buildHash(parseHash(x)) round-trips a blame line link', () => {
   const original = 'blame?path=src%2Fweb%2Fmain.ts&rev=abc1234&line=128';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Blame line range (W65) ───────────────────────────────────────────
+
+test('parseLineRange reads a single line or an inclusive range', () => {
+  assert.deepEqual(parseLineRange('42'), { start: 42, end: 42 });
+  assert.deepEqual(parseLineRange('42-58'), { start: 42, end: 58 });
+  assert.deepEqual(parseLineRange(' 10-12 '), { start: 10, end: 12 });
+  // A reversed range normalises to ascending.
+  assert.deepEqual(parseLineRange('58-42'), { start: 42, end: 58 });
+  // Junk / empty -> null.
+  assert.equal(parseLineRange('nope'), null);
+  assert.equal(parseLineRange('1-'), null);
+  assert.equal(parseLineRange('0-5'), null);
+  assert.equal(parseLineRange(''), null);
+  assert.equal(parseLineRange(null), null);
+});
+
+test('formatLineParam emits N or N-M, degrading a bad end', () => {
+  assert.equal(formatLineParam(42), '42');
+  assert.equal(formatLineParam(42, 58), '42-58');
+  // end <= start -> single line.
+  assert.equal(formatLineParam(42, 42), '42');
+  assert.equal(formatLineParam(42, 10), '42');
+  assert.equal(formatLineParam(42, null), '42');
+});
+
+test('buildHash emits a blame range link with line=N-M', () => {
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', line: 10, lineEnd: 20 }),
+    'blame?path=src%2Fmain.ts&line=10-20',
+  );
+  // lineEnd not greater than line collapses to the single line.
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', line: 10, lineEnd: 10 }),
+    'blame?path=src%2Fmain.ts&line=10',
+  );
+});
+
+test('parseHash reads a blame range link back', () => {
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&line=10-20'), {
+    view: 'blame',
+    path: 'src/main.ts',
+    line: 10,
+    lineEnd: 20,
+  });
+  // A degenerate range (N-N) parses as a single line, no lineEnd.
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&line=10-10'), {
+    view: 'blame',
+    path: 'src/main.ts',
+    line: 10,
+  });
+});
+
+test('buildHash(parseHash(x)) round-trips a blame range link', () => {
+  const original = 'blame?path=src%2Fweb%2Fmain.ts&rev=abc1234&line=128-140';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

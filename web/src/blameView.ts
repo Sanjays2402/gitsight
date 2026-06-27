@@ -74,6 +74,19 @@ export interface BlameViewOptions {
    * blamed line is shareable. Absent = the line numbers stay inert.
    */
   onCopyLine?: (line: number) => void;
+  /**
+   * Fired when a blame line number is SHIFT-clicked (W65) with the 1-based
+   * anchor + the shift-clicked line. The host copies a `line=N-M` range
+   * permalink. Requires onCopyLine to be wired too (the line numbers are only
+   * interactive when single-line copy is enabled).
+   */
+  onCopyLineRange?: (start: number, end: number) => void;
+  /**
+   * The currently-highlighted line range (W65), inclusive + 1-based, or null.
+   * Rows whose line falls inside it get an `in-range` class so a copied range
+   * is visible. The single revealed line (W57) still uses `revealLine`.
+   */
+  range?: { start: number; end: number } | null;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -169,20 +182,35 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
   const rows = el('div', 'blame-rows');
   // Delegated click for the line-number copy buttons (W57) — works for both
   // the plain and windowed renderers since rows are (re)mounted into here.
+  // W65: a SHIFT-click copies the range from the last plain-clicked anchor to
+  // the shift-clicked line; a plain click copies the single line + sets the
+  // anchor. The anchor is local to this render (a fresh load resets it).
   const copyable = !!opts.onCopyLine;
+  const range = opts.range ?? null;
   if (copyable) {
+    let anchor: number | null = range ? range.start : null;
     rows.addEventListener('click', e => {
       const target = (e.target as HTMLElement)?.closest<HTMLElement>('[data-copy-line]');
       if (!target) return;
       const line = Number(target.dataset.copyLine);
-      if (Number.isInteger(line) && line > 0) opts.onCopyLine!(line);
+      if (!Number.isInteger(line) || line <= 0) return;
+      if ((e as MouseEvent).shiftKey && anchor !== null && opts.onCopyLineRange) {
+        const start = Math.min(anchor, line);
+        const end = Math.max(anchor, line);
+        if (end > start) {
+          opts.onCopyLineRange(start, end);
+          return;
+        }
+      }
+      anchor = line;
+      opts.onCopyLine!(line);
     });
   }
   wrap.appendChild(rows);
   if (shouldVirtualizeBlame(model.lines.length)) {
-    new BlameWindowController(rows, model, opts.revealLine ?? null, active, copyable);
+    new BlameWindowController(rows, model, opts.revealLine ?? null, active, copyable, range);
   } else {
-    renderAllRows(rows, model, opts.revealLine ?? null, active, copyable);
+    renderAllRows(rows, model, opts.revealLine ?? null, active, copyable, range);
   }
 
   return wrap;
@@ -221,17 +249,21 @@ function blameRow(
   index: number,
   activeAuthor: string | null,
   copyable: boolean,
+  range: { start: number; end: number } | null,
 ): HTMLElement {
   const heat = blameHeat(line.authorTime, model.oldest, model.newest);
   const dimmed = isAuthorDimmed(line.author, activeAuthor);
-  const row = el('div', 'blame-row' + (dimmed ? ' dim' : ''));
+  // W65: a copied multi-line range tints the rows it spans.
+  const inRange = !!range && line.line >= range.start && line.line <= range.end;
+  const row = el('div', 'blame-row' + (dimmed ? ' dim' : '') + (inRange ? ' in-range' : ''));
   row.dataset.line = String(line.line);
   if (positioned) row.style.top = `${index * BLAME_ROW_H}px`;
   row.title = `${line.author} \u00b7 ${line.summary}`;
   // The line number is a copy-permalink affordance (W57) when wired: a button
-  // that copies a shareable #blame?...&line=N link. Inert otherwise.
+  // that copies a shareable #blame?...&line=N link. Shift-click copies a range
+  // from the last-clicked line (W65). Inert otherwise.
   const lnCell = copyable
-    ? `<button class="blame-ln link" data-copy-line="${line.line}" title="Copy a link to line ${line.line}" aria-label="Copy link to line ${line.line}">${line.line}</button>`
+    ? `<button class="blame-ln link" data-copy-line="${line.line}" title="Copy a link to line ${line.line} (shift-click for a range)" aria-label="Copy link to line ${line.line}">${line.line}</button>`
     : `<span class="blame-ln">${line.line}</span>`;
   row.innerHTML =
     `<span class="blame-heat" style="background:${heatColor(heat)}"></span>` +
@@ -245,9 +277,9 @@ function blameRow(
 }
 
 /** Small-file path: mount every row, then optionally scroll to a line. */
-function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean): void {
+function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean, range: { start: number; end: number } | null): void {
   const frag = document.createDocumentFragment();
-  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i, activeAuthor, copyable)));
+  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i, activeAuthor, copyable, range)));
   rows.appendChild(frag);
   if (revealLine) {
     // Defer until the node is in the DOM with a measurable scroll height.
@@ -270,14 +302,16 @@ class BlameWindowController {
   private readonly model: BlameModel;
   private readonly activeAuthor: string | null;
   private readonly copyable: boolean;
+  private readonly range: { start: number; end: number } | null;
   private win: WindowRange = { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
   private pendingReveal: number | null;
 
-  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean) {
+  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean, range: { start: number; end: number } | null) {
     this.rows = rows;
     this.model = model;
     this.activeAuthor = activeAuthor;
     this.copyable = copyable;
+    this.range = range;
     this.pendingReveal = revealLine;
     this.rows.classList.add('virtual');
     this.rows.style.height = `${blameContentHeight(model.lines.length)}px`;
@@ -309,7 +343,7 @@ class BlameWindowController {
     this.win = next;
     const frag = document.createDocumentFragment();
     for (let i = next.start; i < next.end; i++) {
-      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i, this.activeAuthor, this.copyable));
+      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i, this.activeAuthor, this.copyable, this.range));
     }
     this.rows.replaceChildren(frag);
   }
