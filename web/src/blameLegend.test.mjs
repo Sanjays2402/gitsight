@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -51,4 +51,32 @@ test('toggleAuthorFilter selects, switches, and clears', () => {
   assert.equal(toggleAuthorFilter('Ada', 'Grace'), 'Grace'); // switch
   assert.equal(toggleAuthorFilter('Ada', 'Ada'), null); // clear (same)
   assert.equal(toggleAuthorFilter('ada', 'ADA'), null); // clear (case-insensitive)
+});
+
+// ── authorEmailFromLines (W51) ───────────────────────────────────────
+
+const lines = [
+  { author: 'Ada Lovelace', email: 'ada@analytical.engine' },
+  { author: 'Grace Hopper', email: 'grace@navy.mil' },
+  { author: 'Ada Lovelace', email: 'ada@analytical.engine' },
+  { author: 'Not Committed Yet', email: '' },
+];
+
+test('authorEmailFromLines resolves an author name to their email', () => {
+  assert.equal(authorEmailFromLines(lines, 'Ada Lovelace'), 'ada@analytical.engine');
+  assert.equal(authorEmailFromLines(lines, 'Grace Hopper'), 'grace@navy.mil');
+});
+
+test('authorEmailFromLines matches case-insensitively + trimmed', () => {
+  assert.equal(authorEmailFromLines(lines, '  ada lovelace '), 'ada@analytical.engine');
+  assert.equal(authorEmailFromLines(lines, 'GRACE HOPPER'), 'grace@navy.mil');
+});
+
+test('authorEmailFromLines returns empty for an author with no email', () => {
+  assert.equal(authorEmailFromLines(lines, 'Not Committed Yet'), '');
+});
+
+test('authorEmailFromLines returns empty when the author is absent', () => {
+  assert.equal(authorEmailFromLines(lines, 'Nobody'), '');
+  assert.equal(authorEmailFromLines([], 'Ada'), '');
 });

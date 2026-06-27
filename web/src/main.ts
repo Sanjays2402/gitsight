@@ -1205,6 +1205,12 @@ function renderBlameView(): void {
     rev: state.blameRev,
     activeAuthor: state.blameAuthor,
     onToggleAuthor: (author: string) => toggleBlameAuthor(author),
+    onOpenAuthor: (author: string, email: string) => {
+      // W51: open the author's W23 contributor panel from a blame legend
+      // chip. Prefer the resolved email (the panel is email-keyed); fall
+      // back to the name if blame had no email on record.
+      void authorPanel.open(email || author, author);
+    },
     ignoreRevs: state.blameIgnoreRevs,
     onAddIgnoreRev: (rev: string) => addBlameIgnoreRev(rev),
     onRemoveIgnoreRev: (rev: string) => removeBlameIgnoreRev(rev),

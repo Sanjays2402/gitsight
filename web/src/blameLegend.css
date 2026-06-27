@@ -47,26 +47,62 @@
   color: var(--fg-faint);
 }
 
-/* Clickable author legend chips (W40). */
-.blame-legend-item.clickable {
+/* Author legend chip (W40 isolate + W51 contributor link). The chip is a
+   wrapper; the base .blame-legend-item layout (inline-flex, gap) in styles.css
+   now spaces the isolate button from the contributor button. */
+.blame-legend-isolate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+
+/* Clickable author isolate button (W40). */
+.blame-legend-isolate.clickable {
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
   font: inherit;
-  color: inherit;
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 2px 6px;
   transition: background 0.12s var(--ease), border-color 0.12s var(--ease);
 }
 
-.blame-legend-item.clickable:hover {
+.blame-legend-isolate.clickable:hover {
   background: var(--bg-hover);
 }
 
-.blame-legend-item.active {
+/* The whole chip lights up when its author is isolated (active). */
+.blame-legend-item.active .blame-legend-isolate {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* "View contributor" button (W51): a small monochrome glyph next to the
+   isolate button; opens the author's W23 detail panel. */
+.blame-legend-open {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.blame-legend-open:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.blame-legend-open svg {
+  width: 13px;
+  height: 13px;
 }
 
 .blame-legend-clear {

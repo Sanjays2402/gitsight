@@ -23,7 +23,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { blameHeat, type BlameModel, type BlameLineInfo } from '@shared/blame';
 import { heatColor, authorDot, relativeAgeFromUnix, blameSummary } from './blameFormat';
-import { buildAgeRamp, isAuthorDimmed } from './blameLegend';
+import { buildAgeRamp, isAuthorDimmed, authorEmailFromLines } from './blameLegend';
 import {
   shouldVirtualizeBlame,
   blameWindow,
@@ -53,6 +53,12 @@ export interface BlameViewOptions {
   activeAuthor?: string | null;
   /** Fired when a legend author is clicked (W40); host toggles the filter. */
   onToggleAuthor?: (author: string) => void;
+  /**
+   * Fired when a legend author's "view contributor" affordance is clicked
+   * (W51) with the author's name + resolved email — the host opens that
+   * author's W23 detail panel. Absent = no contributor link.
+   */
+  onOpenAuthor?: (author: string, email: string) => void;
   /**
    * Commits to ignore when blaming (W44) — a mass reformat / rename whose
    * lines should be reattributed to their real author. Shown as a chip list.
@@ -102,22 +108,41 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
   legend.appendChild(summary);
   for (const a of model.authors.slice(0, 10)) {
     const isActive = active !== null && active.trim().toLowerCase() === a.author.trim().toLowerCase();
-    const item = el(
+    const email = opts.onOpenAuthor ? authorEmailFromLines(model.lines, a.author) : '';
+    // A chip wraps the isolate button (W40) and an optional "view
+    // contributor" affordance (W51) so both actions share one row without
+    // nesting interactive elements.
+    const chip = el('div', 'blame-legend-item' + (isActive ? ' active' : ''));
+
+    const isolate = el(
       opts.onToggleAuthor ? 'button' : 'span',
-      'blame-legend-item' + (opts.onToggleAuthor ? ' clickable' : '') + (isActive ? ' active' : ''),
+      'blame-legend-isolate' + (opts.onToggleAuthor ? ' clickable' : ''),
     );
     const pct = Math.round(a.share * 100);
-    item.innerHTML =
+    isolate.innerHTML =
       `<span class="dot" style="background:${authorDot(a.author)}"></span>` +
       `<span class="who">${escapeHtml(a.author)}</span>` +
       `<span class="n">${a.lines} (${pct}%)</span>`;
     if (opts.onToggleAuthor) {
-      (item as HTMLButtonElement).type = 'button';
-      item.title = isActive ? `Show all authors` : `Isolate ${a.author}`;
-      item.setAttribute('aria-pressed', String(isActive));
-      item.addEventListener('click', () => opts.onToggleAuthor!(a.author));
+      (isolate as HTMLButtonElement).type = 'button';
+      isolate.title = isActive ? `Show all authors` : `Isolate ${a.author}`;
+      isolate.setAttribute('aria-pressed', String(isActive));
+      isolate.addEventListener('click', () => opts.onToggleAuthor!(a.author));
     }
-    legend.appendChild(item);
+    chip.appendChild(isolate);
+
+    // "View contributor" (W51): opens the author's W23 detail panel. Only
+    // shown when wired AND we resolved an email (the panel is email-keyed).
+    if (opts.onOpenAuthor && email) {
+      const open = el('button', 'blame-legend-open');
+      open.type = 'button';
+      open.title = `View ${a.author}'s contributions`;
+      open.setAttribute('aria-label', `View ${a.author}'s contributions`);
+      open.innerHTML = icons.users;
+      open.addEventListener('click', () => opts.onOpenAuthor!(a.author, email));
+      chip.appendChild(open);
+    }
+    legend.appendChild(chip);
   }
   // A clear-filter affordance when an author is isolated (W40).
   if (active && opts.onToggleAuthor) {

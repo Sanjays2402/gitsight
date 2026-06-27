@@ -69,3 +69,23 @@ export function toggleAuthorFilter(current: string | null, clicked: string): str
 function norm(s: string): string {
   return (s || '').trim().toLowerCase();
 }
+
+/**
+ * Resolve a blame author's email from the per-line model (W51). The legend
+ * works in author NAMES (BlameAuthorStat carries no email), but the W23
+ * contributor panel is keyed by email — so to open it from a legend click we
+ * map the name back to the email of the first line that author touched.
+ * Case-insensitive, trimmed match. Returns '' when the author has no email on
+ * record (e.g. an uncommitted-change pseudo-author) so the caller can fall
+ * back to the name. `lines` is the BlameModel's per-line list.
+ */
+export function authorEmailFromLines(
+  lines: ReadonlyArray<{ author: string; email: string }>,
+  author: string,
+): string {
+  const want = norm(author);
+  for (const l of lines) {
+    if (norm(l.author) === want && l.email) return l.email;
+  }
+  return '';
+}
