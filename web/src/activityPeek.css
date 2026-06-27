@@ -47,3 +47,18 @@
   font-size: 11px;
   margin-top: 1px;
 }
+
+/*
+ * Keyboard focus ring on a calendar cell (W61) — the day peek surfaces on
+ * focus, so the focused cell needs a visible ring. A crisp accent outline that
+ * sits above neighbours, scoped to keyboard focus so a mouse click doesn't
+ * draw it.
+ */
+.activity-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+  position: relative;
+  z-index: 1;
+}
+

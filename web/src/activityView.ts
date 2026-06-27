@@ -172,9 +172,17 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
         }
         // Rich hover popover (W55): show the day's top subjects. Suppressing
         // the native title while the popover is up avoids a double tooltip.
+        // W61: the same preview surfaces on keyboard focus so it isn't
+        // mouse-exclusive. focus/blur mirror enter/leave; the cell is made
+        // focusable + labelled here so the preview works even if onPickDay
+        // isn't wired (the W22 click path already sets these when it is).
         if (day.count > 0 && peek) {
+          if (cell.tabIndex < 0) cell.tabIndex = 0;
+          cell.setAttribute('aria-label', `${day.date}: ${label}`);
           cell.addEventListener('mouseenter', () => peek.enter(cell, day.date));
           cell.addEventListener('mouseleave', () => peek.leave());
+          cell.addEventListener('focus', () => peek.enter(cell, day.date));
+          cell.addEventListener('blur', () => peek.leave());
         }
       }
       cells.appendChild(cell);
