@@ -20,6 +20,7 @@ import './blameLegend.css';
 import './blameIgnore.css';
 import './graphMinimap.css';
 import './compareSplit.css';
+import './compareCommitFilter.css';
 import './contributorCompare.css';
 import './stashCreate.css';
 import './stashSplit.css';

@@ -9,7 +9,7 @@
  * Tests: web/src/compareFormat.test.mjs
  */
 
-import type { CompareFile, CompareFileStatus } from '../../src/shared/rangeCompare.ts';
+import type { CompareFile, CompareFileStatus, CompareCommit } from '../../src/shared/rangeCompare.ts';
 
 /** Single-letter glyph for a compare file status (monochrome chrome). */
 export function compareGlyph(status: CompareFileStatus): string {
@@ -74,4 +74,42 @@ export function sanitizeRef(ref: string): string | null {
   if (r.startsWith('-')) return null;
   if (r.length > 200) return null;
   return r;
+}
+
+// ── Commit-list filtering (W54) ──────────────────────────────────────
+
+/** The minimal commit shape the compare commit-list filter matches against. */
+export type FilterableCommit = Pick<CompareCommit, 'sha' | 'shortSha' | 'author' | 'subject'>;
+
+/** Normalise a commit-filter query: trimmed + lowercased. */
+export function normalizeCommitQuery(query: string): string {
+  return (query ?? '').trim().toLowerCase();
+}
+
+/**
+ * Whether a single commit matches a (raw) query (W54). An empty/whitespace
+ * query matches everything. Otherwise the lowercased query must be a
+ * substring of the subject, the author, or either sha form — so you can find
+ * a commit in a wide ahead/behind column by what you remember about it
+ * (a word from the message, who wrote it, or a sha prefix).
+ */
+export function commitMatchesQuery(commit: FilterableCommit, query: string): boolean {
+  const q = normalizeCommitQuery(query);
+  if (!q) return true;
+  if (commit.subject.toLowerCase().includes(q)) return true;
+  if (commit.author.toLowerCase().includes(q)) return true;
+  if (commit.sha.toLowerCase().includes(q)) return true;
+  if (commit.shortSha.toLowerCase().includes(q)) return true;
+  return false;
+}
+
+/**
+ * Filter a commit list by a subject/author/sha query (W54). Preserves the
+ * input order and identity (returns the same objects). An empty query returns
+ * a fresh copy of the list so callers can treat the result uniformly.
+ */
+export function filterCompareCommits<T extends FilterableCommit>(commits: T[], query: string): T[] {
+  const q = normalizeCommitQuery(query);
+  if (!q) return commits.slice();
+  return commits.filter(c => commitMatchesQuery(c, q));
 }

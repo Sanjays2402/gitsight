@@ -12,6 +12,9 @@ import {
   compareChurn,
   splitComparePath,
   sanitizeRef,
+  normalizeCommitQuery,
+  commitMatchesQuery,
+  filterCompareCommits,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -56,4 +59,47 @@ test('sanitizeRef accepts valid refs and rejects unsafe input', () => {
   assert.equal(sanitizeRef('--output=x'), null);
   assert.equal(sanitizeRef('a b'), null);
   assert.equal(sanitizeRef('x'.repeat(201)), null);
+});
+
+// ── Commit-list filtering (W54) ──────────────────────────────────────
+
+const COMMITS = [
+  { sha: 'aaaa1111bbbb2222', shortSha: 'aaaa111', author: 'Ada Lovelace', subject: 'Fix the lane layout off-by-one' },
+  { sha: 'cccc3333dddd4444', shortSha: 'cccc333', author: 'Bjarne S', subject: 'Add stash split toggle' },
+  { sha: 'eeee5555ffff6666', shortSha: 'eeee555', author: 'Ada Lovelace', subject: 'Document the compare grammar' },
+];
+
+test('normalizeCommitQuery trims and lowercases', () => {
+  assert.equal(normalizeCommitQuery('  Lane  '), 'lane');
+  assert.equal(normalizeCommitQuery(''), '');
+  assert.equal(normalizeCommitQuery('   '), '');
+});
+
+test('commitMatchesQuery matches subject, author, and either sha form', () => {
+  // Subject substring (case-insensitive).
+  assert.equal(commitMatchesQuery(COMMITS[0], 'lane'), true);
+  assert.equal(commitMatchesQuery(COMMITS[0], 'LANE'), true);
+  // Author substring.
+  assert.equal(commitMatchesQuery(COMMITS[0], 'ada'), true);
+  // Full sha prefix and short sha both hit.
+  assert.equal(commitMatchesQuery(COMMITS[1], 'cccc3333'), true);
+  assert.equal(commitMatchesQuery(COMMITS[1], 'cccc333'), true);
+  // No match.
+  assert.equal(commitMatchesQuery(COMMITS[1], 'lane'), false);
+  // Empty query matches everything.
+  assert.equal(commitMatchesQuery(COMMITS[1], ''), true);
+  assert.equal(commitMatchesQuery(COMMITS[1], '   '), true);
+});
+
+test('filterCompareCommits narrows by query, preserving order + identity', () => {
+  const adaCommits = filterCompareCommits(COMMITS, 'ada');
+  assert.equal(adaCommits.length, 2);
+  assert.equal(adaCommits[0], COMMITS[0]); // same object, original order
+  assert.equal(adaCommits[1], COMMITS[2]);
+  // Empty query returns a fresh copy of the whole list.
+  const all = filterCompareCommits(COMMITS, '');
+  assert.deepEqual(all, COMMITS);
+  assert.notEqual(all, COMMITS); // new array
+  // No matches -> empty.
+  assert.deepEqual(filterCompareCommits(COMMITS, 'zzzzz'), []);
 });

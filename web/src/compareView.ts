@@ -17,13 +17,20 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
 
 /** Below this many files the compare path-filter box isn't worth it (W50). */
 const FILE_FILTER_THRESHOLD = 8;
+
+/**
+ * Above this many commits across BOTH columns, the compare commit-list filter
+ * box (W54) is worth showing so you can find a specific commit in a wide
+ * ahead/behind range.
+ */
+const COMMIT_FILTER_THRESHOLD = 10;
 
 export interface CompareViewOptions {
   base: string;
@@ -138,9 +145,22 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   }
 
   // Two commit columns: ahead (what head adds) + behind (what it's missing).
+  // Above a threshold a shared filter box (W54) narrows both columns by
+  // subject/author/sha so a specific commit is findable in a wide range.
+  const totalCommits = cmp.ahead.length + cmp.behind.length;
   const cols = el('div', 'compare-cols');
-  cols.appendChild(commitColumn('Only in ' + cmp.head, cmp.ahead, 'ahead', opts));
-  cols.appendChild(commitColumn('Only in ' + cmp.base, cmp.behind, 'behind', opts));
+  const renderCols = (query: string) => {
+    const ahead = filterCompareCommits(cmp.ahead, query);
+    const behind = filterCompareCommits(cmp.behind, query);
+    cols.replaceChildren(
+      commitColumn('Only in ' + cmp.head, ahead, cmp.ahead.length, 'ahead', opts),
+      commitColumn('Only in ' + cmp.base, behind, cmp.behind.length, 'behind', opts),
+    );
+  };
+  renderCols('');
+  if (totalCommits >= COMMIT_FILTER_THRESHOLD) {
+    result.appendChild(buildCommitFilter(totalCommits, renderCols));
+  }
   result.appendChild(cols);
 
   // File list with lazy diffs.
@@ -235,19 +255,46 @@ function renderCompareFileRows(
   host.replaceChildren(frag);
 }
 
+/**
+ * Shared filter box above the two commit columns (W54). Narrows both the
+ * ahead and behind lists by a subject/author/sha substring so a specific
+ * commit is findable in a wide range. Pure matching lives in
+ * compareFormat.filterCompareCommits; this only owns the input + re-render.
+ */
+function buildCommitFilter(total: number, render: (query: string) => void): HTMLElement {
+  const wrap = el('div', 'compare-commit-filter');
+  const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
+  input.type = 'search';
+  input.placeholder = `Filter ${total} commits by subject, author, or sha\u2026`;
+  input.setAttribute('aria-label', 'Filter compare commits');
+  input.setAttribute('spellcheck', 'false');
+  input.setAttribute('autocomplete', 'off');
+  input.addEventListener('input', () => render(input.value));
+  wrap.appendChild(input);
+  return wrap;
+}
+
 function commitColumn(
   title: string,
   commits: CompareCommit[],
+  total: number,
   kind: 'ahead' | 'behind',
   opts: CompareViewOptions,
 ): HTMLElement {
   const col = el('div', `compare-col ${kind}`);
   const head = el('div', 'compare-col-head');
-  head.innerHTML = `<span>${escapeHtml(title)}</span><span class="compare-col-count">${commits.length}</span>`;
+  // Show "N of M" when the filter has hidden some rows, else the plain count.
+  const countText = commits.length === total ? String(total) : `${commits.length} of ${total}`;
+  head.innerHTML = `<span>${escapeHtml(title)}</span><span class="compare-col-count">${countText}</span>`;
   col.appendChild(head);
 
-  if (commits.length === 0) {
+  if (total === 0) {
     const none = el('div', 'compare-col-empty', 'No commits.');
+    col.appendChild(none);
+    return col;
+  }
+  if (commits.length === 0) {
+    const none = el('div', 'compare-col-empty', 'No commits match.');
     col.appendChild(none);
     return col;
   }

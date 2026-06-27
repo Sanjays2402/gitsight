@@ -1,0 +1,36 @@
+/*
+ * Compare commit-list filter (W54) — a search box above the ahead/behind
+ * commit columns that narrows both by subject, author, or sha. Only shown
+ * above a threshold so short comparisons stay clean.
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * editorial redesign) without hard-coding a colour.
+ */
+
+.compare-commit-filter {
+  margin: 4px 0 10px;
+}
+
+.compare-commit-filter-input {
+  width: 100%;
+  box-sizing: border-box;
+  appearance: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  padding: 6px 10px;
+  transition: border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.compare-commit-filter-input::placeholder {
+  color: var(--fg-faint);
+}
+
+.compare-commit-filter-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
