@@ -202,6 +202,29 @@ export function contributorChurn(c: Pick<Contributor, 'insertions' | 'deletions'
 }
 
 /**
+ * A contributor's churn as a 0..1 fraction of the busiest author's churn
+ * (W67), for a mini churn bar alongside the commit-share bar. `maxChurn` is
+ * the largest `contributorChurn` across the list; a non-positive max (no
+ * churn folded yet, or everyone at zero) yields 0 so the bar simply collapses
+ * rather than dividing by zero. Clamped to 0..1 and never negative.
+ */
+export function churnShare(c: Pick<Contributor, 'insertions' | 'deletions'>, maxChurn: number): number {
+  if (maxChurn <= 0) return 0;
+  const v = contributorChurn(c) / maxChurn;
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/** The largest total churn across a contributor list (W67); 0 for an empty list. */
+export function maxContributorChurn(contributors: Array<Pick<Contributor, 'insertions' | 'deletions'>>): number {
+  let max = 0;
+  for (const c of contributors) {
+    const v = contributorChurn(c);
+    if (v > max) max = v;
+  }
+  return max;
+}
+
+/**
  * Sort a contributor list by a chosen key (W60), returning a fresh array
  * (the input is not mutated). Every ordering breaks ties by name A→Z so the
  * result is stable + deterministic:

@@ -25,6 +25,7 @@ import './compareSplit.css';
 import './compareCommitFilter.css';
 import './contributorCompare.css';
 import './contributorSort.css';
+import './contributorChurnBar.css';
 import './stashCreate.css';
 import './stashSplit.css';
 import './stashFilter.css';

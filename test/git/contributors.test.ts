@@ -8,6 +8,8 @@ import {
   sortContributors,
   contributorChurn,
   isContributorSort,
+  churnShare,
+  maxContributorChurn,
 } from '../../src/shared/contributors';
 
 const COMMITS = [
@@ -163,4 +165,36 @@ test('isContributorSort guards the key set', () => {
   assert.ok(isContributorSort('recent'));
   assert.ok(!isContributorSort('downloads'));
   assert.ok(!isContributorSort(42));
+});
+
+// ── Churn bars (W67) ─────────────────────────────────────────────────
+
+test('maxContributorChurn returns the busiest author total, 0 when empty', () => {
+  const list = [
+    { insertions: 5, deletions: 1 }, // 6
+    { insertions: 100, deletions: 20 }, // 120
+    { insertions: 0, deletions: 0 }, // 0
+  ];
+  assert.equal(maxContributorChurn(list), 120);
+  assert.equal(maxContributorChurn([]), 0);
+});
+
+test('churnShare is the 0..1 fraction of the busiest author', () => {
+  const max = 120;
+  assert.equal(churnShare({ insertions: 100, deletions: 20 }, max), 1); // the busiest fills
+  assert.equal(churnShare({ insertions: 30, deletions: 30 }, max), 0.5); // half
+  assert.equal(churnShare({ insertions: 0, deletions: 0 }, max), 0); // none
+});
+
+test('churnShare collapses to 0 on a non-positive max (no churn folded)', () => {
+  assert.equal(churnShare({ insertions: 0, deletions: 0 }, 0), 0);
+  assert.equal(churnShare({ insertions: 5, deletions: 5 }, 0), 0);
+  assert.equal(churnShare({ insertions: 5, deletions: 5 }, -3), 0);
+});
+
+test('churnShare clamps to 0..1 and ignores negative (binary -1) counts', () => {
+  // A churn larger than max (shouldn't happen, but defensive) clamps to 1.
+  assert.equal(churnShare({ insertions: 200, deletions: 0 }, 100), 1);
+  // Negative counts (binary rows folded as -1) floor to 0 via contributorChurn.
+  assert.equal(churnShare({ insertions: -1, deletions: -1 }, 100), 0);
 });

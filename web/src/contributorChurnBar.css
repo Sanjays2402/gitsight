@@ -1,0 +1,61 @@
+/*
+ * Contributor mini churn bar (W67).
+ *
+ * The leaderboard row's commit-share bar (styles.css `.contributor-bar`) gains
+ * a thinner churn track beneath it, scaled to the busiest author's lines
+ * changed (pure `churnShare`/`maxContributorChurn`). So churn is visible at a
+ * glance without opening the W35 compare panel. The wrapper `.contributor-bars`
+ * takes over the flex slot the single bar used to hold, stacking the two
+ * tracks vertically.
+ *
+ * Co-located + token-only so it inherits the app theme (and Sanjay's editorial
+ * redesign). Monochrome chrome; the fill uses the author colour like the
+ * commit bar, just dimmer so the commit bar stays the primary signal.
+ */
+
+.contributor-bars {
+  flex: 1;
+  min-width: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* The bars block owns the flex slot; the inner commit bar drops its own
+   * flex so it sizes to the shared height instead of stretching. */
+}
+
+.contributor-bars .contributor-bar {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.contributor-churn-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.contributor-churn-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  /* Dimmer than the commit bar so churn reads as the secondary track until
+   * the user sorts by it. */
+  opacity: 0.5;
+  transition: opacity 0.12s ease;
+}
+
+/* When the leaderboard is sorted by churn, lift the churn track so the active
+ * ordering key is the prominent bar. */
+.contributor-churn-bar.active .contributor-churn-bar-fill {
+  opacity: 0.9;
+}
+
+@media (max-width: 600px) {
+  /* On the compact layout the row is tight; drop the secondary track to keep
+   * the commit bar legible. */
+  .contributor-churn-bar {
+    display: none;
+  }
+}
