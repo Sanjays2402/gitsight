@@ -34,3 +34,16 @@
   border-color: var(--accent);
   background: var(--bg-elev);
 }
+
+/*
+ * Keyboard focus ring on a compare commit row (W70). The filter box's Down/Up
+ * step a ring through the matches; Enter opens the ringed one. A crisp accent
+ * outline + inset wash so the focused row stands out without moving the
+ * keyboard focus off the filter input.
+ */
+.compare-commit.kbd-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}

@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, firstCompareMatch } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -149,9 +149,26 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   // subject/author/sha so a specific commit is findable in a wide range.
   const totalCommits = cmp.ahead.length + cmp.behind.length;
   const cols = el('div', 'compare-cols');
+  // W70: the current match list (ahead-then-behind order) + the focused index,
+  // so Down/Up can step through matches and Enter opens the focused one.
+  let matches: CompareCommit[] = [];
+  let focusIdx = -1;
+  const applyFocusRing = () => {
+    cols.querySelectorAll('.compare-commit.kbd-focus').forEach(x => x.classList.remove('kbd-focus'));
+    if (focusIdx < 0 || focusIdx >= matches.length) return;
+    const sha = matches[focusIdx].sha;
+    const row = cols.querySelector<HTMLElement>(`.compare-commit[data-compare-sha="${sha}"]`);
+    if (row) {
+      row.classList.add('kbd-focus');
+      row.scrollIntoView({ block: 'nearest' });
+    }
+  };
   const renderCols = (query: string) => {
     const ahead = filterCompareCommits(cmp.ahead, query);
     const behind = filterCompareCommits(cmp.behind, query);
+    // The flat match list mirrors the firstCompareMatch order (ahead first).
+    matches = [...ahead, ...behind];
+    focusIdx = -1;
     cols.replaceChildren(
       commitColumn('Only in ' + cmp.head, ahead, cmp.ahead.length, 'ahead', opts),
       commitColumn('Only in ' + cmp.base, behind, cmp.behind.length, 'behind', opts),
@@ -160,12 +177,21 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   renderCols('');
   if (totalCommits >= COMMIT_FILTER_THRESHOLD) {
     result.appendChild(
-      buildCommitFilter(totalCommits, renderCols, query => {
-        // W62: Enter in the filter box opens the first matching commit's
-        // detail (ahead column first), so a search resolves to an action.
-        const match = firstCompareMatch(cmp.ahead, cmp.behind, query);
-        if (match && opts.onOpenCommit) opts.onOpenCommit(match.sha);
-      }),
+      buildCommitFilter(
+        totalCommits,
+        renderCols,
+        () => {
+          // W62/W70: Enter opens the focused match if one is ringed, else the
+          // first match (ahead column first), so a search resolves to an action.
+          const target = focusIdx >= 0 && focusIdx < matches.length ? matches[focusIdx] : matches[0];
+          if (target && opts.onOpenCommit) opts.onOpenCommit(target.sha);
+        },
+        // W70: Down/Up step the focus ring through the current match list.
+        delta => {
+          focusIdx = stepMatch(matches.length, focusIdx, delta);
+          applyFocusRing();
+        },
+      ),
     );
   }
   result.appendChild(cols);
@@ -269,27 +295,37 @@ function renderCompareFileRows(
  * compareFormat.filterCompareCommits; this only owns the input + re-render.
  *
  * W62: pressing Enter resolves the query to an action — `onEnter` is fired so
- * the host opens the first matching commit's detail (a hint nudges the user).
+ * the host opens the focused/first matching commit's detail.
+ * W70: Down/Up step a focus ring through the match list — `onStep(delta)` is
+ * fired so the host moves the ring; Enter then opens the focused one.
  */
 function buildCommitFilter(
   total: number,
   render: (query: string) => void,
-  onEnter: (query: string) => void,
+  onEnter: () => void,
+  onStep: (delta: number) => void,
 ): HTMLElement {
   const wrap = el('div', 'compare-commit-filter');
   const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
   input.type = 'search';
   input.placeholder = `Filter ${total} commits by subject, author, or sha\u2026`;
   input.setAttribute('aria-label', 'Filter compare commits');
-  input.title = 'Enter opens the first matching commit';
+  input.title = 'Up/Down step matches, Enter opens the focused one';
   input.setAttribute('spellcheck', 'false');
   input.setAttribute('autocomplete', 'off');
   input.addEventListener('input', () => render(input.value));
-  // Enter -> open the first match (W62). preventDefault stops a form-ish submit.
+  // Enter -> open the focused/first match (W62/W70). Down/Up -> step the ring
+  // (W70). preventDefault stops a form-ish submit + caret movement in the box.
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      onEnter(input.value);
+      onEnter();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      onStep(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      onStep(-1);
     }
   });
   wrap.appendChild(input);
@@ -324,6 +360,8 @@ function commitColumn(
   const list = el('div', 'compare-commit-list');
   for (const c of commits) {
     const row = el(opts.onOpenCommit ? 'button' : 'div', 'compare-commit');
+    // W70: address rows by sha so keyboard stepping can ring the focused one.
+    row.dataset.compareSha = c.sha;
     row.innerHTML =
       `<span class="compare-commit-subject">${escapeHtml(c.subject)}</span>` +
       `<span class="compare-commit-meta">` +

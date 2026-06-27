@@ -84,6 +84,14 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
         { keys: ['p'], description: 'Pin a focused day\u2019s commit preview (Esc closes)', views: ['activity'] },
       ],
     },
+    {
+      title: 'Compare',
+      shortcuts: [
+        { keys: ['\u2193'], description: 'Step to the next commit-filter match', views: ['compare'] },
+        { keys: ['\u2191'], description: 'Step to the previous commit-filter match', views: ['compare'] },
+        { keys: ['Enter'], description: 'Open the focused commit-filter match', views: ['compare'] },
+      ],
+    },
   ];
 }
 

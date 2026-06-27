@@ -16,6 +16,7 @@ import {
   commitMatchesQuery,
   filterCompareCommits,
   firstCompareMatch,
+  stepMatch,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -130,4 +131,39 @@ test('firstCompareMatch returns null for no match or empty query', () => {
 
 test('firstCompareMatch resolves a sha prefix', () => {
   assert.equal(firstCompareMatch([], COMMITS, 'cccc333'), COMMITS[1]);
+});
+
+// ── Match-list keyboard stepping (W70) ───────────────────────────────
+
+test('stepMatch wraps forward and backward through the list', () => {
+  // Forward through a 3-item list.
+  assert.equal(stepMatch(3, 0, 1), 1);
+  assert.equal(stepMatch(3, 1, 1), 2);
+  // Past the end wraps to the start.
+  assert.equal(stepMatch(3, 2, 1), 0);
+  // Backward.
+  assert.equal(stepMatch(3, 2, -1), 1);
+  assert.equal(stepMatch(3, 0, -1), 2); // before the start wraps to the end
+});
+
+test('stepMatch starts from nothing-focused at an end', () => {
+  // Down with nothing focused -> the first match.
+  assert.equal(stepMatch(3, -1, 1), 0);
+  // Up with nothing focused -> the last match.
+  assert.equal(stepMatch(3, -1, -1), 2);
+});
+
+test('stepMatch handles an empty list and a zero delta', () => {
+  assert.equal(stepMatch(0, -1, 1), -1);
+  assert.equal(stepMatch(0, 0, -1), -1);
+  // A zero delta keeps the focus where it is (clamped into range).
+  assert.equal(stepMatch(3, 1, 0), 1);
+  assert.equal(stepMatch(3, -1, 0), -1);
+  assert.equal(stepMatch(3, 5, 0), 2); // out-of-range clamps to the last
+});
+
+test('stepMatch on a single-item list always lands on 0', () => {
+  assert.equal(stepMatch(1, -1, 1), 0);
+  assert.equal(stepMatch(1, 0, 1), 0); // wrap back onto itself
+  assert.equal(stepMatch(1, 0, -1), 0);
 });

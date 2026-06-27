@@ -132,3 +132,27 @@ export function firstCompareMatch<T extends FilterableCommit>(
   for (const c of behind) if (commitMatchesQuery(c, q)) return c;
   return null;
 }
+
+// ── Match-list keyboard stepping (W70) ───────────────────────────────
+
+/**
+ * Step a focused index through a match list (W70). `count` is how many matches
+ * there are; `current` is the focused index (-1 = nothing focused yet); `delta`
+ * is +1 (next) or -1 (previous). Returns the next index, wrapping around the
+ * ends so Down past the last match lands on the first and Up past the first
+ * lands on the last. An empty list returns -1 (nothing to focus). A first step
+ * from -1 lands on the first match for +1 and the last for -1, so pressing Down
+ * with nothing focused selects the top match.
+ *
+ * Pure so the wrap/clamp logic is testable without the DOM; the compare view
+ * owns the focus-ring rendering + the keyboard wiring.
+ */
+export function stepMatch(count: number, current: number, delta: number): number {
+  if (count <= 0) return -1;
+  if (delta === 0) return current < 0 ? -1 : Math.min(current, count - 1);
+  // From "nothing focused", a forward step starts at 0 and a backward step at
+  // the last index.
+  if (current < 0) return delta > 0 ? 0 : count - 1;
+  // Wrap with a positive modulo so -1 maps to count-1.
+  return ((current + delta) % count + count) % count;
+}
