@@ -19,6 +19,7 @@ import './activityYear.css';
 import './activityPeek.css';
 import './blameLegend.css';
 import './blameIgnore.css';
+import './blameLink.css';
 import './graphMinimap.css';
 import './compareSplit.css';
 import './compareCommitFilter.css';
@@ -616,6 +617,14 @@ async function boot(): Promise<void> {
     const pair = pendingCompareEmails;
     pendingCompareEmails = null;
     openCompareFromEmails(pair);
+  }
+
+  // Load a deep-linked file blame once the app is up (W57). loadBlameAt blames
+  // at the linked rev; the revealLine jump is threaded through runBlame.
+  if (pendingBlame && state.view === 'blame') {
+    const { path, rev, line } = pendingBlame;
+    pendingBlame = null;
+    void runBlame(rev ?? 'HEAD', path, line ?? null);
   }
 }
 
@@ -1222,6 +1231,8 @@ function renderBlameView(): void {
     ignoreRevs: state.blameIgnoreRevs,
     onAddIgnoreRev: (rev: string) => addBlameIgnoreRev(rev),
     onRemoveIgnoreRev: (rev: string) => removeBlameIgnoreRev(rev),
+    // W57: clicking a line number copies a #blame?path=&rev=&line=N permalink.
+    onCopyLine: (line: number) => void copyBlameLineLink(line),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1546,6 +1557,31 @@ function removeBlameIgnoreRev(rev: string): void {
 }
 
 /**
+ * Copy a shareable permalink to a specific blamed line (W57). Builds a
+ * #blame?path=&rev=&line=N hash for the current file (the path drives the
+ * sanitiser; HEAD is omitted), writes the full URL to the clipboard, and
+ * also syncs the location hash so a reload lands on the same line.
+ */
+async function copyBlameLineLink(line: number): Promise<void> {
+  if (!state.blamePath) return;
+  // Sync the hash so the address bar matches the copied link + survives reload.
+  syncHash();
+  const hash = buildHash({
+    view: 'blame',
+    path: state.blamePath,
+    rev: state.blameRev,
+    line,
+  });
+  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(`Link to line ${line} copied`);
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/**
  * Toggle the isolated blame author (W40). Clicking the active author clears
  * the filter; clicking another switches to it. Pure toggle logic lives in
  * blameLegend.toggleAuthorFilter; here we just re-render the loaded model.
@@ -1764,6 +1800,11 @@ function applyInitialRoute(): void {
   if (route.view === 'contributors' && route.vs) {
     pendingCompareEmails = route.vs;
   }
+  // Remember a file-blame deep link (#blame?path=&rev=&line=, W57); boot()
+  // loads the file + jumps to the line once the app is up.
+  if (route.view === 'blame' && route.path) {
+    pendingBlame = { path: route.path, rev: route.rev, line: route.line };
+  }
 }
 
 /** A commit sha from a #commit/<sha> permalink, opened after boot (W27). */
@@ -1771,6 +1812,9 @@ let pendingCommitSha: string | null = null;
 
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
+
+/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57). */
+let pendingBlame: { path: string; rev?: string; line?: number } | null = null;
 
 /**
  * A calendar year from an #activity?year= deep-link (W48). boot() resets
@@ -1800,6 +1844,9 @@ function syncHash(): void {
   } else if (state.view === 'activity') {
     // A shareable scoped-calendar deep-link (W48): year + metric.
     route = { view: 'activity', year: state.activityYear, metric: state.activityMetric };
+  } else if (state.view === 'blame' && state.blamePath) {
+    // A shareable file-blame deep-link (W57): path + rev + the revealed line.
+    route = { view: 'blame', path: state.blamePath, rev: state.blameRev, line: state.blameLine ?? undefined };
   } else {
     // The compare + contributors views are handled above; the rest are
     // plain single-tab routes.
@@ -1879,6 +1926,26 @@ function installHashRouting(): void {
         state.activity = slot<ActivityPayload>();
         renderActivityView();
       }
+      return;
+    }
+    // File-blame deep-link on back/forward (W57): switch to the Blame tab if
+    // needed, then load the file at the linked rev + jump to the line. Only
+    // reload when the target actually changed so a same-line back/forward is
+    // a no-op.
+    if (route.view === 'blame' && route.path) {
+      const targetRev = route.rev ?? 'HEAD';
+      const changed =
+        route.path !== state.blamePath ||
+        targetRev !== state.blameRev ||
+        (route.line ?? null) !== state.blameLine;
+      if (state.view !== 'blame') {
+        state.view = 'blame';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      }
+      if (changed) void runBlame(targetRev, route.path, route.line ?? null);
       return;
     }
     if (route.view !== state.view) {

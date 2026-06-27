@@ -1,0 +1,31 @@
+/*
+ * Blame line-number permalink (W57) — the line number becomes a button that
+ * copies a shareable #blame?path=&rev=&line=N link. It must look identical to
+ * the inert .blame-ln span (defined in styles.css) until hovered, where it
+ * picks up the accent to advertise the copy affordance.
+ *
+ * Co-located + token-driven so it tracks the active theme automatically.
+ * Monochrome chrome, no emoji.
+ */
+
+button.blame-ln.link {
+  appearance: none;
+  font: inherit;
+  /* Match the span: tabular, right-aligned, faint until hovered. */
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--fg-faint);
+  transition: color 0.1s var(--ease);
+}
+
+button.blame-ln.link:hover,
+button.blame-ln.link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  outline: none;
+}

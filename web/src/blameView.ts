@@ -68,6 +68,12 @@ export interface BlameViewOptions {
   onAddIgnoreRev?: (rev: string) => void;
   /** Fired when the user removes an ignore-rev chip (W44). */
   onRemoveIgnoreRev?: (rev: string) => void;
+  /**
+   * Fired when a blame line's number is clicked (W57) with the 1-based line.
+   * The host copies a `#blame?path=&rev=&line=N` deep link so a specific
+   * blamed line is shareable. Absent = the line numbers stay inert.
+   */
+  onCopyLine?: (line: number) => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -161,11 +167,22 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
 
   // Rows: windowed for big files, plain for small ones.
   const rows = el('div', 'blame-rows');
+  // Delegated click for the line-number copy buttons (W57) — works for both
+  // the plain and windowed renderers since rows are (re)mounted into here.
+  const copyable = !!opts.onCopyLine;
+  if (copyable) {
+    rows.addEventListener('click', e => {
+      const target = (e.target as HTMLElement)?.closest<HTMLElement>('[data-copy-line]');
+      if (!target) return;
+      const line = Number(target.dataset.copyLine);
+      if (Number.isInteger(line) && line > 0) opts.onCopyLine!(line);
+    });
+  }
   wrap.appendChild(rows);
   if (shouldVirtualizeBlame(model.lines.length)) {
-    new BlameWindowController(rows, model, opts.revealLine ?? null, active);
+    new BlameWindowController(rows, model, opts.revealLine ?? null, active, copyable);
   } else {
-    renderAllRows(rows, model, opts.revealLine ?? null, active);
+    renderAllRows(rows, model, opts.revealLine ?? null, active, copyable);
   }
 
   return wrap;
@@ -203,6 +220,7 @@ function blameRow(
   positioned: boolean,
   index: number,
   activeAuthor: string | null,
+  copyable: boolean,
 ): HTMLElement {
   const heat = blameHeat(line.authorTime, model.oldest, model.newest);
   const dimmed = isAuthorDimmed(line.author, activeAuthor);
@@ -210,21 +228,26 @@ function blameRow(
   row.dataset.line = String(line.line);
   if (positioned) row.style.top = `${index * BLAME_ROW_H}px`;
   row.title = `${line.author} \u00b7 ${line.summary}`;
+  // The line number is a copy-permalink affordance (W57) when wired: a button
+  // that copies a shareable #blame?...&line=N link. Inert otherwise.
+  const lnCell = copyable
+    ? `<button class="blame-ln link" data-copy-line="${line.line}" title="Copy a link to line ${line.line}" aria-label="Copy link to line ${line.line}">${line.line}</button>`
+    : `<span class="blame-ln">${line.line}</span>`;
   row.innerHTML =
     `<span class="blame-heat" style="background:${heatColor(heat)}"></span>` +
     `<span class="blame-dot" style="background:${authorDot(line.author)}" title="${escapeHtml(line.author)}"></span>` +
     `<span class="blame-sha">${escapeHtml(line.shortSha)}</span>` +
     `<span class="blame-author">${escapeHtml(line.author)}</span>` +
     `<span class="blame-age">${escapeHtml(relativeAgeFromUnix(line.authorTime))}</span>` +
-    `<span class="blame-ln">${line.line}</span>` +
+    lnCell +
     `<span class="blame-src">${escapeHtml(line.code) || '&nbsp;'}</span>`;
   return row;
 }
 
 /** Small-file path: mount every row, then optionally scroll to a line. */
-function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null): void {
+function renderAllRows(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean): void {
   const frag = document.createDocumentFragment();
-  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i, activeAuthor)));
+  model.lines.forEach((line, i) => frag.appendChild(blameRow(line, model, false, i, activeAuthor, copyable)));
   rows.appendChild(frag);
   if (revealLine) {
     // Defer until the node is in the DOM with a measurable scroll height.
@@ -246,13 +269,15 @@ class BlameWindowController {
   private readonly rows: HTMLElement;
   private readonly model: BlameModel;
   private readonly activeAuthor: string | null;
+  private readonly copyable: boolean;
   private win: WindowRange = { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
   private pendingReveal: number | null;
 
-  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null) {
+  constructor(rows: HTMLElement, model: BlameModel, revealLine: number | null, activeAuthor: string | null, copyable: boolean) {
     this.rows = rows;
     this.model = model;
     this.activeAuthor = activeAuthor;
+    this.copyable = copyable;
     this.pendingReveal = revealLine;
     this.rows.classList.add('virtual');
     this.rows.style.height = `${blameContentHeight(model.lines.length)}px`;
@@ -284,7 +309,7 @@ class BlameWindowController {
     this.win = next;
     const frag = document.createDocumentFragment();
     for (let i = next.start; i < next.end; i++) {
-      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i, this.activeAuthor));
+      frag.appendChild(blameRow(this.model.lines[i], this.model, true, i, this.activeAuthor, this.copyable));
     }
     this.rows.replaceChildren(frag);
   }

@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -225,6 +225,76 @@ test('parseHash drops a junk year + unknown metric to defaults', () => {
 
 test('buildHash(parseHash(x)) round-trips a scoped activity link', () => {
   const original = 'activity?year=2026&metric=churn';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Blame deep-link (W57) ────────────────────────────────────────────
+
+test('sanitizePath accepts repo-relative paths, rejects unsafe ones', () => {
+  assert.equal(sanitizePath('src/web/main.ts'), 'src/web/main.ts');
+  assert.equal(sanitizePath('  README.md  '), 'README.md');
+  assert.equal(sanitizePath(''), null);
+  assert.equal(sanitizePath('   '), null);
+  assert.equal(sanitizePath('-rf'), null); // option-shaped
+  assert.equal(sanitizePath('/etc/passwd'), null); // absolute
+  assert.equal(sanitizePath('../secret'), null); // parent traversal
+  assert.equal(sanitizePath('a/../b'), null); // mid-path traversal
+  assert.equal(sanitizePath('a/b..c/d'), 'a/b..c/d'); // .. inside a segment is fine
+  assert.equal(sanitizePath('a\u0000b'), null); // control char
+  assert.equal(sanitizePath('x'.repeat(1025)), null); // too long
+});
+
+test('sanitizeLine accepts a positive int, rejects junk', () => {
+  assert.equal(sanitizeLine('42'), 42);
+  assert.equal(sanitizeLine(7), 7);
+  assert.equal(sanitizeLine('0'), null);
+  assert.equal(sanitizeLine('-3'), null);
+  assert.equal(sanitizeLine('1.5'), null);
+  assert.equal(sanitizeLine('nope'), null);
+  assert.equal(sanitizeLine(''), null);
+  assert.equal(sanitizeLine(null), null);
+});
+
+test('buildHash emits a blame link with path, optional rev + line', () => {
+  assert.equal(buildHash({ view: 'blame', path: 'src/main.ts' }), 'blame?path=src%2Fmain.ts');
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', line: 42 }),
+    'blame?path=src%2Fmain.ts&line=42',
+  );
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', rev: 'abc1234', line: 9 }),
+    'blame?path=src%2Fmain.ts&rev=abc1234&line=9',
+  );
+  // HEAD rev is omitted (it's the default).
+  assert.equal(buildHash({ view: 'blame', path: 'src/main.ts', rev: 'HEAD' }), 'blame?path=src%2Fmain.ts');
+  // An unsafe path degrades to the bare blame tab.
+  assert.equal(buildHash({ view: 'blame', path: '../x' }), 'blame');
+  assert.equal(buildHash({ view: 'blame', path: '' }), 'blame');
+});
+
+test('parseHash reads a blame link back, dropping junk rev/line', () => {
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts'), { view: 'blame', path: 'src/main.ts' });
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&line=42'), {
+    view: 'blame',
+    path: 'src/main.ts',
+    line: 42,
+  });
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&rev=abc1234&line=9'), {
+    view: 'blame',
+    path: 'src/main.ts',
+    rev: 'abc1234',
+    line: 9,
+  });
+  // Junk line drops the jump; an unsafe path drops to the bare tab.
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&line=nope'), { view: 'blame', path: 'src/main.ts' });
+  assert.deepEqual(parseHash('#blame?path=..%2Fsecret'), { view: 'blame' });
+  assert.deepEqual(parseHash('#blame'), { view: 'blame' });
+});
+
+test('buildHash(parseHash(x)) round-trips a blame line link', () => {
+  const original = 'blame?path=src%2Fweb%2Fmain.ts&rev=abc1234&line=128';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

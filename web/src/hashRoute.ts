@@ -11,10 +11,12 @@
  *   commit/<sha>                    the graph with a commit detail open
  *   contributors?vs=<email>,<email> the contributor comparison, pre-loaded
  *   activity?year=<YYYY>&metric=churn   the calendar scoped to a year/metric
+ *   blame?path=<path>&rev=<ref>&line=<N>  a file's blame, jumped to a line
  *   graph                           bare view name = just the tab, no params
  * Refs run through the compare sanitiser, a sha through `sanitizeSha`, a
- * vs-email through `sanitizeEmail`, and a year through `sanitizeYear`, so a
- * crafted hash can't inject a flag/space toward the companion.
+ * vs-email through `sanitizeEmail`, a year through `sanitizeYear`, and a blame
+ * path through `sanitizePath`, so a crafted hash can't inject a flag/space
+ * toward the companion.
  *
  * Tests: web/src/hashRoute.test.mjs
  */
@@ -49,13 +51,29 @@ export interface ContributorsRoute {
   vs: [string, string];
 }
 
+export interface BlameRoute {
+  view: 'blame';
+  /** The file path to blame (W57). Required; a blank path degrades to the bare tab. */
+  path: string;
+  /** The revision to blame at (W57), or absent for HEAD. */
+  rev?: string;
+  /** A 1-based line to jump to once the heatmap renders (W57). */
+  line?: number;
+}
+
 export interface PlainRoute {
-  view: Exclude<RouteView, 'compare' | 'contributors' | 'activity'>;
+  view: Exclude<RouteView, 'compare' | 'contributors' | 'activity' | 'blame'>;
   /**
    * Only on a graph permalink (`#commit/<sha>`, W27): the commit to open
    * the detail panel for. Absent for a bare view route.
    */
   sha?: string;
+}
+
+/** A bare blame tab (no file) shares the PlainRoute-ish shape. */
+export interface BlameBareRoute {
+  view: 'blame';
+  path?: undefined;
 }
 
 /** A bare contributors tab (no comparison) shares the PlainRoute-ish shape. */
@@ -69,6 +87,8 @@ export type Route =
   | ContributorsRoute
   | ContributorsBareRoute
   | ActivityRoute
+  | BlameRoute
+  | BlameBareRoute
   | PlainRoute;
 
 /** True when a string names a routable view. */
@@ -116,6 +136,38 @@ export function sanitizeSha(sha: string): string | null {
 }
 
 /**
+ * Normalise + validate a file path for a blame deep-link (W57). The companion
+ * already guards the blame read with a `--` pathspec, but the hash value is
+ * still sanitised so a crafted `#blame?path=` can't smuggle a flag or a
+ * control char: leading whitespace is trimmed, a leading '-' (option-shaped)
+ * is rejected, control characters fail, and the length is bounded. A leading
+ * '/' or any '..' segment is rejected so the path stays repo-relative.
+ * Returns null for anything unsafe so the deep link degrades to the bare tab.
+ */
+export function sanitizePath(path: string): string | null {
+  const p = (path ?? '').trim();
+  if (!p || p.length > 1024) return null;
+  if (p.startsWith('-') || p.startsWith('/')) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(p)) return null;
+  // Reject parent-traversal segments (../ or a trailing/standalone ..).
+  if (p.split('/').some(seg => seg === '..')) return null;
+  return p;
+}
+
+/**
+ * Normalise + validate a 1-based line number for a blame deep-link (W57).
+ * Accepts a positive integer within a sane bound; returns null otherwise so a
+ * junk `line=` param just drops the jump rather than passing nonsense on.
+ */
+export function sanitizeLine(line: string | number | null | undefined): number | null {
+  if (line === null || line === undefined || line === '') return null;
+  const n = typeof line === 'number' ? line : Number(String(line).trim());
+  if (!Number.isInteger(n) || n < 1 || n > 100_000_000) return null;
+  return n;
+}
+
+/**
  * Build the hash string (without the leading '#') for a route. A compare
  * route with both refs emits `compare?base=..&head=..`; a graph route with
  * a sha emits `commit/<sha>`; everything else is the bare view name.
@@ -153,6 +205,24 @@ export function buildHash(route: Route): string {
     if (route.metric === 'churn') p.set('metric', 'churn');
     const qs = p.toString();
     return qs ? `activity?${qs}` : 'activity';
+  }
+  if (route.view === 'blame') {
+    // A file-blame deep-link (W57): blame?path=..&rev=..&line=N. The path is
+    // required; without a safe one, degrade to the bare blame tab. rev is
+    // omitted for HEAD and line is omitted when there's no jump, so the URL
+    // stays minimal.
+    if (route.path) {
+      const path = sanitizePath(route.path);
+      if (path) {
+        const p = new URLSearchParams({ path });
+        const rev = route.rev ? sanitizeRef(route.rev) : null;
+        if (rev && rev !== 'HEAD') p.set('rev', rev);
+        const line = sanitizeLine(route.line);
+        if (line !== null) p.set('line', String(line));
+        return `blame?${p.toString()}`;
+      }
+    }
+    return 'blame';
   }
   if (route.view === 'graph' && route.sha) {
     const sha = sanitizeSha(route.sha);
@@ -214,6 +284,22 @@ export function parseHash(hash: string): Route | null {
     const route: ActivityRoute = { view: 'activity' };
     if (year !== null) route.year = year;
     if (metric === 'churn') route.metric = 'churn';
+    return route;
+  }
+
+  // File-blame deep-link (W57): blame?path=..&rev=..&line=N. The path is
+  // required + sanitised; without a safe one the link degrades to the bare
+  // blame tab. A junk rev drops to HEAD; a junk line drops the jump.
+  if (viewName === 'blame') {
+    const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
+    const rawPath = params.get('path');
+    const path = rawPath ? sanitizePath(decodeURIComponent(rawPath)) : null;
+    if (!path) return { view: 'blame' };
+    const route: BlameRoute = { view: 'blame', path };
+    const rev = sanitizeRef(params.get('rev') ?? '');
+    if (rev && rev !== 'HEAD') route.rev = rev;
+    const line = sanitizeLine(params.get('line'));
+    if (line !== null) route.line = line;
     return route;
   }
 
