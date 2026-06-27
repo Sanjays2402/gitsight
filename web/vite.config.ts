@@ -8,11 +8,11 @@ import { fileURLToPath, URL } from 'node:url';
 // and snapshot contract are imported, never forked. Vite + esbuild
 // transpile the shared .ts on the fly during dev and bundle them at
 // build time.
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   root: '.',
-  // Project-page deploy: assets must resolve under /gitsight/ on GitHub Pages.
-  // Dev/preview stay at root via the conditional.
-  base: process.env.NODE_ENV === 'production' ? '/gitsight/' : '/',
+  // Project-page deploy: assets must resolve under /gitsight/ on GitHub Pages
+  // for the production build; dev server stays at root.
+  base: command === 'build' ? '/gitsight/' : '/',
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('../src/shared', import.meta.url)),
@@ -31,4 +31,4 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
   },
-});
+}));
