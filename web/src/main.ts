@@ -22,6 +22,7 @@ import './graphMinimap.css';
 import './compareSplit.css';
 import './contributorCompare.css';
 import './stashCreate.css';
+import './stashSplit.css';
 import './fileFilter.css';
 import { renderGraph, type GraphController } from './graph';
 import { icons } from './icons';
@@ -511,6 +512,7 @@ function mount(): void {
     const sha = detailPanel.currentSha();
     if (detailPanel.isOpen() && sha) void detailPanel.open(sha);
     if (state.view === 'compare') renderCompareView();
+    if (state.view === 'stashes') renderStashesView();
   });
   // Restore the deep-linked view/compare refs from the URL hash (W24)
   // BEFORE the first paint so a shared compare link opens on its tab.
@@ -1285,6 +1287,11 @@ function renderStashesView(): void {
     loadDiff: (index: number, path: string) => loadStashDiff(index, path, { repo: state.repo ?? undefined }),
     onAction: state.allowMutations ? (action, entry) => void runStashMutation(action, entry) : undefined,
     onCreate: state.allowMutations ? createOpts => void createStash(createOpts) : undefined,
+    // Per-surface diff layout (W53): the stash file diffs remember their own
+    // split/unified choice. The toggle persists + notifies; the store's
+    // onChange listener re-renders the stash view, so we don't double-render.
+    diffView: () => diffSettings.layoutFor('stash'),
+    onToggleLayout: () => diffSettings.toggleSurfaceLayout('stash'),
   });
   surface.replaceChildren(node);
   updateCount(s.data.total, s.data.total, s.data.total === 1 ? 'stash' : 'stashes');

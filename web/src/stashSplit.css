@@ -1,0 +1,14 @@
+/*
+ * Per-surface diff layout toggle in the Stashes view (W53).
+ *
+ * The stash list header gains a Split pill (reusing the W31 .diff-opt
+ * styling) that flips the stash file diffs between unified and side-by-side,
+ * remembered independently of the detail panel and compare view. The pill is
+ * pushed to the right edge of the count header. Co-located + token-driven so
+ * it tracks Sanjay's editorial theme automatically.
+ */
+
+.stashes-head .diff-opt {
+  margin-left: auto;
+  align-self: center;
+}

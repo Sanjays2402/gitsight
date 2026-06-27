@@ -82,15 +82,16 @@ export function diffSettingsEqual(a: DiffSettings, b: DiffSettings): boolean {
 // ── Per-surface layout (W46) ─────────────────────────────────────────
 
 /**
- * The diff surfaces that can remember their own layout (W46). The commit
- * detail panel and the compare view each carry a per-file diff list; a user
- * often wants split in one and unified in the other (e.g. unified for a quick
- * commit read, split for a careful branch comparison), so each remembers its
- * own choice rather than sharing the single global flag.
+ * The diff surfaces that can remember their own layout (W46; stash added
+ * W53). The commit detail panel, the compare view, and the stash cards each
+ * carry a per-file diff list; a user often wants split in one and unified in
+ * another (e.g. unified for a quick commit read, split for a careful branch
+ * comparison), so each remembers its own choice rather than sharing the
+ * single global flag.
  */
-export type DiffSurface = 'detail' | 'compare';
+export type DiffSurface = 'detail' | 'compare' | 'stash';
 
-export const DIFF_SURFACES: DiffSurface[] = ['detail', 'compare'];
+export const DIFF_SURFACES: DiffSurface[] = ['detail', 'compare', 'stash'];
 
 /** Per-surface layout overrides: a surface maps to split (true) / unified (false). */
 export type SurfaceLayouts = Partial<Record<DiffSurface, boolean>>;

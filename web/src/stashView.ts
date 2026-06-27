@@ -34,6 +34,14 @@ export interface StashViewOptions {
    * create form sits above the list. The handler owns the POST + refresh.
    */
   onCreate?: (opts: { message: string; includeUntracked: boolean; keepIndex: boolean }) => void;
+  /**
+   * Current diff layout mode for the stash surface (W53; per-surface W46):
+   * split or unified. When wired alongside `onToggleLayout`, a Split pill in
+   * the list header flips it and the file diffs render in the chosen mode.
+   */
+  diffView?: () => 'split' | 'unified';
+  /** Toggle the stash surface's diff layout (W53); re-renders in the new mode. */
+  onToggleLayout?: () => void;
 }
 
 /** Render the stash list into a detached node. */
@@ -55,6 +63,19 @@ export function renderStashes(list: StashList | null, opts: StashViewOptions = {
 
   const head = el('div', 'stashes-head');
   head.innerHTML = `<span class="n">${list.total}</span><span class="l">${list.total === 1 ? 'stash' : 'stashes'}</span>`;
+  // Per-surface diff layout toggle (W53): Split vs unified for the stash file
+  // diffs, remembered for the stash surface independently of the detail panel
+  // and compare view. Only shown when the host wires both accessors.
+  if (opts.onToggleLayout && opts.diffView) {
+    const split = opts.diffView() === 'split';
+    const splitBtn = el('button', 'diff-opt' + (split ? ' on' : ''));
+    splitBtn.type = 'button';
+    splitBtn.textContent = 'Split';
+    splitBtn.title = 'Side-by-side (old | new) diff layout for stash files';
+    splitBtn.setAttribute('aria-pressed', String(split));
+    splitBtn.addEventListener('click', () => opts.onToggleLayout!());
+    head.appendChild(splitBtn);
+  }
   wrap.appendChild(head);
 
   for (const entry of list.stashes) wrap.appendChild(stashCard(entry, opts));
@@ -211,7 +232,7 @@ function fileEntry(index: number, f: StashFile, opts: StashViewOptions): HTMLEle
     diffSlot.replaceChildren(diffLoading());
     const result = await opts.loadDiff(index, f.path);
     loading = false;
-    if (result.ok && result.diff.file) diffSlot.replaceChildren(renderFileDiff(result.diff.file));
+    if (result.ok && result.diff.file) diffSlot.replaceChildren(renderFileDiff(result.diff.file, { view: opts.diffView?.() ?? 'unified' }));
     else if (result.ok) diffSlot.replaceChildren(diffNote('No diff for this path.'));
     else diffSlot.replaceChildren(diffNote(result.error));
     loaded = true;

@@ -151,6 +151,22 @@ test('coerceSurfaceLayouts keeps only known surfaces with boolean values', () =>
   assert.deepEqual(coerceSurfaceLayouts('nope'), {});
 });
 
-test('DIFF_SURFACES lists the two diff surfaces', () => {
-  assert.deepEqual(DIFF_SURFACES, ['detail', 'compare']);
+test('DIFF_SURFACES lists the three diff surfaces', () => {
+  assert.deepEqual(DIFF_SURFACES, ['detail', 'compare', 'stash']);
+});
+
+test('layoutForSurface resolves the stash surface independently (W53)', () => {
+  const globalSplit = { wrap: false, ignoreWhitespace: false, split: true };
+  // Stash inherits the global split when it has no override.
+  assert.equal(layoutForSurface(globalSplit, {}, 'stash'), 'split');
+  // An explicit stash override wins and doesn't disturb the other surfaces.
+  assert.equal(layoutForSurface(globalSplit, { stash: false }, 'stash'), 'unified');
+  assert.equal(layoutForSurface(globalSplit, { stash: false }, 'compare'), 'split');
+  // Toggling the stash surface flips only it.
+  const a = toggleSurfaceLayout(globalSplit, {}, 'stash');
+  assert.equal(a.stash, false);
+  assert.equal(a.detail, undefined);
+  assert.equal(a.compare, undefined);
+  // A coerced blob keeps a boolean stash override.
+  assert.deepEqual(coerceSurfaceLayouts({ stash: true }), { stash: true });
 });
