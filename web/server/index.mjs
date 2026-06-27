@@ -42,7 +42,7 @@ import {
   isRepoAllowed,
   buildRepoEntries,
 } from '../../src/shared/repoPicker.ts';
-import { parsePorcelainBlame } from '../../src/shared/blame.ts';
+import { parsePorcelainBlame, buildIgnoreRevArgs } from '../../src/shared/blame.ts';
 import { buildActivityCalendar, parseChurnByDay, buildActivityCalendarFromCounts, CHURN_LOG_FORMAT, isDayKey, filterCommitsByDay, isCalendarYear, calendarYears, filterCountsByYear, inCalendarYear, YEAR_MAX_WEEKS } from '../../src/shared/activity.ts';
 import { buildContributors } from '../../src/shared/contributors.ts';
 import {
@@ -238,8 +238,15 @@ export async function buildFileDiffForRepo(repo, rev, path, opts = {}) {
  * Build the age-heatmap blame model for one file (W12). Shells out to
  * `git blame --porcelain` and parses it with the shared pure parser. The
  * `--` guard keeps a flag-like path from being reinterpreted as an option.
+ *
+ * W44: `ignoreRevs` (an array of object names) adds repeated
+ * `--ignore-rev <sha>` flags so a noise commit (mass reformat, rename) stops
+ * masking the real author — each line it last touched is reattributed to the
+ * previous commit. The shared `buildIgnoreRevArgs` validates + de-dupes the
+ * list, so a crafted value can't smuggle a flag into the argv. The returned
+ * model echoes the revs actually applied.
  */
-export async function buildBlameForRepo(repo, rev, path) {
+export async function buildBlameForRepo(repo, rev, path, ignoreRevs = []) {
   await git(repo, ['rev-parse', '--git-dir']);
   if (!isSafeRev(rev)) {
     throw new Error(`invalid revision: ${rev}`);
@@ -247,15 +254,19 @@ export async function buildBlameForRepo(repo, rev, path) {
   if (typeof path !== 'string' || path.length === 0 || path.length > 4096) {
     throw new Error('invalid path');
   }
+  const ignoreArgs = buildIgnoreRevArgs(ignoreRevs);
+  const applied = [];
+  for (let i = 1; i < ignoreArgs.length; i += 2) applied.push(ignoreArgs[i]);
   const stdout = await git(repo, [
     'blame',
     '--porcelain',
+    ...ignoreArgs,
     rev,
     '--',
     path,
   ]);
   const model = parsePorcelainBlame(stdout);
-  return { rev, path, ...model };
+  return { rev, path, ignoredRevs: applied, ...model };
 }
 
 /**
@@ -869,13 +880,17 @@ export function createCompanionServer(opts) {
         }
         return;
       }
-      // GET /api/blame?rev=<rev>&path=<file> -> per-line blame heatmap (W12).
+      // GET /api/blame?rev=<rev>&path=<file>&ignore=<sha,sha> -> per-line
+      // blame heatmap (W12); the ignore list reattributes noise-commit lines
+      // to the real author (W44).
       if (url.pathname === '/api/blame') {
         const rev = url.searchParams.get('rev') ?? 'HEAD';
         const path = url.searchParams.get('path') ?? '';
+        const ignoreParam = url.searchParams.get('ignore') ?? '';
+        const ignoreRevs = ignoreParam ? ignoreParam.split(',') : [];
         try {
           const repo = resolveRequestRepo(url.searchParams, opts);
-          const blame = await buildBlameForRepo(repo, rev, path);
+          const blame = await buildBlameForRepo(repo, rev, path, ignoreRevs);
           sendJson(res, 200, blame);
         } catch (e) {
           sendJson(res, 400, { error: String(e?.message ?? e), rev, path });

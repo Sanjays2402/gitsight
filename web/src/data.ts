@@ -244,6 +244,8 @@ export async function loadRepos(opts: { signal?: AbortSignal } = {}): Promise<Re
 export interface BlamePayload extends BlameModel {
   rev: string;
   path: string;
+  /** The ignore-revs actually applied to this blame (W44). */
+  ignoredRevs?: string[];
 }
 
 export type BlameResult =
@@ -257,14 +259,18 @@ export function isBlamePayload(v: unknown): v is BlamePayload {
   return typeof o.path === 'string' && Array.isArray(o.lines) && Array.isArray(o.authors);
 }
 
-/** Fetch a file's per-line blame heatmap model (W12). */
+/** Fetch a file's per-line blame heatmap model (W12; ignore-revs W44). */
 export async function loadBlame(
   rev: string,
   path: string,
-  opts: { signal?: AbortSignal; repo?: string } = {},
+  opts: { signal?: AbortSignal; repo?: string; ignoreRevs?: string[] } = {},
 ): Promise<BlameResult> {
   const repoParam = opts.repo ? `&repo=${encodeURIComponent(opts.repo)}` : '';
-  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}`;
+  const ignoreParam =
+    opts.ignoreRevs && opts.ignoreRevs.length
+      ? `&ignore=${encodeURIComponent(opts.ignoreRevs.join(','))}`
+      : '';
+  const qs = `?rev=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}${repoParam}${ignoreParam}`;
   return fetchJson<BlamePayload>(`/api/blame${qs}`, isBlamePayload, opts.signal).then(r =>
     r.ok ? { ok: true, blame: r.value } : r,
   );

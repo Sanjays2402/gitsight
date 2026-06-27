@@ -184,3 +184,52 @@ export function blameHeat(authorTime: number, oldest: number, newest: number): n
   const t = (authorTime - oldest) / (newest - oldest);
   return Math.min(1, Math.max(0, t));
 }
+
+// ── Ignore-revs (W44) ────────────────────────────────────────────────
+
+/**
+ * Validate a single ignore-rev for blame (W44). Accepts a hex object name
+ * (short sha through full sha-256, 4-64 chars), lowercased. Returns null for
+ * anything else so a crafted value can't smuggle a flag or pathspec into the
+ * `git blame --ignore-rev` argv. Stricter than the server's general rev
+ * guard on purpose: ignore-revs are concrete commits the user pasted, not
+ * arbitrary ref expressions.
+ */
+export function sanitizeIgnoreRev(rev: string): string | null {
+  const s = (rev ?? '').trim().toLowerCase();
+  return /^[0-9a-f]{4,64}$/.test(s) ? s : null;
+}
+
+/**
+ * Normalise a list of ignore-revs (W44): sanitise each, drop the invalid
+ * ones, de-dupe (preserving first-seen order), and cap the count so a
+ * runaway list can't blow out the argv. Returns clean, safe object names
+ * ready to pass as repeated `--ignore-rev` flags.
+ */
+export function normalizeIgnoreRevs(revs: readonly string[], max = 50): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const r of revs ?? []) {
+    const safe = sanitizeIgnoreRev(r);
+    if (!safe || seen.has(safe)) continue;
+    seen.add(safe);
+    out.push(safe);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * Build the extra `git blame` argv for a set of ignore-revs (W44): one
+ * `--ignore-rev <sha>` pair per normalised rev (empty array when none).
+ * `git blame` reassigns lines whose latest change is one of these commits
+ * to the previous commit that touched them, so a mass-reformat or rename
+ * commit stops masking the real author.
+ */
+export function buildIgnoreRevArgs(revs: readonly string[]): string[] {
+  const args: string[] = [];
+  for (const rev of normalizeIgnoreRevs(revs)) {
+    args.push('--ignore-rev', rev);
+  }
+  return args;
+}

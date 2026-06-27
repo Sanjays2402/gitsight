@@ -17,6 +17,7 @@ import './diffSplit.css';
 import './activityMetric.css';
 import './activityYear.css';
 import './blameLegend.css';
+import './blameIgnore.css';
 import './contributorCompare.css';
 import './stashCreate.css';
 import { renderGraph, type GraphController } from './graph';
@@ -122,6 +123,8 @@ interface AppState {
   blameRev: string;
   /** The isolated author in the blame view, or null for all (W40). */
   blameAuthor: string | null;
+  /** Commits to ignore when blaming the current file (W44). */
+  blameIgnoreRevs: string[];
   /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
   blameLine: number | null;
   /** Live-refresh connection status (W17). */
@@ -160,6 +163,7 @@ const state: AppState = {
   blamePath: null,
   blameRev: 'HEAD',
   blameAuthor: null,
+  blameIgnoreRevs: [],
   blameLine: null,
   live: 'disconnected',
   compare: slot<ComparePayload>(),
@@ -547,6 +551,7 @@ async function boot(): Promise<void> {
   state.contributors = slot<ContributorsPayload>();
   state.blame = slot<BlamePayload>();
   state.blamePath = null;
+  state.blameIgnoreRevs = [];
   state.blameLine = null;
   state.compare = slot<ComparePayload>();
   state.stashes = slot<StashesPayload>();
@@ -1145,6 +1150,9 @@ function renderBlameView(): void {
     rev: state.blameRev,
     activeAuthor: state.blameAuthor,
     onToggleAuthor: (author: string) => toggleBlameAuthor(author),
+    ignoreRevs: state.blameIgnoreRevs,
+    onAddIgnoreRev: (rev: string) => addBlameIgnoreRev(rev),
+    onRemoveIgnoreRev: (rev: string) => removeBlameIgnoreRev(rev),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1344,11 +1352,15 @@ async function loadBlamePath(input: string): Promise<void> {
   const target = parseBlameTarget(input);
   if (!target.path) return;
   // A manual path entry blames at HEAD; W28 blame-at-commit uses loadBlameAt.
+  // A new file starts with no ignored revs (W44).
+  if (target.path !== state.blamePath) state.blameIgnoreRevs = [];
   await runBlame('HEAD', target.path, target.line);
 }
 
 /** Blame a path at a specific revision (W28 "Blame at this commit"). */
 async function loadBlameAt(rev: string, path: string): Promise<void> {
+  // Switching the blamed file/rev resets the ignore set (W44).
+  if (path !== state.blamePath || rev !== state.blameRev) state.blameIgnoreRevs = [];
   await runBlame(rev, path, null);
 }
 
@@ -1361,10 +1373,35 @@ async function runBlame(rev: string, path: string, line: number | null): Promise
   state.blameAuthor = null;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
-  const res = await loadBlame(rev, path, { repo: state.repo ?? undefined });
+  const res = await loadBlame(rev, path, {
+    repo: state.repo ?? undefined,
+    ignoreRevs: state.blameIgnoreRevs,
+  });
   if (res.ok) state.blame = { status: 'ready', data: res.blame, error: '' };
   else state.blame = { status: 'error', data: null, error: res.error };
   if (state.view === 'blame') renderBlameView();
+}
+
+/**
+ * Add a commit to the blame ignore set (W44) and re-blame the current file.
+ * The server validates + de-dupes, but we guard the no-op (empty / already
+ * present) here so a stray submit doesn't trigger a needless re-fetch.
+ */
+function addBlameIgnoreRev(rev: string): void {
+  if (!state.blamePath) return;
+  const value = rev.trim().toLowerCase();
+  if (!value || state.blameIgnoreRevs.includes(value)) return;
+  state.blameIgnoreRevs = [...state.blameIgnoreRevs, value];
+  void runBlame(state.blameRev, state.blamePath, null);
+}
+
+/** Remove a commit from the blame ignore set (W44) and re-blame. */
+function removeBlameIgnoreRev(rev: string): void {
+  if (!state.blamePath) return;
+  const next = state.blameIgnoreRevs.filter(r => r !== rev);
+  if (next.length === state.blameIgnoreRevs.length) return;
+  state.blameIgnoreRevs = next;
+  void runBlame(state.blameRev, state.blamePath, null);
 }
 
 /**

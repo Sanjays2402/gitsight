@@ -53,6 +53,15 @@ export interface BlameViewOptions {
   activeAuthor?: string | null;
   /** Fired when a legend author is clicked (W40); host toggles the filter. */
   onToggleAuthor?: (author: string) => void;
+  /**
+   * Commits to ignore when blaming (W44) — a mass reformat / rename whose
+   * lines should be reattributed to their real author. Shown as a chip list.
+   */
+  ignoreRevs?: string[];
+  /** Fired when the user adds an ignore-rev (W44). */
+  onAddIgnoreRev?: (rev: string) => void;
+  /** Fired when the user removes an ignore-rev chip (W44). */
+  onRemoveIgnoreRev?: (rev: string) => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -61,6 +70,12 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
 
   // Path entry form — always present so the user can switch files.
   wrap.appendChild(buildForm(opts));
+
+  // Ignore-revs control (W44) — only when a file is loaded + the host wires
+  // the handlers, since it re-blames the current path.
+  if (opts.path && opts.onAddIgnoreRev) {
+    wrap.appendChild(buildIgnoreRevs(opts));
+  }
 
   if (!model) {
     const hint = el('div', 'blame-hint');
@@ -290,4 +305,61 @@ function buildForm(opts: BlameViewOptions): HTMLElement {
     if (value) opts.onLoad(value);
   });
   return form;
+}
+
+/**
+ * Ignore-revs control (W44): an input to add a noise commit to skip, plus a
+ * chip list of the currently-ignored revs (each removable). Adding/removing
+ * re-blames the current file with the updated `--ignore-rev` set, so lines a
+ * mass reformat last touched fall back to their real author. Monochrome
+ * chrome, hairline borders, no emoji.
+ */
+function buildIgnoreRevs(opts: BlameViewOptions): HTMLElement {
+  const wrap = el('div', 'blame-ignore');
+
+  const form = el('form', 'blame-ignore-form');
+  const label = el('span', 'blame-ignore-label', 'Ignore revs');
+  label.title = 'Skip a noise commit (mass reformat / rename) so blame shows the real author';
+  const input = el('input', 'blame-ignore-input') as HTMLInputElement;
+  input.type = 'text';
+  input.placeholder = 'commit sha to ignore';
+  input.setAttribute('aria-label', 'Commit to ignore when blaming');
+  input.setAttribute('spellcheck', 'false');
+  input.setAttribute('autocomplete', 'off');
+  const add = el('button', 'btn');
+  add.type = 'submit';
+  add.textContent = 'Ignore';
+  form.append(label, input, add);
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const value = input.value.trim();
+    if (value && opts.onAddIgnoreRev) {
+      opts.onAddIgnoreRev(value);
+      input.value = '';
+    }
+  });
+  wrap.appendChild(form);
+
+  const revs = opts.ignoreRevs ?? [];
+  if (revs.length > 0) {
+    const chips = el('div', 'blame-ignore-chips');
+    for (const rev of revs) {
+      const chip = el('span', 'blame-ignore-chip');
+      const sha = el('code', 'rev', escapeHtml(rev.slice(0, 10)));
+      chip.appendChild(sha);
+      if (opts.onRemoveIgnoreRev) {
+        const x = el('button', 'blame-ignore-x');
+        x.type = 'button';
+        x.innerHTML = icons.close;
+        x.title = `Stop ignoring ${rev.slice(0, 10)}`;
+        x.setAttribute('aria-label', `Stop ignoring ${rev.slice(0, 10)}`);
+        x.addEventListener('click', () => opts.onRemoveIgnoreRev!(rev));
+        chip.appendChild(x);
+      }
+      chips.appendChild(chip);
+    }
+    wrap.appendChild(chips);
+  }
+
+  return wrap;
 }

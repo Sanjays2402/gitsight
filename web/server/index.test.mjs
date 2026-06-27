@@ -322,6 +322,47 @@ test('buildBlameForRepo parses a real file blame into the heatmap model', async 
   }
 });
 
+test('buildBlameForRepo --ignore-rev reattributes a reformat to the real author (W44)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gitsight-blameignore-'));
+  try {
+    const { writeFile } = await import('node:fs/promises');
+    const git = (args, env) => pexec('git', args, { cwd: dir, env: { ...process.env, ...env } });
+    const who = (name, email) => ({
+      GIT_AUTHOR_NAME: name,
+      GIT_AUTHOR_EMAIL: email,
+      GIT_COMMITTER_NAME: name,
+      GIT_COMMITTER_EMAIL: email,
+    });
+    await git(['init', '-q', '-b', 'main']);
+    // Ada writes the real content.
+    await writeFile(join(dir, 'app.txt'), 'hello world\n');
+    await git(['add', 'app.txt']);
+    await git(['commit', '-q', '-m', 'feat: greeting'], who('Ada', 'ada@x.com'));
+    // Robot reformats the whole line (trailing whitespace) — pure noise.
+    await writeFile(join(dir, 'app.txt'), 'hello world   \n');
+    await git(['add', 'app.txt']);
+    await git(['commit', '-q', '-m', 'style: reformat'], who('Robot', 'bot@x.com'));
+    const noiseSha = (await git(['rev-parse', 'HEAD'])).stdout.trim();
+
+    // Without ignoring, the line is attributed to the reformat commit (Robot).
+    const plain = await buildBlameForRepo(dir, 'HEAD', 'app.txt');
+    assert.equal(plain.lines[0].author, 'Robot');
+    assert.deepEqual(plain.ignoredRevs, []);
+
+    // Ignoring the noise commit reattributes the line back to Ada.
+    const ignored = await buildBlameForRepo(dir, 'HEAD', 'app.txt', [noiseSha]);
+    assert.equal(ignored.lines[0].author, 'Ada');
+    assert.deepEqual(ignored.ignoredRevs, [noiseSha.toLowerCase()]);
+
+    // A junk ignore value is dropped, not smuggled into the argv.
+    const junk = await buildBlameForRepo(dir, 'HEAD', 'app.txt', ['--all', 'main']);
+    assert.deepEqual(junk.ignoredRevs, []);
+    assert.equal(junk.lines[0].author, 'Robot');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('buildBlameForRepo rejects a flag-like path and a bad rev', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'gitsight-blame2-'));
   try {

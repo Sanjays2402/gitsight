@@ -1,0 +1,95 @@
+/*
+ * Blame ignore-revs control (W44) — skip a noise commit so blame attributes
+ * lines to their real author (mirrors git blame --ignore-rev).
+ *
+ * Co-located + token-driven so it tracks the active theme (and Sanjay's
+ * in-flight editorial redesign) without hard-coding a colour.
+ */
+
+.blame-ignore {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.blame-ignore-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blame-ignore-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+.blame-ignore-input {
+  flex: 0 1 240px;
+  min-width: 0;
+  appearance: none;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  padding: 4px 8px;
+}
+
+.blame-ignore-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.blame-ignore-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.blame-ignore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+
+.blame-ignore-chip .rev {
+  font-size: 11px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--fg-muted);
+}
+
+.blame-ignore-x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  line-height: 0;
+}
+
+.blame-ignore-x svg {
+  width: 11px;
+  height: 11px;
+}
+
+.blame-ignore-x:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}

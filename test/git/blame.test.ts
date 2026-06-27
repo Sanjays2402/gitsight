@@ -4,6 +4,9 @@ import {
   parsePorcelainBlame,
   summariseBlame,
   blameHeat,
+  sanitizeIgnoreRev,
+  normalizeIgnoreRevs,
+  buildIgnoreRevArgs,
 } from '../../src/shared/blame';
 
 // A compact but realistic porcelain stream: two commits, the first
@@ -111,4 +114,42 @@ test('blameHeat maps newest->1 and oldest->0 across the span', () => {
 test('blameHeat returns 1 for a zero-span file and 0 for unknown time', () => {
   assert.equal(blameHeat(5, 5, 5), 1);
   assert.equal(blameHeat(0, 10, 30), 0);
+});
+
+// ── Ignore-revs (W44) ────────────────────────────────────────────────
+
+test('sanitizeIgnoreRev accepts hex object names and lowercases them', () => {
+  assert.equal(sanitizeIgnoreRev('ABCDEF1'), 'abcdef1');
+  assert.equal(sanitizeIgnoreRev('  0a1b2c3d  '), '0a1b2c3d');
+  // Full sha-256 length is fine.
+  assert.equal(sanitizeIgnoreRev('a'.repeat(64)), 'a'.repeat(64));
+});
+
+test('sanitizeIgnoreRev rejects flags, refs, and out-of-range lengths', () => {
+  assert.equal(sanitizeIgnoreRev('--all'), null);
+  assert.equal(sanitizeIgnoreRev('HEAD~1'), null);
+  assert.equal(sanitizeIgnoreRev('main'), null); // not hex
+  assert.equal(sanitizeIgnoreRev('abc'), null); // too short (<4)
+  assert.equal(sanitizeIgnoreRev('a'.repeat(65)), null); // too long (>64)
+  assert.equal(sanitizeIgnoreRev(''), null);
+});
+
+test('normalizeIgnoreRevs sanitises, de-dupes (first-seen), and caps', () => {
+  assert.deepEqual(normalizeIgnoreRevs(['ABCD', 'abcd', 'ef01', 'nope', '--x']), ['abcd', 'ef01']);
+  // Cap respected.
+  const many = Array.from({ length: 60 }, (_, i) => i.toString(16).padStart(8, '0'));
+  assert.equal(normalizeIgnoreRevs(many, 50).length, 50);
+  assert.deepEqual(normalizeIgnoreRevs([]), []);
+});
+
+test('buildIgnoreRevArgs emits one --ignore-rev pair per clean rev', () => {
+  assert.deepEqual(buildIgnoreRevArgs(['abcd', 'ef01']), [
+    '--ignore-rev',
+    'abcd',
+    '--ignore-rev',
+    'ef01',
+  ]);
+  // Junk drops out; nothing valid -> no args.
+  assert.deepEqual(buildIgnoreRevArgs(['--all', 'main']), []);
+  assert.deepEqual(buildIgnoreRevArgs([]), []);
 });
