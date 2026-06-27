@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -112,6 +112,54 @@ test('hashChanged ignores a leading hash difference', () => {
 // round-trip property: buildHash(parseHash(x)) is stable for compare links
 test('buildHash(parseHash(x)) is stable for a compare link', () => {
   const original = 'compare?base=main&head=dev';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── contributor comparison deep-link (W47) ───────────────────────────
+
+test('sanitizeEmail lowercases + rejects flags, spaces, and overlong values', () => {
+  assert.equal(sanitizeEmail('Ada@Example.com'), 'ada@example.com');
+  assert.equal(sanitizeEmail('  bob@x.io  '), 'bob@x.io');
+  // The GitHub noreply form (with a +) survives.
+  assert.equal(sanitizeEmail('51058514+sanjay@users.noreply.github.com'), '51058514+sanjay@users.noreply.github.com');
+  assert.equal(sanitizeEmail('-rf'), null); // flag-shaped
+  assert.equal(sanitizeEmail('a b@x.com'), null); // whitespace
+  assert.equal(sanitizeEmail(''), null);
+  assert.equal(sanitizeEmail('a'.repeat(321)), null); // overlong
+});
+
+test('buildHash emits contributors?vs=a,b for a valid pair', () => {
+  assert.equal(
+    buildHash({ view: 'contributors', vs: ['ada@x.com', 'bob@y.io'] }),
+    'contributors?vs=ada%40x.com%2Cbob%40y.io',
+  );
+});
+
+test('buildHash degrades to the bare contributors tab on a bad email', () => {
+  assert.equal(buildHash({ view: 'contributors', vs: ['ada@x.com', '-rf'] }), 'contributors');
+  assert.equal(buildHash({ view: 'contributors' }), 'contributors');
+});
+
+test('parseHash reads contributors?vs=a,b into a two-email route', () => {
+  assert.deepEqual(parseHash('#contributors?vs=ada%40x.com%2Cbob%40y.io'), {
+    view: 'contributors',
+    vs: ['ada@x.com', 'bob@y.io'],
+  });
+});
+
+test('parseHash drops a malformed vs to the bare contributors tab', () => {
+  // Only one email -> not a pair.
+  assert.deepEqual(parseHash('#contributors?vs=ada%40x.com'), { view: 'contributors' });
+  // A flag-shaped email is rejected.
+  assert.deepEqual(parseHash('#contributors?vs=ada%40x.com%2C-rf'), { view: 'contributors' });
+  // Bare tab with no params.
+  assert.deepEqual(parseHash('#contributors'), { view: 'contributors' });
+});
+
+test('buildHash(parseHash(x)) round-trips a contributors comparison link', () => {
+  const original = 'contributors?vs=ada%40x.com%2Cbob%40y.io';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

@@ -25,6 +25,8 @@ export interface ContributorCompareHandlers {
   loadAuthor: (email: string) => Promise<AuthorResult>;
   /** Open the Blame view on a shared file (W12 reuse). */
   onOpenFile?: (path: string) => void;
+  /** Copy a shareable deep link to this comparison (W47). */
+  onShareLink?: () => void;
 }
 
 /**
@@ -46,12 +48,23 @@ export class ContributorComparePanel {
 
     const header = el('div', 'cc-head');
     const title = el('div', 'cc-title', 'Compare contributors');
+    const actions = el('div', 'cc-head-actions');
+    // Share link (W47): copy a #contributors?vs=a,b deep-link.
+    if (handlers.onShareLink) {
+      const share = el('button', 'btn icon-only');
+      share.title = 'Copy a shareable link to this comparison';
+      share.setAttribute('aria-label', 'Copy comparison link');
+      share.innerHTML = icons.link;
+      share.addEventListener('click', () => handlers.onShareLink!());
+      actions.appendChild(share);
+    }
     const close = el('button', 'btn icon-only');
     close.title = 'Close (Esc)';
     close.setAttribute('aria-label', 'Close comparison');
     close.innerHTML = icons.close;
     close.addEventListener('click', () => this.close());
-    header.append(title, close);
+    actions.append(close);
+    header.append(title, actions);
 
     this.body = el('div', 'cc-body');
     this.root.append(header, this.body);

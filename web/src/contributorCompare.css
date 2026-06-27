@@ -99,6 +99,13 @@
   font-size: 13px;
 }
 
+/* Header action buttons: share (W47) + close, grouped on the right. */
+.cc-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .cc-body {
   flex: 1 1 auto;
   overflow-y: auto;

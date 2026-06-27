@@ -9,9 +9,11 @@
  * Hash grammar (after the leading '#'):
  *   compare?base=<ref>&head=<ref>   the Compare view, pre-loaded
  *   commit/<sha>                    the graph with a commit detail open
+ *   contributors?vs=<email>,<email> the contributor comparison, pre-loaded
  *   graph                           bare view name = just the tab, no params
- * Refs run through the compare sanitiser and a sha through `sanitizeSha`,
- * so a crafted hash can't inject a flag/space toward the companion.
+ * Refs run through the compare sanitiser, a sha through `sanitizeSha`, and a
+ * vs-email through `sanitizeEmail`, so a crafted hash can't inject a flag/
+ * space toward the companion.
  *
  * Tests: web/src/hashRoute.test.mjs
  */
@@ -29,8 +31,14 @@ export interface CompareRoute {
   head: string;
 }
 
+export interface ContributorsRoute {
+  view: 'contributors';
+  /** Exactly two author emails to pre-load a comparison (W47). */
+  vs: [string, string];
+}
+
 export interface PlainRoute {
-  view: Exclude<RouteView, 'compare'>;
+  view: Exclude<RouteView, 'compare' | 'contributors'>;
   /**
    * Only on a graph permalink (`#commit/<sha>`, W27): the commit to open
    * the detail panel for. Absent for a bare view route.
@@ -38,11 +46,32 @@ export interface PlainRoute {
   sha?: string;
 }
 
-export type Route = CompareRoute | PlainRoute;
+/** A bare contributors tab (no comparison) shares the PlainRoute-ish shape. */
+export interface ContributorsBareRoute {
+  view: 'contributors';
+  vs?: undefined;
+}
+
+export type Route = CompareRoute | ContributorsRoute | ContributorsBareRoute | PlainRoute;
 
 /** True when a string names a routable view. */
 export function isRouteView(v: string): v is RouteView {
   return (ROUTE_VIEWS as string[]).includes(v);
+}
+
+/**
+ * Normalise + validate an author email for a comparison deep-link (W47).
+ * Mirrors the companion's `isPlausibleEmail`: non-empty, length-bounded, no
+ * whitespace, and not flag-shaped (leading '-'), so a crafted `vs=` value
+ * can't smuggle an option toward the `git log --author` read. Lowercased to
+ * match the email-keyed contributor identity. Returns null for anything else.
+ */
+export function sanitizeEmail(email: string): string | null {
+  const e = (email ?? '').trim().toLowerCase();
+  if (!e || e.length > 320) return null;
+  if (/\s/.test(e)) return null;
+  if (e.startsWith('-')) return null;
+  return e;
 }
 
 /**
@@ -70,6 +99,19 @@ export function buildHash(route: Route): string {
     if (!base || !head) return 'compare';
     const p = new URLSearchParams({ base, head });
     return `compare?${p.toString()}`;
+  }
+  if (route.view === 'contributors') {
+    // A two-author comparison deep-link (W47): contributors?vs=a,b. Both
+    // emails must sanitise; otherwise degrade to the bare contributors tab.
+    if (route.vs) {
+      const a = sanitizeEmail(route.vs[0]);
+      const b = sanitizeEmail(route.vs[1]);
+      if (a && b) {
+        const p = new URLSearchParams({ vs: `${a},${b}` });
+        return `contributors?${p.toString()}`;
+      }
+    }
+    return 'contributors';
   }
   if (route.view === 'graph' && route.sha) {
     const sha = sanitizeSha(route.sha);
@@ -107,7 +149,21 @@ export function parseHash(hash: string): Route | null {
     if (base && head) return { view: 'compare', base, head };
     return { view: 'compare', base: '', head: '' };
   }
-  return { view: viewName };
+
+  // Contributor comparison deep-link (W47): contributors?vs=a,b.
+  if (viewName === 'contributors') {
+    const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
+    const raw = params.get('vs') ?? '';
+    if (raw) {
+      const parts = raw.split(',').map(s => sanitizeEmail(decodeURIComponent(s)));
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        return { view: 'contributors', vs: [parts[0], parts[1]] };
+      }
+    }
+    return { view: 'contributors' };
+  }
+
+  return { view: viewName as PlainRoute['view'] };
 }
 
 /**

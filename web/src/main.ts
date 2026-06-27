@@ -67,7 +67,7 @@ import { toggleAuthorFilter } from './blameLegend';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
-import { buildHash, parseHash, hashChanged, type Route } from './hashRoute';
+import { buildHash, parseHash, hashChanged, type Route, type PlainRoute } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
@@ -260,6 +260,7 @@ const contributorComparePanel = new ContributorComparePanel({
     rebuildChrome();
     void loadBlamePath(path);
   },
+  onShareLink: () => void shareContributorCompareLink(),
 });
 
 /**
@@ -599,6 +600,28 @@ async function boot(): Promise<void> {
       openDetailFor(sha);
     }
   }
+
+  // Open a shared contributor comparison once the tab is up (W47). The panel
+  // fetches each author itself, so we just pre-select + open it.
+  if (pendingCompareEmails && state.view === 'contributors') {
+    const pair = pendingCompareEmails;
+    pendingCompareEmails = null;
+    openCompareFromEmails(pair);
+  }
+}
+
+/**
+ * Open the contributor comparison panel from two author emails (W47 deep
+ * link). Seeds the selection so the leaderboard marks both rows, then opens
+ * the panel (which fetches each author's W23 detail itself).
+ */
+function openCompareFromEmails(emails: [string, string]): void {
+  state.compareSelection = emails.map(e => ({ email: e, name: e }));
+  if (state.view === 'contributors') {
+    void ensureContributors();
+    renderContributorsView();
+  }
+  void contributorComparePanel.open(state.compareSelection[0], state.compareSelection[1]);
 }
 
 /**
@@ -1143,6 +1166,11 @@ function toggleCompareSelection(c: Contributor): void {
   if (state.compareSelection.length === 2) {
     const [a, b] = state.compareSelection;
     void contributorComparePanel.open(a, b);
+    // Reflect the pair in the URL so the comparison is shareable (W47).
+    syncHash();
+  } else {
+    // Dropping below two clears any comparison deep-link from the URL.
+    syncHash();
   }
 }
 
@@ -1308,6 +1336,24 @@ async function runCompare(base: string, head: string): Promise<void> {
 async function shareCompareLink(): Promise<void> {
   syncHash();
   const url = location.href;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Comparison link copied');
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/**
+ * Copy a shareable deep link to the current contributor comparison (W47).
+ * Builds the #contributors?vs=a,b URL from the two selected authors rather
+ * than relying on the live hash, so it works even if the URL hasn't synced.
+ */
+async function shareContributorCompareLink(): Promise<void> {
+  if (state.compareSelection.length !== 2) return;
+  const [a, b] = state.compareSelection;
+  const hash = buildHash({ view: 'contributors', vs: [a.email, b.email] });
+  const url = `${location.origin}${location.pathname}${location.search}${hash ? `#${hash}` : ''}`;
   try {
     await navigator.clipboard.writeText(url);
     toast('Comparison link copied');
@@ -1607,15 +1653,23 @@ function applyInitialRoute(): void {
   if (route.view === 'graph' && route.sha) {
     pendingCommitSha = route.sha;
   }
+  // Remember a contributor comparison (#contributors?vs=a,b, W47); boot()
+  // pre-selects the two authors + opens the panel once contributors load.
+  if (route.view === 'contributors' && route.vs) {
+    pendingCompareEmails = route.vs;
+  }
 }
 
 /** A commit sha from a #commit/<sha> permalink, opened after boot (W27). */
 let pendingCommitSha: string | null = null;
 
+/** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
+let pendingCompareEmails: [string, string] | null = null;
+
 /** True while we're writing the hash ourselves, to ignore the echo event. */
 let writingHash = false;
 
-/** Write the current view/compare state into location.hash (W24; W27). */
+/** Write the current view/compare state into location.hash (W24; W27; W47). */
 function syncHash(): void {
   if (typeof location === 'undefined') return;
   let route: Route;
@@ -1624,8 +1678,16 @@ function syncHash(): void {
   } else if (state.view === 'graph' && detailPanel.isOpen() && detailPanel.currentSha()) {
     // A permalink to the focused commit (W27).
     route = { view: 'graph', sha: detailPanel.currentSha()! };
+  } else if (state.view === 'contributors' && state.compareSelection.length === 2) {
+    // A shareable two-author comparison deep-link (W47).
+    const [a, b] = state.compareSelection;
+    route = { view: 'contributors', vs: [a.email, b.email] };
+  } else if (state.view === 'contributors') {
+    route = { view: 'contributors' };
   } else {
-    route = { view: state.view };
+    // The compare + contributors views are handled above; the rest are
+    // plain single-tab routes.
+    route = { view: state.view as PlainRoute['view'] };
   }
   const next = buildHash(route);
   if (!hashChanged(location.hash, `#${next}`)) return;
@@ -1668,10 +1730,28 @@ function installHashRouting(): void {
       if (detailPanel.currentSha() !== route.sha) openDetailFor(route.sha);
       return;
     }
+    // Contributor comparison deep-link on back/forward (W47): switch to the
+    // contributors tab if needed, then open the comparison for the pair.
+    if (route.view === 'contributors' && route.vs) {
+      if (state.view !== 'contributors') {
+        state.view = 'contributors';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      }
+      openCompareFromEmails(route.vs);
+      return;
+    }
     if (route.view !== state.view) {
       switchView(route.view);
     } else if (route.view === 'compare') {
       void ensureCompare();
+    } else if (route.view === 'contributors' && contributorComparePanel.isOpen()) {
+      // Same tab, no vs in the URL -> close an open comparison (W47).
+      contributorComparePanel.close();
+      state.compareSelection = [];
+      renderContributorsView();
     } else if (route.view === 'graph' && detailPanel.isOpen()) {
       // Same view, no sha in the URL -> close an open permalink.
       detailPanel.close();
