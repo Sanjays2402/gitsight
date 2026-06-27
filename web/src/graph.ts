@@ -133,14 +133,21 @@ export function renderGraph(
 
   // Minimap (W45): a condensed lane strip for fast scroll-to-region on long
   // histories. Needs a scroll container to drive; only worth it above a
-  // threshold (a short graph fits on screen already).
+  // threshold (a short graph fits on screen already). W49 adds hover
+  // tooltips (subject + sha) and click-to-open via onJump.
   if (opts.scrollContainer && rows.length >= MINIMAP_THRESHOLD) {
     const maxLanes = Math.max(...rows.map(r => r.lanes.length), 1);
     const minimap = new GraphMinimap({
-      rows: rows.map(r => ({ lane: r.lane, color: r.color })),
+      rows: rows.map(r => ({
+        lane: r.lane,
+        color: r.color,
+        subject: r.commit.subject,
+        shortSha: r.commit.shortSha,
+      })),
       scrollContainer: opts.scrollContainer,
       contentHeight: rows.length * ROW_H,
       maxLanes,
+      onJump: idx => controller.jumpTo(idx),
     });
     wrap.appendChild(minimap.node);
     controller.attachMinimap(minimap);
@@ -229,6 +236,17 @@ export class GraphController {
     if (idx < 0) return false;
     this.select(idx, true);
     return true;
+  }
+
+  /**
+   * Jump to a row by index (W49 minimap click): reveal + select it and fire
+   * onSelect so the host opens its detail. Clamped to the valid range.
+   */
+  jumpTo(index: number): void {
+    if (this.rows.length === 0) return;
+    const idx = Math.max(0, Math.min(this.rows.length - 1, index));
+    this.select(idx, true);
+    this.opts.onSelect?.(this.rows[idx].commit);
   }
 
   /** Fire onSelect for the current selection (Enter key). */

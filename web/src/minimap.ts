@@ -150,3 +150,29 @@ export function buildMinimapMarks(
   }
   return marks;
 }
+
+/**
+ * The mark nearest a pointer position on the track (W49 hover/jump). Marks
+ * are emitted in row order, and `minimapMarkY` is monotonic in the index, so
+ * `marks` is sorted ascending by `y` — we scan until a mark sits past the
+ * pointer and starts moving away, then stop. Returns the closest mark, or
+ * null for an empty list. On a long history many rows collapse to the same
+ * track pixel; ties resolve to the latest (deepest-scrolled) row at that y,
+ * which reads naturally as "the region around here".
+ */
+export function markAtY(marks: MinimapMark[], pointerY: number): MinimapMark | null {
+  if (marks.length === 0) return null;
+  let best = marks[0];
+  let bestDist = Math.abs(best.y - pointerY);
+  for (let i = 1; i < marks.length; i++) {
+    const d = Math.abs(marks[i].y - pointerY);
+    if (d <= bestDist) {
+      bestDist = d;
+      best = marks[i];
+    } else if (marks[i].y > pointerY) {
+      // Past the pointer and getting farther — monotonic y means we're done.
+      break;
+    }
+  }
+  return best;
+}

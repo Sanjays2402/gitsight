@@ -12,6 +12,7 @@ import {
   minimapViewport,
   minimapSeekScrollTop,
   buildMinimapMarks,
+  markAtY,
   MINIMAP_MIN_VIEWPORT,
   MINIMAP_THRESHOLD,
   MINIMAP_WIDTH,
@@ -103,4 +104,34 @@ test('exported minimap constants are sane', () => {
   assert.ok(MINIMAP_THRESHOLD > 0);
   assert.ok(MINIMAP_WIDTH > 0);
   assert.ok(MINIMAP_MIN_VIEWPORT > 0);
+});
+
+// ── markAtY (W49 hover/jump) ─────────────────────────────────────────
+
+test('markAtY returns the nearest mark to a pointer Y', () => {
+  // 5 rows over a 100px track -> marks at y = 0,25,50,75,100.
+  const marks = buildMinimapMarks([0, 0, 0, 0, 0], 1, 100, 56);
+  assert.equal(markAtY(marks, 0).index, 0);
+  assert.equal(markAtY(marks, 24).index, 1); // closest to 25
+  assert.equal(markAtY(marks, 50).index, 2);
+  assert.equal(markAtY(marks, 100).index, 4);
+});
+
+test('markAtY clamps a pointer beyond the track to the end marks', () => {
+  const marks = buildMinimapMarks([0, 0, 0], 1, 100, 56); // y = 0,50,100
+  assert.equal(markAtY(marks, -20).index, 0); // before the top -> first
+  assert.equal(markAtY(marks, 240).index, 2); // past the bottom -> last
+});
+
+test('markAtY resolves a tie to the later (deeper) row', () => {
+  // Many rows collapse onto the same pixel on a long history; a pointer at
+  // an exact midpoint should pick the later index (<= keeps walking).
+  const marks = buildMinimapMarks([0, 0, 0, 0, 0], 1, 100, 56); // 0,25,50,75,100
+  // Exactly between mark 1 (25) and mark 2 (50) -> 37.5; closer to neither,
+  // but 50 wins on the <= tie as the scan reaches it.
+  assert.equal(markAtY(marks, 37.5).index, 2);
+});
+
+test('markAtY returns null for an empty mark list', () => {
+  assert.equal(markAtY([], 50), null);
 });

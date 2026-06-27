@@ -62,3 +62,49 @@
 #app[data-compact='true'] .graph-minimap {
   display: none;
 }
+
+/*
+ * Hover tooltip (W49): the nearest commit's sha + subject, floating just
+ * left of the strip. Body-mounted (so it isn't clipped by the strip's
+ * overflow:hidden), translated to sit centred on the pointer and clear of
+ * the strip's right edge. Token-driven so it tracks the theme.
+ */
+.graph-minimap-tip {
+  position: fixed;
+  z-index: 30;
+  transform: translate(-100%, -50%);
+  max-width: 320px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-pop, 0 6px 20px rgba(0, 0, 0, 0.28));
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s var(--ease);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.graph-minimap-tip.show {
+  opacity: 1;
+}
+
+.graph-minimap-tip .tip-sha {
+  flex: 0 0 auto;
+  font-family: var(--mono, ui-monospace, monospace);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-minimap-tip .tip-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+}
