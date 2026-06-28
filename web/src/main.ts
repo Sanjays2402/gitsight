@@ -443,7 +443,9 @@ function buildPaletteItems(): PaletteItem[] {
   if (state.view === 'blame' && state.blame.data) {
     for (const item of blameAuthorPaletteItems(state.blame.data.authors, state.blameAuthor)) {
       const value = item.action === 'show-all' ? 'blame-show-all' : `blame-isolate:${item.author}`;
-      items.push({ id: `blame:${value}`, kind: 'action', label: item.label, hint: 'Blame', value, weight: 2 });
+      // W97: surface the author's ownership (lines · share) as the palette hint.
+      const hint = item.hint ? `Blame \u00b7 ${item.hint}` : 'Blame';
+      items.push({ id: `blame:${value}`, kind: 'action', label: item.label, hint, value, weight: 2 });
     }
   }
   // Compare ref pairs (W87): on the Compare view, surface every branch/tag/remote

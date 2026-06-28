@@ -185,6 +185,26 @@ export interface BlameAuthorPaletteItem {
   label: string;
   /** The author to isolate (isolate only; absent for show-all). */
   author?: string;
+  /**
+   * A compact ownership readout (W97) — e.g. "128 lines · 34%" — set on the
+   * isolate entries when the blame model carries the author's line count/share,
+   * so the palette doubles as a "who owns this file" scan. Absent on show-all
+   * and when no stats are available.
+   */
+  hint?: string;
+}
+
+/**
+ * Compact ownership readout for a blame-author palette hint (W97). Renders the
+ * author's line count + rounded share of the file, e.g. "128 lines · 34%", or
+ * just the count when the share is unknown. Singular "1 line". Pure so the
+ * wording is testable; the view composes it into the palette item hint.
+ */
+export function blameAuthorShareHint(lines: number, share: number): string {
+  const n = Math.max(0, Math.floor(lines || 0));
+  const lineWord = n === 1 ? 'line' : 'lines';
+  const pct = Number.isFinite(share) && share > 0 ? Math.round(share * 100) : 0;
+  return pct > 0 ? `${n} ${lineWord} \u00b7 ${pct}%` : `${n} ${lineWord}`;
 }
 
 /**
@@ -204,9 +224,14 @@ export interface BlameAuthorPaletteItem {
  * already distinct, but this stays defensive) and capped at `limit` isolate
  * entries so a file touched by hundreds of authors can't flood the palette;
  * the palette's own fuzzy filter narrows from there.
+ *
+ * W97: when an author carries `lines`/`share` (the blame model's BlameAuthorStat
+ * does), each isolate entry gains a compact `hint` ("128 lines · 34%") so the
+ * palette doubles as a "who owns this file" scan. Omitted when the author has no
+ * stats, so the W82 entry shape is unchanged for stat-less callers.
  */
 export function blameAuthorPaletteItems(
-  authors: ReadonlyArray<{ author: string }>,
+  authors: ReadonlyArray<{ author: string; lines?: number; share?: number }>,
   active: string | null,
   limit = 12,
 ): BlameAuthorPaletteItem[] {
@@ -227,7 +252,12 @@ export function blameAuthorPaletteItems(
     // Re-isolating the already-active author would be a no-op — skip it.
     if (activeNorm && key === activeNorm) continue;
     if (added >= cap) break;
-    items.push({ action: 'isolate', label: `Blame: isolate ${name}`, author: name });
+    const item: BlameAuthorPaletteItem = { action: 'isolate', label: `Blame: isolate ${name}`, author: name };
+    // W97: an ownership hint when the model carries this author's line stats.
+    if (typeof a.lines === 'number') {
+      item.hint = blameAuthorShareHint(a.lines, typeof a.share === 'number' ? a.share : 0);
+    }
+    items.push(item);
     added++;
   }
   return items;

@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -214,4 +214,39 @@ test('blameAuthorPaletteItems caps the isolate entries at the limit', () => {
   const withActive = blameAuthorPaletteItems(many, 'Author 0', 5);
   assert.equal(withActive[0].action, 'show-all');
   assert.equal(withActive.filter(i => i.action === 'isolate').length, 5);
+});
+
+// ── blameAuthorShareHint / palette ownership hints (W97) ─────────────
+
+test('blameAuthorShareHint renders lines + rounded share (W97)', () => {
+  assert.equal(blameAuthorShareHint(128, 0.34), '128 lines \u00b7 34%');
+  // Singular line.
+  assert.equal(blameAuthorShareHint(1, 0.5), '1 line \u00b7 50%');
+  // Share rounds.
+  assert.equal(blameAuthorShareHint(10, 0.336), '10 lines \u00b7 34%');
+});
+
+test('blameAuthorShareHint omits the percent when share is unknown/zero (W97)', () => {
+  assert.equal(blameAuthorShareHint(40, 0), '40 lines');
+  assert.equal(blameAuthorShareHint(40, NaN), '40 lines');
+  assert.equal(blameAuthorShareHint(0, 0), '0 lines');
+});
+
+test('blameAuthorPaletteItems attaches an ownership hint when stats are present (W97)', () => {
+  const items = blameAuthorPaletteItems(
+    [{ author: 'Ada', lines: 128, share: 0.34 }, { author: 'Grace', lines: 12, share: 0.03 }],
+    null,
+  );
+  assert.equal(items[0].hint, '128 lines \u00b7 34%');
+  assert.equal(items[1].hint, '12 lines \u00b7 3%');
+});
+
+test('blameAuthorPaletteItems omits the hint for stat-less authors (W97/W82)', () => {
+  // The W82 shape ({author} only) stays unchanged — no hint key.
+  const items = blameAuthorPaletteItems([{ author: 'Ada' }], null);
+  assert.equal('hint' in items[0], false);
+  // show-all never carries a hint.
+  const withActive = blameAuthorPaletteItems([{ author: 'Ada', lines: 5, share: 1 }], 'Ada');
+  assert.equal(withActive[0].action, 'show-all');
+  assert.equal('hint' in withActive[0], false);
 });
