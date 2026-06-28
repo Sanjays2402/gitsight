@@ -20,6 +20,7 @@ import {
   matchSummary,
   shouldRevealEmpty,
   emptyFilterMessage,
+  compareRefPaletteItems,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -224,4 +225,52 @@ test('emptyFilterMessage ellipsises a very long query', () => {
   assert.ok(msg.includes('\u2026'));
   // 60 kept + the ellipsis, wrapped in the quotes + prefix.
   assert.ok(msg.includes('a'.repeat(60) + '\u2026'));
+});
+
+test('compareRefPaletteItems emits both directions per ref (W87)', () => {
+  const items = compareRefPaletteItems([{ name: 'main' }, { name: 'dev' }], 'HEAD');
+  // Two entries per ref (against-head + from-head).
+  assert.equal(items.length, 4);
+  assert.deepEqual(items[0], {
+    side: 'against-head',
+    label: 'Compare main with HEAD',
+    base: 'main',
+    head: 'HEAD',
+  });
+  assert.deepEqual(items[1], {
+    side: 'from-head',
+    label: 'Compare HEAD with main',
+    base: 'HEAD',
+    head: 'main',
+  });
+});
+
+test('compareRefPaletteItems skips the current branch and a literal HEAD (W87)', () => {
+  const items = compareRefPaletteItems(
+    [{ name: 'main' }, { name: 'feature' }, { name: 'HEAD' }],
+    'HEAD',
+    'main',
+  );
+  // main is the current branch (no-op vs HEAD) and HEAD is literal -> both skipped.
+  const refs = new Set(items.flatMap(i => [i.base, i.head]));
+  assert.ok(!refs.has('main'));
+  assert.equal(items.filter(i => i.base === 'feature' || i.head === 'feature').length, 2);
+});
+
+test('compareRefPaletteItems sanitises and de-dupes refs (W87)', () => {
+  const items = compareRefPaletteItems(
+    [{ name: 'main' }, { name: 'MAIN' }, { name: '-flag' }, { name: 'has space' }, { name: '' }],
+    'HEAD',
+  );
+  // main de-dupes case-insensitively (one ref -> 2 entries); the flag-shaped,
+  // spaced, and empty names are dropped by sanitizeRef.
+  assert.equal(items.length, 2);
+  assert.equal(items[0].base, 'main');
+});
+
+test('compareRefPaletteItems caps the ref count (W87)', () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({ name: `b${i}` }));
+  const items = compareRefPaletteItems(many, 'HEAD', null, 5);
+  // 5 refs * 2 directions.
+  assert.equal(items.length, 10);
 });

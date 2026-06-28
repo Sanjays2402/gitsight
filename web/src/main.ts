@@ -77,6 +77,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
+import { compareRefPaletteItems } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -438,6 +439,24 @@ function buildPaletteItems(): PaletteItem[] {
       items.push({ id: `blame:${value}`, kind: 'action', label: item.label, hint: 'Blame', value, weight: 2 });
     }
   }
+  // Compare ref pairs (W87): on the Compare view, surface every branch/tag/remote
+  // in the loaded snapshot as "Compare <ref> with HEAD" (+ the reverse) so a
+  // comparison is reachable from Cmd-K without typing into the form. Mirrors the
+  // W82 blame-author source; scoped to the Compare view so the palette stays
+  // relevant. The ref HEAD already points at is skipped (a no-op comparison).
+  if (state.view === 'compare') {
+    const refs = buildRailSections(state.snapshot.commits).flatMap(s => s.refs);
+    for (const item of compareRefPaletteItems(refs, 'HEAD', state.snapshot.head)) {
+      items.push({
+        id: `compare:${item.side}:${item.base}:${item.head}`,
+        kind: 'action',
+        label: item.label,
+        hint: 'Compare',
+        value: `compare-ref:${item.base}:${item.head}`,
+        weight: 2,
+      });
+    }
+  }
   return items;
 }
 
@@ -497,6 +516,18 @@ function runPaletteItem(item: PaletteItem): void {
     } else if (item.value.startsWith('blame-isolate:')) {
       // W82: isolate the named author in the loaded blame from the palette.
       isolateBlameAuthor(item.value.slice('blame-isolate:'.length));
+    } else if (item.value.startsWith('compare-ref:')) {
+      // W87: load a ref-pair comparison from the palette. The payload is
+      // `compare-ref:<base>:<head>`; git refs can't contain ':' so the first
+      // colon after the prefix splits base from head unambiguously.
+      const rest = item.value.slice('compare-ref:'.length);
+      const sep = rest.indexOf(':');
+      if (sep > 0) {
+        const base = rest.slice(0, sep);
+        const head = rest.slice(sep + 1);
+        if (state.view !== 'compare') switchView('compare');
+        void runCompare(base, head);
+      }
     } else if (id === 'reload') void boot();
     else if (id === 'theme') {
       theme.toggleChrome();

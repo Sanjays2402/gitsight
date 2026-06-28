@@ -205,3 +205,64 @@ export function emptyFilterMessage(query: string, matchCount: number): string {
   const clipped = shown.length > 60 ? `${shown.slice(0, 60)}\u2026` : shown;
   return `No commits match \u201c${clipped}\u201d`;
 }
+
+// ── Compare ref command-palette source (W87) ─────────────────────────
+
+/** Which side of the comparison a ref takes in a palette entry (W87). */
+export type CompareRefSide = 'against-head' | 'from-head';
+
+/** One Cmd-K entry that loads a comparison for a ref (W87, data only). */
+export interface CompareRefPaletteItem {
+  /** "Compare <ref> with HEAD" (ref is the base) or the reverse (ref is head). */
+  side: CompareRefSide;
+  label: string;
+  /** The base ref of the comparison this entry loads. */
+  base: string;
+  /** The head ref of the comparison this entry loads. */
+  head: string;
+}
+
+/**
+ * Build the command-palette source for comparing the loaded snapshot's refs
+ * against HEAD (W87), so a comparison is reachable from Cmd-K without typing
+ * into the Compare form. Mirrors the W82 blame-author / W32 commit-search
+ * provider pattern: pure + data only (the view maps each entry to a real
+ * PaletteItem with its run), so the gating is unit-testable.
+ *
+ * For each ref we emit the natural "Compare <ref> with HEAD" (ref...HEAD, the
+ * common "what's on HEAD that <ref> doesn't have" direction) and the reverse
+ * "Compare HEAD with <ref>" (HEAD...ref) so either direction is one keystroke.
+ * The current-branch ref (the one HEAD already points at) is skipped — comparing
+ * a ref with itself is a no-op — as is anything literally named HEAD.
+ *
+ * Refs run through `sanitizeRef` so a crafted ref name can't smuggle a flag or
+ * space toward the companion, de-dupe case-insensitively, and the ref count is
+ * capped at `limit` (each yielding two entries) so a repo with hundreds of refs
+ * can't flood the palette; the palette's own fuzzy filter narrows from there.
+ */
+export function compareRefPaletteItems(
+  refs: ReadonlyArray<{ name: string }>,
+  head = 'HEAD',
+  currentBranch: string | null = null,
+  limit = 30,
+): CompareRefPaletteItem[] {
+  const items: CompareRefPaletteItem[] = [];
+  const seen = new Set<string>();
+  const cap = Math.max(0, Math.floor(limit));
+  const currentNorm = (currentBranch ?? '').trim().toLowerCase();
+  let added = 0;
+  for (const r of refs) {
+    if (added >= cap) break;
+    const name = sanitizeRef(r?.name ?? '');
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Comparing the ref HEAD already points at (or a literal "HEAD") is a no-op.
+    if (key === 'head' || (currentNorm && key === currentNorm)) continue;
+    items.push({ side: 'against-head', label: `Compare ${name} with HEAD`, base: name, head });
+    items.push({ side: 'from-head', label: `Compare HEAD with ${name}`, base: head, head: name });
+    added++;
+  }
+  return items;
+}
