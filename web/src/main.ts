@@ -331,6 +331,9 @@ const contributorComparePanel = new ContributorComparePanel({
   },
   onShareLink: () => void shareContributorCompareLink(),
   onSwap: () => swapContributorCompare(),
+  // W93: Esc closes the panel, but not while the palette / help overlay owns
+  // Esc (mirrors the W84 day-panel guard) so closing one doesn't reopen this.
+  canCloseOnEsc: () => !palette.isOpen() && !keyboardHelp.isOpen(),
 });
 
 /**

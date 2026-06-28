@@ -12,6 +12,7 @@ import {
   buildContributorComparison,
   overlapPercent,
   swapComparePair,
+  comparePanelKeyAction,
 } from './contributorCompare.ts';
 
 const file = (path, insertions, deletions, commits = 1) => ({ path, insertions, deletions, commits });
@@ -116,4 +117,22 @@ test('swapComparePair is an involution and works for object pairs (W89)', () => 
   const twice = swapComparePair(once);
   assert.equal(twice[0], a);
   assert.equal(twice[1], b);
+});
+
+// ── Compare panel keyboard (W93) ─────────────────────────────────────
+
+test('comparePanelKeyAction maps s to swap (either case) (W93)', () => {
+  assert.equal(comparePanelKeyAction('s'), 'swap');
+  assert.equal(comparePanelKeyAction('S'), 'swap');
+});
+
+test('comparePanelKeyAction maps Escape to close (W93)', () => {
+  assert.equal(comparePanelKeyAction('Escape'), 'close');
+});
+
+test('comparePanelKeyAction ignores other keys (W93)', () => {
+  assert.equal(comparePanelKeyAction('a'), 'none');
+  assert.equal(comparePanelKeyAction('Enter'), 'none');
+  assert.equal(comparePanelKeyAction(''), 'none');
+  assert.equal(comparePanelKeyAction('Esc'), 'none'); // not the DOM key name
 });

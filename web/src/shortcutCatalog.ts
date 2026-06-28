@@ -93,6 +93,13 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
         { keys: ['Enter'], description: 'Open the focused commit-filter match', views: ['compare'] },
       ],
     },
+    {
+      title: 'Contributors',
+      shortcuts: [
+        { keys: ['s'], description: 'Swap the open comparison\u2019s left / right order', views: ['contributors'] },
+        { keys: ['Esc'], description: 'Close the open comparison panel', views: ['contributors'] },
+      ],
+    },
   ];
 }
 

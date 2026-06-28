@@ -132,3 +132,28 @@ export function overlapPercent(overlap: FileOverlap): number {
 export function swapComparePair<T>(pair: readonly [T, T]): [T, T] {
   return [pair[1], pair[0]];
 }
+
+// ── Compare panel keyboard (W93) ─────────────────────────────────────
+
+/** What a key pressed while the compare panel is open should do (W93). */
+export type ComparePanelKeyAction = 'swap' | 'close' | 'none';
+
+/**
+ * Map a key to a compare-panel action (W93). The W35/W47/W89 comparison panel
+ * is mouse-only; this gives it keyboard parity with the rest of the app:
+ *
+ *   - `s` / `S`  -> 'swap'  (reuse the W89 swap-order action).
+ *   - `Escape`   -> 'close'.
+ *   - anything else -> 'none'.
+ *
+ * Pure so the mapping is unit-testable without the DOM; the panel owns the
+ * listener + a guard so it doesn't fight the palette/help Esc (mirrors W84's
+ * `canCloseOnEsc`). `s` is only meaningful when there are two authors to swap,
+ * which the panel is by definition (it's open), so no extra gating is needed
+ * here — the view no-ops a swap when the selection isn't a pair.
+ */
+export function comparePanelKeyAction(key: string): ComparePanelKeyAction {
+  if (key === 's' || key === 'S') return 'swap';
+  if (key === 'Escape') return 'close';
+  return 'none';
+}

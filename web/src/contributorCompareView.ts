@@ -15,6 +15,7 @@ import { authorColor } from '@shared/graphPalette';
 import {
   buildContributorComparison,
   overlapPercent,
+  comparePanelKeyAction,
   type ContributorComparison,
   type AuthorSummary,
 } from './contributorCompare';
@@ -29,6 +30,13 @@ export interface ContributorCompareHandlers {
   onShareLink?: () => void;
   /** Swap the two authors' left/right order (W89); re-opens reversed. */
   onSwap?: () => void;
+  /**
+   * Whether Esc may close the panel right now (W93). Mirrors the W84 day-panel
+   * guard: returns false while a higher-priority overlay (the command palette
+   * or the keyboard-help sheet) owns Esc, so closing one doesn't also yank the
+   * comparison open behind it. Absent = always closeable.
+   */
+  canCloseOnEsc?: () => boolean;
 }
 
 /**
@@ -40,6 +48,8 @@ export class ContributorComparePanel {
   private body: HTMLElement;
   private handlers: ContributorCompareHandlers;
   private token = 0;
+  /** Bound document keydown listener (W93), live only while the panel is open. */
+  private keyListener: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(handlers: ContributorCompareHandlers) {
     this.handlers = handlers;
@@ -91,11 +101,13 @@ export class ContributorComparePanel {
     this.token++;
     this.root.classList.remove('show');
     this.root.hidden = true;
+    this.uninstallKeys();
   }
 
   async open(a: { email: string; name: string }, b: { email: string; name: string }): Promise<void> {
     this.root.hidden = false;
     this.root.classList.add('show');
+    this.installKeys();
     this.showLoading(a.name, b.name);
     const mine = ++this.token;
 
@@ -111,6 +123,45 @@ export class ContributorComparePanel {
       return;
     }
     this.render(buildContributorComparison(ra.detail, rb.detail));
+  }
+
+  /**
+   * Install the document keydown listener (W93). `s` swaps the order (W89), Esc
+   * closes — but Esc is gated by `canCloseOnEsc` so it doesn't fire while the
+   * command palette or keyboard-help overlay owns Esc. A swap/close key is
+   * swallowed (preventDefault + stopPropagation) so it doesn't also reach the
+   * app-level keyboard handler. Idempotent.
+   */
+  private installKeys(): void {
+    if (this.keyListener) return;
+    this.keyListener = (e: KeyboardEvent) => {
+      // Don't hijack keys while the user is typing in a field.
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      const action = comparePanelKeyAction(e.key);
+      if (action === 'swap') {
+        if (!this.handlers.onSwap) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.handlers.onSwap();
+      } else if (action === 'close') {
+        // Mirror W84: defer to a higher-priority overlay's Esc when guarded.
+        if (this.handlers.canCloseOnEsc && !this.handlers.canCloseOnEsc()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+      }
+    };
+    document.addEventListener('keydown', this.keyListener, true);
+  }
+
+  /** Remove the keydown listener (W93). Idempotent. */
+  private uninstallKeys(): void {
+    if (!this.keyListener) return;
+    document.removeEventListener('keydown', this.keyListener, true);
+    this.keyListener = null;
   }
 
   private showLoading(a: string, b: string): void {
