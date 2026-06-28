@@ -79,7 +79,7 @@ import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
-import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute } from './hashRoute';
+import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
@@ -121,6 +121,14 @@ interface AppState {
    * or reload.
    */
   graphShaFilter: string[];
+  /**
+   * An active author-week scope for the graph (W85 "view this week" from a
+   * contributor's W80 sparkline). When set the graph is filtered to that
+   * author's commits in the week, and the scope is encoded in the URL
+   * (#graph?author=&since=&until=) so a reload / shared link restores it.
+   * Cleared on a fresh text search, repo switch, or reload.
+   */
+  graphWeek: { author: string; name: string; since: string; until: string } | null;
   source: 'demo' | 'live' | 'loading';
   repos: RepoEntry[];
   repo: string | null;
@@ -180,6 +188,7 @@ const state: AppState = {
   snapshot: DEMO_SNAPSHOT,
   filter: '',
   graphShaFilter: [],
+  graphWeek: null,
   source: 'loading',
   repos: [],
   repo: null,
@@ -298,12 +307,10 @@ const authorPanel = new AuthorPanel({
   },
   // W80: clicking a sparkline bar drops to the graph filtered to this author's
   // commits in that week (author: + since:/until: from the pure weekBounds).
+  // W85: the scope is recorded + encoded in the URL so a reload / shared link
+  // restores the same week view.
   onPickWeek: (email, name, since, until) => {
-    state.view = 'graph';
-    rebuildChrome();
-    const value = email || name;
-    const author = /\s/.test(value) ? `author:"${value}"` : `author:${value}`;
-    applyFilter(`${author} since:${since} until:${until}`);
+    viewAuthorWeek(email, name, since, until);
   },
 });
 
@@ -633,6 +640,14 @@ async function boot(): Promise<void> {
   // #graph?commits= link survives boot.
   state.graphShaFilter = pendingShaFilter ?? [];
   pendingShaFilter = null;
+  // A W85 author-week scope is likewise restored from its pending stash so a
+  // shared #graph?author=&since=&until= link survives boot's reset; its filter
+  // text is re-applied so the first scoped paint is correct.
+  state.graphWeek = pendingGraphWeek;
+  if (pendingGraphWeek) {
+    state.filter = `${authorFilterTerm(pendingGraphWeek.author)} since:${pendingGraphWeek.since} until:${pendingGraphWeek.until}`;
+  }
+  pendingGraphWeek = null;
   // A fresh repo's calendar starts on the rolling window with no known years
   // until the next load reports them (W43). A deep-linked year (W48) is
   // restored from the pending stash so an #activity?year= link survives boot.
@@ -931,11 +946,13 @@ function buildToolbar(): HTMLElement {
     window.clearTimeout(t);
     t = window.setTimeout(() => {
       const hadShaFilter = state.graphShaFilter.length > 0;
+      const hadWeek = state.graphWeek !== null;
       state.filter = input.value.trim();
-      // Typing a search supersedes a W69 sha restriction.
+      // Typing a search supersedes a W69 sha restriction + a W85 week scope.
       state.graphShaFilter = [];
-      // Dropping the restriction invalidates its #graph?commits= link (W72).
-      if (hadShaFilter) syncHash();
+      state.graphWeek = null;
+      // Dropping the restriction/scope invalidates its deep link (W72/W85).
+      if (hadShaFilter || hadWeek) syncHash();
       rebuildMainArea();
       renderView();
     }, 120);
@@ -1089,16 +1106,19 @@ function buildMainArea(): HTMLElement {
 /** Set the filter (from a rail/cell click), sync the input, and re-render. */
 function applyFilter(query: string): void {
   const hadShaFilter = state.graphShaFilter.length > 0;
+  const hadWeek = state.graphWeek !== null;
   state.filter = query;
   // A text filter supersedes the W69 "view these commits" sha restriction.
   state.graphShaFilter = [];
+  // ...and a W85 author-week scope (the user is searching for something else).
+  state.graphWeek = null;
   const input = document.getElementById('filter-input') as HTMLInputElement | null;
   if (input) input.value = query;
   // A deliberate filter (rail click, ref jump, search-syntax) is worth
   // remembering; an empty clear is not (W30).
   if (query) searchHistory.record(query);
-  // Dropping a sha restriction invalidates its #graph?commits= deep link (W72).
-  if (hadShaFilter) syncHash();
+  // Dropping a sha restriction or week scope invalidates its deep link (W72/W85).
+  if (hadShaFilter || hadWeek) syncHash();
   rebuildMainArea();
   renderView();
 }
@@ -1200,11 +1220,46 @@ function renderGraphView(): void {
     // banner above the graph so the narrowing is obvious + reversible.
     if (state.graphShaFilter.length > 0) {
       surface.replaceChildren(buildShaFilterBanner(result.rendered), result.node);
+    } else if (state.graphWeek) {
+      // W85: an author-week scope from a sparkline drill-down — show a
+      // dismissable banner naming the author + week so the scope is obvious.
+      surface.replaceChildren(buildWeekScopeBanner(state.graphWeek, result.rendered), result.node);
     } else {
       surface.replaceChildren(result.node);
     }
   }
   updateCount(result.rendered, result.total);
+}
+
+/**
+ * A dismissable banner shown above the graph while a W85 author-week scope is
+ * active (a sparkline week drill-down). Names the author + week range; clicking
+ * "Show all" clears the scope + its deep link and re-renders the full graph.
+ */
+function buildWeekScopeBanner(
+  week: { author: string; name: string; since: string; until: string },
+  shown: number,
+): HTMLElement {
+  const bar = el('div', 'sha-filter-banner');
+  const label = el('span', 'sha-filter-label');
+  const who = escapeText(week.name || week.author);
+  const span = week.since === week.until ? week.since : `${week.since} \u2013 ${week.until}`;
+  label.innerHTML =
+    `${icons.users}<span>Showing ${shown} ${shown === 1 ? 'commit' : 'commits'} by ${who} \u00b7 ${escapeText(span)}</span>`;
+  const clear = el('button', 'sha-filter-clear');
+  clear.type = 'button';
+  clear.textContent = 'Show all';
+  clear.title = 'Clear the author-week filter';
+  clear.addEventListener('click', () => {
+    state.graphWeek = null;
+    state.filter = '';
+    // Drop the #graph?author=&since=&until= deep link from the URL too (W85).
+    syncHash();
+    rebuildMainArea();
+    renderGraphView();
+  });
+  bar.append(label, clear);
+  return bar;
 }
 
 /**
@@ -1925,6 +1980,36 @@ function toggleBlameAuthor(author: string): void {
 }
 
 /**
+ * The `author:` filter fragment for a display string (W80/W85): quoted when it
+ * carries whitespace so a name like "Ada Lovelace" filters as one term.
+ */
+function authorFilterTerm(value: string): string {
+  return /\s/.test(value) ? `author:"${value}"` : `author:${value}`;
+}
+
+/**
+ * Drop to the graph filtered to one author's commits in a single week (W85),
+ * the shareable evolution of the W80 sparkline week-pick. Records the scope in
+ * state.graphWeek (so syncHash encodes #graph?author=&since=&until= and a
+ * reload restores it), sets the matching author:/since:/until: filter, switches
+ * to the graph, and renders. The scope clears on a fresh text search, repo
+ * switch, or reload — like the W69 sha restriction.
+ */
+function viewAuthorWeek(email: string, name: string, since: string, until: string): void {
+  const value = email || name;
+  state.graphWeek = { author: value, name: name || value, since, until };
+  state.graphShaFilter = [];
+  state.filter = `${authorFilterTerm(value)} since:${since} until:${until}`;
+  state.view = 'graph';
+  detailPanel.close();
+  dayPanel.close();
+  authorPanel.close();
+  rebuildChrome();
+  syncHash();
+  renderView();
+}
+
+/**
  * Isolate a specific author in the loaded blame (W82, command-palette entry).
  * Unlike the toggle, this always sets (never clears) so "Isolate <name>" from
  * Cmd-K is unambiguous. A no-op when that author is already active.
@@ -2088,8 +2173,12 @@ function installKeyboard(): void {
       if (e.key === 'Escape') {
         input!.blur();
         if (input!.value) {
+          const hadWeek = state.graphWeek !== null;
           input!.value = '';
           state.filter = '';
+          // Clearing the box drops a W85 author-week scope + its deep link too.
+          state.graphWeek = null;
+          if (hadWeek) syncHash();
           rebuildMainArea();
           renderView();
         }
@@ -2165,6 +2254,15 @@ function applyInitialRoute(): void {
   if (route.view === 'graph' && (route as GraphCommitsRoute).commits) {
     pendingShaFilter = (route as GraphCommitsRoute).commits;
   }
+  // Seed an author-week graph (#graph?author=&since=&until=, W85); boot() resets
+  // graphWeek, so stash the scope + restore it after the reset so a shared link
+  // lands on the same week filter. Set the filter text now so the first paint
+  // is already scoped.
+  if (route.view === 'graph' && (route as GraphAuthorWeekRoute).author) {
+    const r = route as GraphAuthorWeekRoute;
+    pendingGraphWeek = { author: r.author, name: r.author, since: r.since, until: r.until };
+    state.filter = `${authorFilterTerm(r.author)} since:${r.since} until:${r.until}`;
+  }
   // Remember a contributor comparison (#contributors?vs=a,b, W47); boot()
   // pre-selects the two authors + opens the panel once contributors load.
   if (route.view === 'contributors' && route.vs) {
@@ -2204,6 +2302,13 @@ let pendingCommitSha: string | null = null;
  * a shared "view these commits" link lands on the restricted graph.
  */
 let pendingShaFilter: string[] | null = null;
+
+/**
+ * An author-week scope from a #graph?author=&since=&until= deep link (W85).
+ * boot() resets graphWeek, so we stash the scope here and restore it after the
+ * reset so a shared sparkline-week link lands on the same filtered graph.
+ */
+let pendingGraphWeek: { author: string; name: string; since: string; until: string } | null = null;
 
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
@@ -2254,6 +2359,15 @@ function syncHash(): void {
     // A shareable "view these commits" graph (W72): the active blame-range
     // sha restriction, so a reload / shared link lands on the same subset.
     route = { view: 'graph', commits: state.graphShaFilter };
+  } else if (state.view === 'graph' && state.graphWeek) {
+    // A shareable author-week graph (W85): the active sparkline week scope, so
+    // a reload / shared link lands on the same author+week filter.
+    route = {
+      view: 'graph',
+      author: state.graphWeek.author,
+      since: state.graphWeek.since,
+      until: state.graphWeek.until,
+    };
   } else if (state.view === 'contributors' && state.compareSelection.length === 2) {
     // A shareable two-author comparison deep-link (W47).
     const [a, b] = state.compareSelection;
@@ -2317,6 +2431,12 @@ function installHashRouting(): void {
         state.graphShaFilter = [];
         renderGraphView();
       }
+      // ...and a W85 author-week scope (its filter clears with it).
+      if (state.view === 'graph' && state.graphWeek) {
+        state.graphWeek = null;
+        state.filter = '';
+        renderGraphView();
+      }
       return;
     }
     if (route.view === 'compare' && route.base && route.head) {
@@ -2357,8 +2477,32 @@ function installHashRouting(): void {
       }
       return;
     }
-    // Contributor comparison deep-link on back/forward (W47): switch to the
-    // contributors tab if needed, then open the comparison for the pair.
+    // Author-week graph deep-link on back/forward (W85): swap to the graph if
+    // needed, then re-apply the author+week filter (or clear it when the param
+    // is gone) and re-render so the scoped view tracks the URL.
+    if (route.view === 'graph' && (route as GraphAuthorWeekRoute).author) {
+      const r = route as GraphAuthorWeekRoute;
+      const nextFilter = `${authorFilterTerm(r.author)} since:${r.since} until:${r.until}`;
+      const changed =
+        !state.graphWeek ||
+        state.graphWeek.author !== r.author ||
+        state.graphWeek.since !== r.since ||
+        state.graphWeek.until !== r.until;
+      state.graphWeek = { author: r.author, name: r.author, since: r.since, until: r.until };
+      state.graphShaFilter = [];
+      state.filter = nextFilter;
+      if (state.view !== 'graph') {
+        state.view = 'graph';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      } else if (changed) {
+        rebuildMainArea();
+        renderGraphView();
+      }
+      return;
+    }
     if (route.view === 'contributors' && route.vs) {
       if (state.view !== 'contributors') {
         state.view = 'contributors';
@@ -2480,6 +2624,12 @@ function installHashRouting(): void {
     } else if (route.view === 'graph' && state.graphShaFilter.length > 0) {
       // Bare #graph reached on back/forward -> drop a W72 sha restriction.
       state.graphShaFilter = [];
+      renderGraphView();
+    } else if (route.view === 'graph' && state.graphWeek) {
+      // Bare #graph reached on back/forward -> drop a W85 author-week scope.
+      state.graphWeek = null;
+      state.filter = '';
+      rebuildMainArea();
       renderGraphView();
     }
   });

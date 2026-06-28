@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -585,6 +585,64 @@ test('parseHash reads a blame author= param back', () => {
 
 test('buildHash(parseHash(x)) round-trips a blame author link', () => {
   const original = 'blame?path=src%2Fmain.ts&author=Ada+Lovelace';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Author-week graph deep-link (W85) ────────────────────────────────
+
+test('sanitizeAuthorFilter cleans control chars + bounds, keeps spaces', () => {
+  assert.equal(sanitizeAuthorFilter('Ada Lovelace'), 'Ada Lovelace');
+  assert.equal(sanitizeAuthorFilter('  ada@x.io  '), 'ada@x.io');
+  // eslint-disable-next-line no-control-regex
+  assert.equal(sanitizeAuthorFilter('Ada\u0000\tLovelace'), 'Ada Lovelace');
+  assert.equal(sanitizeAuthorFilter('   '), null);
+  assert.equal(sanitizeAuthorFilter(''), null);
+  assert.equal(sanitizeAuthorFilter('x'.repeat(200))?.length, 160);
+});
+
+test('buildHash emits graph?author=&since=&until= for a week scope', () => {
+  assert.equal(
+    buildHash({ view: 'graph', author: 'ada@x.io', since: '2026-06-01', until: '2026-06-07' }),
+    'graph?author=ada%40x.io&since=2026-06-01&until=2026-06-07',
+  );
+});
+
+test('buildHash degrades a week scope to bare graph when a part is unsafe', () => {
+  // Empty author.
+  assert.equal(buildHash({ view: 'graph', author: '  ', since: '2026-06-01', until: '2026-06-07' }), '');
+  // Shape-invalid day keys (sanitizeDayKey validates the YYYY-MM-DD shape, the
+  // same contract as the W79 day panel).
+  assert.equal(buildHash({ view: 'graph', author: 'Ada', since: 'nope', until: '2026-06-07' }), '');
+  assert.equal(buildHash({ view: 'graph', author: 'Ada', since: '2026-06-01', until: '2026-6-7' }), '');
+});
+
+test('parseHash reads a graph author-week link back', () => {
+  assert.deepEqual(parseHash('#graph?author=Ada+Lovelace&since=2026-06-01&until=2026-06-07'), {
+    view: 'graph',
+    author: 'Ada Lovelace',
+    since: '2026-06-01',
+    until: '2026-06-07',
+  });
+});
+
+test('parseHash drops a graph author-week scope with a junk day', () => {
+  // Missing until -> not a week scope; no commits either -> bare graph.
+  assert.deepEqual(parseHash('#graph?author=Ada&since=2026-06-01'), { view: 'graph' });
+  assert.deepEqual(parseHash('#graph?author=Ada&since=bad&until=2026-06-07'), { view: 'graph' });
+});
+
+test('author-week wins over a commits= list on the same graph hash', () => {
+  // Both present -> the author-week scope is read (mutually exclusive design).
+  assert.deepEqual(
+    parseHash('#graph?author=Ada&since=2026-06-01&until=2026-06-07&commits=abcd1234'),
+    { view: 'graph', author: 'Ada', since: '2026-06-01', until: '2026-06-07' },
+  );
+});
+
+test('buildHash(parseHash(x)) round-trips a graph author-week link', () => {
+  const original = 'graph?author=Ada+Lovelace&since=2026-06-01&until=2026-06-07';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

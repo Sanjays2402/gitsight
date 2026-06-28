@@ -118,6 +118,24 @@ export interface GraphCommitsRoute {
   commits: string[];
 }
 
+/**
+ * A graph scoped to one author's commits in a single week (W85): the shareable
+ * form of the W80 sparkline week-pick. `#graph?author=&since=&until=` restores
+ * the exact `author: since: until:` filter on reload + back/forward, so a week
+ * drilled into from a contributor's sparkline lands on the same scoped graph.
+ */
+export interface GraphAuthorWeekRoute {
+  view: 'graph';
+  sha?: undefined;
+  commits?: undefined;
+  /** The author display string the filter isolates (email or name). */
+  author: string;
+  /** Inclusive week-start day (YYYY-MM-DD), the filter's since:. */
+  since: string;
+  /** Inclusive week-end day (YYYY-MM-DD), the filter's until:. */
+  until: string;
+}
+
 /** A bare blame tab (no file) shares the PlainRoute-ish shape. */
 export interface BlameBareRoute {
   view: 'blame';
@@ -147,6 +165,7 @@ export type Route =
   | StashesRoute
   | StashesBareRoute
   | GraphCommitsRoute
+  | GraphAuthorWeekRoute
   | PlainRoute;
 
 /** True when a string names a routable view. */
@@ -336,6 +355,21 @@ export function sanitizeBlameAuthor(author: string | null | undefined): string |
 }
 
 /**
+ * Normalise + validate an author display string for a graph week deep-link
+ * (W85). The value (an email or a name) becomes part of a client-side
+ * `author:` filter — it never reaches git — but the hash value is still cleaned
+ * so a crafted `#graph?author=` can't smuggle control characters into the DOM:
+ * control chars are stripped, whitespace is collapsed + trimmed, and the length
+ * is bounded. Spaces are allowed (a name like "Ada Lovelace"); the filter
+ * builder quotes them. Returns the cleaned value, or null when empty so the
+ * link degrades to the bare graph. (Same cleaning as sanitizeBlameAuthor — kept
+ * a distinct name so each W's intent reads clearly at the call site.)
+ */
+export function sanitizeAuthorFilter(author: string | null | undefined): string | null {
+  return sanitizeBlameAuthor(author);
+}
+
+/**
  * Normalise + validate a stash filter query for a deep link (W63). The query
  * is purely a client-side substring match against stash subjects/branches (it
  * never reaches git), but the hash value is still cleaned so a crafted
@@ -434,6 +468,20 @@ export function buildHash(route: Route): string {
       }
     }
     return 'stashes';
+  }
+  if (route.view === 'graph' && (route as GraphAuthorWeekRoute).author) {
+    // A shareable author-week graph (W85): #graph?author=&since=&until=. All
+    // three must survive sanitising (the author cleaner + the day-key guard);
+    // otherwise degrade to the bare graph.
+    const r = route as GraphAuthorWeekRoute;
+    const author = sanitizeAuthorFilter(r.author);
+    const since = sanitizeDayKey(r.since);
+    const until = sanitizeDayKey(r.until);
+    if (author && since && until) {
+      const p = new URLSearchParams({ author, since, until });
+      return `graph?${p.toString()}`;
+    }
+    return '';
   }
   if (route.view === 'graph' && (route as GraphCommitsRoute).commits) {
     // A shareable "view these commits" graph (W72): #graph?commits=sha,sha.
@@ -553,8 +601,18 @@ export function parseHash(hash: string): Route | null {
 
   // "View these commits" graph deep-link (W72): graph?commits=sha,sha. Each
   // sha is sanitised; an empty/garbage list degrades to the bare graph tab.
+  // Author-week graph deep-link (W85): graph?author=&since=&until=.
   if (viewName === 'graph' && qIdx !== -1) {
     const params = new URLSearchParams(h.slice(qIdx + 1));
+    // W85: an author-week scope wins when its three params all sanitise (it's
+    // mutually exclusive with the W72 sha list).
+    const rawAuthor = params.get('author');
+    if (rawAuthor !== null) {
+      const author = sanitizeAuthorFilter(decodeURIComponent(rawAuthor));
+      const since = sanitizeDayKey(params.get('since') ? decodeURIComponent(params.get('since')!) : null);
+      const until = sanitizeDayKey(params.get('until') ? decodeURIComponent(params.get('until')!) : null);
+      if (author && since && until) return { view: 'graph', author, since, until };
+    }
     const raw = params.get('commits');
     if (raw !== null) {
       const commits = sanitizeShaList(decodeURIComponent(raw));
