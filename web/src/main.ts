@@ -1198,6 +1198,11 @@ function renderActivityView(): void {
     // W55: hovering a populated commits-metric cell previews the day's top
     // subjects. Reuses the W22 /api/day endpoint; the view debounces + caches.
     peekDay: (date: string) => loadDay(date, { repo: state.repo ?? undefined }),
+    // W75: a pinned peek's "View full day" footer opens the W22 day panel so
+    // the preview bridges to the full drill-down.
+    onOpenDay: (date: string) => {
+      void dayPanel.open(date);
+    },
   });
   surface.replaceChildren(node);
   const noun = state.activityMetric === 'churn' ? 'lines' : 'commits';

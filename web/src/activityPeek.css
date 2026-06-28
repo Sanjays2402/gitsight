@@ -137,3 +137,35 @@
   background: var(--bg-inset);
 }
 
+/*
+ * "View full day" footer link on a pinned peek (W75) — bridges the preview
+ * (top 6 subjects) to the full W22 day panel. A quiet full-width button sat
+ * below the subjects, separated by a hairline; the accent only colours the
+ * text so it reads as a link, not a primary action competing with the cells.
+ */
+.activity-peek-open {
+  appearance: none;
+  margin-top: 6px;
+  padding: 5px 0 1px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.activity-peek-open:hover {
+  color: var(--accent-strong, var(--accent));
+  text-decoration: underline;
+}
+
+.activity-peek-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+

@@ -44,6 +44,12 @@ export interface ActivityViewOptions {
    * the plain native-title tooltip.
    */
   peekDay?: (date: string) => Promise<DayResult>;
+  /**
+   * Open the full W22 day panel for a date (W75). When wired, a pinned peek
+   * (W68) gains a "View full day" footer link so the preview (top 6 subjects)
+   * bridges to the complete day drill-down. Omit to hide the link.
+   */
+  onOpenDay?: (date: string) => void;
 }
 
 /** Render the activity calendar into a detached node. */
@@ -149,7 +155,7 @@ export function renderActivity(cal: ActivityCalendar, opts: ActivityViewOptions 
   // commit subjects to preview) and only when the host wired a day fetcher.
   // The popover mounts inside `wrap`, so it's removed automatically when a
   // re-render replaces the calendar — no external disposal needed.
-  const peek = !isChurn && opts.peekDay ? new DayPeekController(wrap, opts.peekDay) : null;
+  const peek = !isChurn && opts.peekDay ? new DayPeekController(wrap, opts.peekDay, opts.onOpenDay) : null;
   for (const week of cal.weeks) {
     for (const day of week) {
       const cell = el('span', `activity-cell lvl-${day.level}` + (day.filler ? ' filler' : ''));
@@ -330,6 +336,7 @@ function buildYearPicker(
  */
 class DayPeekController {
   private readonly load: (date: string) => Promise<DayResult>;
+  private readonly onOpenDay: ((date: string) => void) | undefined;
   private readonly pop: HTMLElement;
   private readonly cache = new Map<string, { subjects: string[]; more: number }>();
   private enterTimer: number | null = null;
@@ -342,8 +349,9 @@ class DayPeekController {
   private readonly onDocPointer: (e: MouseEvent) => void;
   private readonly onKeydown: (e: KeyboardEvent) => void;
 
-  constructor(host: HTMLElement, load: (date: string) => Promise<DayResult>) {
+  constructor(host: HTMLElement, load: (date: string) => Promise<DayResult>, onOpenDay?: (date: string) => void) {
     this.load = load;
+    this.onOpenDay = onOpenDay;
     this.pop = el('div', 'activity-peek');
     this.pop.hidden = true;
     this.pop.setAttribute('role', 'tooltip');
@@ -426,14 +434,26 @@ class DayPeekController {
       // Pinned: a header with the date + a close button, then the subjects.
       // The popover is interactive so the close button is clickable.
       this.pop.classList.add('pinned');
+      // W75: when the host wired onOpenDay, a footer link opens the full W22
+      // day panel — the peek is a preview (top 6), the panel is the detail.
+      const footer = this.onOpenDay
+        ? `<button class="activity-peek-open" type="button">View full day</button>`
+        : '';
       this.pop.innerHTML =
         `<div class="activity-peek-head"><span class="activity-peek-date">${escapeHtml(date)}</span>` +
         `<button class="activity-peek-close" type="button" aria-label="Close" title="Close (Esc)">${icons.close}</button></div>` +
         items +
-        more;
+        more +
+        footer;
       this.pop.querySelector<HTMLElement>('.activity-peek-close')?.addEventListener('click', () => {
         this.unpin();
         this.pinnedCell?.focus();
+      });
+      // W75: the footer link routes to the full day panel, then drops the peek.
+      this.pop.querySelector<HTMLElement>('.activity-peek-open')?.addEventListener('click', () => {
+        const d = date;
+        this.unpin();
+        this.onOpenDay?.(d);
       });
     } else {
       this.pop.classList.remove('pinned');
