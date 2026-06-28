@@ -77,7 +77,7 @@ import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
-import { buildHash, parseHash, hashChanged, type Route, type PlainRoute } from './hashRoute';
+import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute } from './hashRoute';
 import { layoutFor, layoutChanged, type Layout } from './responsive';
 import { LiveClient, type LiveStatus } from './live';
 import { CommandPalette } from './commandPalette';
@@ -583,8 +583,11 @@ async function boot(): Promise<void> {
   }
   // Switching repos / reloading invalidates the cached view payloads.
   state.activity = slot<ActivityPayload>();
-  // A reload/repo-switch drops any W69 "view these commits" sha restriction.
-  state.graphShaFilter = [];
+  // A reload/repo-switch drops any W69 "view these commits" sha restriction,
+  // except a deep-linked one (W72) restored from the pending stash so a shared
+  // #graph?commits= link survives boot.
+  state.graphShaFilter = pendingShaFilter ?? [];
+  pendingShaFilter = null;
   // A fresh repo's calendar starts on the rolling window with no known years
   // until the next load reports them (W43). A deep-linked year (W48) is
   // restored from the pending stash so an #activity?year= link survives boot.
@@ -869,9 +872,12 @@ function buildToolbar(): HTMLElement {
   input.addEventListener('input', () => {
     window.clearTimeout(t);
     t = window.setTimeout(() => {
+      const hadShaFilter = state.graphShaFilter.length > 0;
       state.filter = input.value.trim();
       // Typing a search supersedes a W69 sha restriction.
       state.graphShaFilter = [];
+      // Dropping the restriction invalidates its #graph?commits= link (W72).
+      if (hadShaFilter) syncHash();
       rebuildMainArea();
       renderView();
     }, 120);
@@ -1024,6 +1030,7 @@ function buildMainArea(): HTMLElement {
 
 /** Set the filter (from a rail/cell click), sync the input, and re-render. */
 function applyFilter(query: string): void {
+  const hadShaFilter = state.graphShaFilter.length > 0;
   state.filter = query;
   // A text filter supersedes the W69 "view these commits" sha restriction.
   state.graphShaFilter = [];
@@ -1032,6 +1039,8 @@ function applyFilter(query: string): void {
   // A deliberate filter (rail click, ref jump, search-syntax) is worth
   // remembering; an empty clear is not (W30).
   if (query) searchHistory.record(query);
+  // Dropping a sha restriction invalidates its #graph?commits= deep link (W72).
+  if (hadShaFilter) syncHash();
   rebuildMainArea();
   renderView();
 }
@@ -1155,6 +1164,8 @@ function buildShaFilterBanner(shown: number): HTMLElement {
   clear.title = 'Clear the blame-range filter';
   clear.addEventListener('click', () => {
     state.graphShaFilter = [];
+    // Drop the #graph?commits= deep link from the URL too (W72).
+    syncHash();
     renderGraphView();
   });
   bar.append(label, clear);
@@ -1969,6 +1980,12 @@ function applyInitialRoute(): void {
   if (route.view === 'graph' && route.sha) {
     pendingCommitSha = route.sha;
   }
+  // Seed a "view these commits" graph (#graph?commits=, W72); boot() resets
+  // graphShaFilter, so stash the list + restore it after the reset so the
+  // shared link lands on the restricted graph (with the W69 banner).
+  if (route.view === 'graph' && (route as GraphCommitsRoute).commits) {
+    pendingShaFilter = (route as GraphCommitsRoute).commits;
+  }
   // Remember a contributor comparison (#contributors?vs=a,b, W47); boot()
   // pre-selects the two authors + opens the panel once contributors load.
   if (route.view === 'contributors' && route.vs) {
@@ -2000,6 +2017,13 @@ function applyInitialRoute(): void {
 
 /** A commit sha from a #commit/<sha> permalink, opened after boot (W27). */
 let pendingCommitSha: string | null = null;
+
+/**
+ * A commit-sha list from a #graph?commits= deep link (W72). boot() resets
+ * graphShaFilter, so we stash the list here and restore it after the reset so
+ * a shared "view these commits" link lands on the restricted graph.
+ */
+let pendingShaFilter: string[] | null = null;
 
 /** Two author emails from a #contributors?vs= deep-link, opened after boot (W47). */
 let pendingCompareEmails: [string, string] | null = null;
@@ -2039,6 +2063,10 @@ function syncHash(): void {
   } else if (state.view === 'graph' && detailPanel.isOpen() && detailPanel.currentSha()) {
     // A permalink to the focused commit (W27).
     route = { view: 'graph', sha: detailPanel.currentSha()! };
+  } else if (state.view === 'graph' && state.graphShaFilter.length > 0) {
+    // A shareable "view these commits" graph (W72): the active blame-range
+    // sha restriction, so a reload / shared link lands on the same subset.
+    route = { view: 'graph', commits: state.graphShaFilter };
   } else if (state.view === 'contributors' && state.compareSelection.length === 2) {
     // A shareable two-author comparison deep-link (W47).
     const [a, b] = state.compareSelection;
@@ -2087,8 +2115,13 @@ function installHashRouting(): void {
     if (writingHash) return;
     const route = parseHash(location.hash);
     if (!route) {
-      // Hash cleared (e.g. back to base URL) -> close any open permalink.
+      // Hash cleared (e.g. back to base URL) -> close any open permalink and
+      // drop a W72 "view these commits" sha restriction so the graph un-filters.
       if (state.view === 'graph' && detailPanel.isOpen()) detailPanel.close();
+      if (state.view === 'graph' && state.graphShaFilter.length > 0) {
+        state.graphShaFilter = [];
+        renderGraphView();
+      }
       return;
     }
     if (route.view === 'compare' && route.base && route.head) {
@@ -2108,6 +2141,25 @@ function installHashRouting(): void {
         rebuildChrome();
       }
       if (detailPanel.currentSha() !== route.sha) openDetailFor(route.sha);
+      return;
+    }
+    // "View these commits" graph deep-link on back/forward (W72): swap to the
+    // graph if needed, then re-apply the sha restriction (or clear it when the
+    // param is gone) and re-render so the banner tracks the URL.
+    if (route.view === 'graph' && (route as GraphCommitsRoute).commits) {
+      const commits = (route as GraphCommitsRoute).commits;
+      const changed = commits.join(',') !== state.graphShaFilter.join(',');
+      state.graphShaFilter = commits;
+      state.filter = '';
+      if (state.view !== 'graph') {
+        state.view = 'graph';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      } else if (changed) {
+        renderGraphView();
+      }
       return;
     }
     // Contributor comparison deep-link on back/forward (W47): switch to the
@@ -2216,6 +2268,10 @@ function installHashRouting(): void {
     } else if (route.view === 'graph' && detailPanel.isOpen()) {
       // Same view, no sha in the URL -> close an open permalink.
       detailPanel.close();
+    } else if (route.view === 'graph' && state.graphShaFilter.length > 0) {
+      // Bare #graph reached on back/forward -> drop a W72 sha restriction.
+      state.graphShaFilter = [];
+      renderGraphView();
     }
   });
 }

@@ -91,6 +91,19 @@ export interface PlainRoute {
   sha?: string;
 }
 
+/**
+ * A graph scoped to an explicit set of commit shas (W72): `#graph?commits=…`.
+ * This is the shareable form of the W69 "view these commits" blame-range
+ * filter — opening the link lands on the graph restricted to those commits
+ * (with the dismissable banner), and the state survives a reload.
+ */
+export interface GraphCommitsRoute {
+  view: 'graph';
+  sha?: undefined;
+  /** The commit shas the graph is restricted to. Sanitised + de-duped. */
+  commits: string[];
+}
+
 /** A bare blame tab (no file) shares the PlainRoute-ish shape. */
 export interface BlameBareRoute {
   view: 'blame';
@@ -119,6 +132,7 @@ export type Route =
   | BlameBareRoute
   | StashesRoute
   | StashesBareRoute
+  | GraphCommitsRoute
   | PlainRoute;
 
 /** True when a string names a routable view. */
@@ -175,6 +189,36 @@ export function sanitizeContributorSort(sort: string | null | undefined): Contri
 export function sanitizeSha(sha: string): string | null {
   const s = (sha ?? '').trim().toLowerCase();
   return /^[0-9a-f]{4,64}$/.test(s) ? s : null;
+}
+
+/**
+ * The most commits a `#graph?commits=` deep link encodes (W72). Caps the URL
+ * length so a pathological blame range can't produce a multi-kilobyte hash;
+ * a real "view these commits" selection is a handful of authors.
+ */
+export const MAX_GRAPH_COMMITS = 200;
+
+/**
+ * Normalise + validate a comma-separated commit-sha list for a `#graph?commits=`
+ * deep link (W72). Each entry runs through `sanitizeSha` (hex 4-64, lowercased)
+ * so a crafted hash can't smuggle a flag/path toward the companion; junk entries
+ * are dropped, duplicates collapse (first-seen order preserved), and the list is
+ * capped at MAX_GRAPH_COMMITS. Returns an empty array when nothing survives so a
+ * blank/garbage `commits=` degrades to the bare graph.
+ */
+export function sanitizeShaList(value: string | string[] | null | undefined): string[] {
+  if (value === null || value === undefined) return [];
+  const parts = Array.isArray(value) ? value : String(value).split(',');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const sha = sanitizeSha(part);
+    if (!sha || seen.has(sha)) continue;
+    seen.add(sha);
+    out.push(sha);
+    if (out.length >= MAX_GRAPH_COMMITS) break;
+  }
+  return out;
 }
 
 /**
@@ -342,6 +386,15 @@ export function buildHash(route: Route): string {
     }
     return 'stashes';
   }
+  if (route.view === 'graph' && (route as GraphCommitsRoute).commits) {
+    // A shareable "view these commits" graph (W72): #graph?commits=sha,sha.
+    const shas = sanitizeShaList((route as GraphCommitsRoute).commits);
+    if (shas.length > 0) {
+      const p = new URLSearchParams({ commits: shas.join(',') });
+      return `graph?${p.toString()}`;
+    }
+    return '';
+  }
   if (route.view === 'graph' && route.sha) {
     const sha = sanitizeSha(route.sha);
     return sha ? `commit/${sha}` : '';
@@ -439,6 +492,18 @@ export function parseHash(hash: string): Route | null {
     const q = rawQ !== null ? sanitizeStashQuery(decodeURIComponent(rawQ)) : null;
     if (q) return { view: 'stashes', q };
     return { view: 'stashes' };
+  }
+
+  // "View these commits" graph deep-link (W72): graph?commits=sha,sha. Each
+  // sha is sanitised; an empty/garbage list degrades to the bare graph tab.
+  if (viewName === 'graph' && qIdx !== -1) {
+    const params = new URLSearchParams(h.slice(qIdx + 1));
+    const raw = params.get('commits');
+    if (raw !== null) {
+      const commits = sanitizeShaList(decodeURIComponent(raw));
+      if (commits.length > 0) return { view: 'graph', commits };
+    }
+    return { view: 'graph' };
   }
 
   return { view: viewName as PlainRoute['view'] };

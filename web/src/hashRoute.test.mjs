@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -439,6 +439,64 @@ test('a vs param is read in preference to a sort param', () => {
 
 test('buildHash(parseHash(x)) round-trips a contributors sort link', () => {
   const original = 'contributors?sort=churn';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── "View these commits" graph deep-link (W72) ───────────────────────
+
+test('sanitizeShaList keeps valid shas, drops junk, de-dupes, preserves order', () => {
+  assert.deepEqual(sanitizeShaList('aaaa1111,BBBB2222,aaaa1111'), ['aaaa1111', 'bbbb2222']);
+  // Junk entries (too short, non-hex, flag-shaped) drop; the rest survive.
+  assert.deepEqual(sanitizeShaList('abc,deadbeef,-x,zzzz'), ['deadbeef']);
+  // Array input works too (the route carries an array).
+  assert.deepEqual(sanitizeShaList(['aaaa', 'bbbb']), ['aaaa', 'bbbb']);
+  // Empty / nullish degrade to an empty list.
+  assert.deepEqual(sanitizeShaList(''), []);
+  assert.deepEqual(sanitizeShaList(null), []);
+  assert.deepEqual(sanitizeShaList(undefined), []);
+});
+
+test('sanitizeShaList caps the list at MAX_GRAPH_COMMITS', () => {
+  // Build more distinct shas than the cap and confirm it truncates.
+  const many = Array.from({ length: MAX_GRAPH_COMMITS + 25 }, (_, i) =>
+    (i + 0x100000).toString(16),
+  );
+  const out = sanitizeShaList(many.join(','));
+  assert.equal(out.length, MAX_GRAPH_COMMITS);
+  assert.equal(out[0], many[0]); // first-seen order kept
+});
+
+test('buildHash emits graph?commits= for a sha-restricted graph', () => {
+  assert.equal(
+    buildHash({ view: 'graph', commits: ['aaaa1111', 'bbbb2222'] }),
+    'graph?commits=aaaa1111%2Cbbbb2222',
+  );
+  // An all-junk / empty list degrades to the bare graph (empty hash).
+  assert.equal(buildHash({ view: 'graph', commits: ['nothex'] }), '');
+  assert.equal(buildHash({ view: 'graph', commits: [] }), '');
+});
+
+test('a commit permalink still wins over a commits list shape', () => {
+  // A graph route carrying a sha is the W27 permalink; commits is undefined.
+  assert.equal(buildHash({ view: 'graph', sha: 'a1b2c3d4' }), 'commit/a1b2c3d4');
+});
+
+test('parseHash reads a graph?commits= link back', () => {
+  assert.deepEqual(parseHash('#graph?commits=aaaa1111%2Cbbbb2222'), {
+    view: 'graph',
+    commits: ['aaaa1111', 'bbbb2222'],
+  });
+  // A blank/garbage commits param degrades to the bare graph.
+  assert.deepEqual(parseHash('#graph?commits='), { view: 'graph' });
+  assert.deepEqual(parseHash('#graph?commits=zzzz'), { view: 'graph' });
+  // A bare #graph stays the plain graph route.
+  assert.deepEqual(parseHash('#graph'), { view: 'graph' });
+});
+
+test('buildHash(parseHash(x)) round-trips a graph commits link', () => {
+  const original = 'graph?commits=aaaa1111%2Cbbbb2222';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);
