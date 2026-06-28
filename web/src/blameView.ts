@@ -102,6 +102,14 @@ export interface BlameViewOptions {
    * legend. Absent = no context menu (the browser default stands).
    */
   onLineMenu?: (info: { line: number; author: string; email: string; x: number; y: number }) => void;
+  /**
+   * Fired when the header's "Copy link" button is clicked (W81) — the host
+   * builds a shareable #blame?path=&rev=&author= permalink to the whole file's
+   * blame (at the current rev + any active author isolate) and copies it. Only
+   * shown when a file is loaded AND this is wired. The W57/W65 line-number copy
+   * still covers a specific line; this covers the file as a whole.
+   */
+  onCopyFileLink?: () => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -442,6 +450,19 @@ function buildForm(opts: BlameViewOptions): HTMLElement {
     badge.innerHTML = `<span class="at">at</span><span class="rev">${escapeHtml(rev.slice(0, 12))}</span>`;
     badge.title = `Blaming at ${rev}`;
     form.appendChild(badge);
+  }
+
+  // Copy-link button (W81): a shareable permalink to the whole file's blame
+  // (at the current rev + any active author isolate). Only when a file is
+  // loaded + the host wired it; the W57/W65 line numbers still copy a line link.
+  if (opts.path && opts.onCopyFileLink) {
+    const copy = el('button', 'btn icon-only blame-copy-link');
+    copy.type = 'button';
+    copy.title = 'Copy a shareable link to this file\u2019s blame';
+    copy.setAttribute('aria-label', 'Copy blame link');
+    copy.innerHTML = icons.link;
+    copy.addEventListener('click', () => opts.onCopyFileLink!());
+    form.appendChild(copy);
   }
 
   form.addEventListener('submit', e => {

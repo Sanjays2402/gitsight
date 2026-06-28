@@ -1421,6 +1421,9 @@ function renderBlameView(): void {
       });
       openContextMenu(info.x, info.y, items);
     },
+    // W81: a header copy-link button shares a permalink to the whole file's
+    // blame (current rev + active author isolate), reusing buildHash.
+    onCopyFileLink: () => void copyBlameFileLink(),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1826,6 +1829,30 @@ async function copyBlameLineRangeLink(start: number, end: number): Promise<void>
   try {
     await navigator.clipboard.writeText(url);
     toast(`Link to lines ${start}\u2013${end} copied`);
+  } catch {
+    toast('Copy failed');
+  }
+}
+
+/**
+ * Copy a shareable permalink to the WHOLE file's blame (W81). Unlike the
+ * W57/W65 line-number copy (which targets one line / a range), this builds a
+ * #blame?path=&rev=&author= link to the file's blame at the current rev,
+ * preserving any active W40/W76 author isolate, so the header has an obvious
+ * "share this view" affordance. Reuses buildHash; no line is included.
+ */
+async function copyBlameFileLink(): Promise<void> {
+  if (!state.blamePath) return;
+  const hash = buildHash({
+    view: 'blame',
+    path: state.blamePath,
+    rev: state.blameRev,
+    author: state.blameAuthor ?? undefined,
+  });
+  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Blame link copied');
   } catch {
     toast('Copy failed');
   }
