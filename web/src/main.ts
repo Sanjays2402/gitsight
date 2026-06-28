@@ -1524,6 +1524,7 @@ function renderBlameView(): void {
         activeAuthor: state.blameAuthor,
         canViewAuthor: !!info.email,
         canCopyLine: true,
+        canOpenLine: true,
       });
       const items: ContextMenuItem[] = choices.map(c => {
         if (c.action === 'isolate' || c.action === 'show-all') {
@@ -1531,6 +1532,10 @@ function renderBlameView(): void {
         }
         if (c.action === 'view-author') {
           return { label: c.label, icon: 'users', separator: c.separator, run: () => void authorPanel.open(c.email || c.author!, c.author!) };
+        }
+        if (c.action === 'open-line') {
+          // W90: open this line's permalink in a new tab (reuses the W57 builder).
+          return { label: c.label, icon: 'external', separator: c.separator, run: () => openBlameLineLink(info.line) };
         }
         // copy-line
         return { label: c.label, icon: 'link', separator: c.separator, run: () => void copyBlameLineLink(info.line) };
@@ -1921,21 +1926,47 @@ async function copyBlameLineLink(line: number): Promise<void> {
   state.blameLineEnd = null;
   // Sync the hash so the address bar matches the copied link + survives reload.
   syncHash();
-  const hash = buildHash({
-    view: 'blame',
-    path: state.blamePath,
-    rev: state.blameRev,
-    line,
-    // Preserve an active author isolate (W76) so a copied line link keeps it.
-    author: state.blameAuthor ?? undefined,
-  });
-  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  const url = blameLineLinkUrl(line);
+  if (!url) return;
   try {
     await navigator.clipboard.writeText(url);
     toast(`Link to line ${line} copied`);
   } catch {
     toast('Copy failed');
   }
+}
+
+/**
+ * Build a shareable permalink URL to a blamed line (W57) or range (W65) for
+ * the loaded file (W90 extraction): a #blame?path=&rev=&line=N(-M)&author=
+ * link at the current rev, preserving any active W40/W76 author isolate.
+ * Returns '' when no file is loaded. Shared by the W57/W65 copy + the W90
+ * open-in-new-tab action so the copied link and the opened tab are identical.
+ */
+function blameLineLinkUrl(line: number, lineEnd?: number | null): string {
+  if (!state.blamePath) return '';
+  const hash = buildHash({
+    view: 'blame',
+    path: state.blamePath,
+    rev: state.blameRev,
+    line,
+    lineEnd: lineEnd ?? undefined,
+    // Preserve an active author isolate (W76) so a line link keeps it.
+    author: state.blameAuthor ?? undefined,
+  });
+  return `${location.origin}${location.pathname}${location.search}#${hash}`;
+}
+
+/**
+ * Open a blamed line's permalink in a new tab (W90). Reuses the W57/W65 line
+ * link builder so the opened tab matches a copied link exactly;
+ * noopener/noreferrer keep the new tab from reaching back into this one. Used
+ * from the W77 line context menu.
+ */
+function openBlameLineLink(line: number, lineEnd?: number | null): void {
+  const url = blameLineLinkUrl(line, lineEnd);
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /**

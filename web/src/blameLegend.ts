@@ -92,8 +92,8 @@ export function authorEmailFromLines(
 
 // ── Blame line context menu (W77) ────────────────────────────────────
 
-/** The actions a blame line's right-click menu can offer (W77). */
-export type BlameMenuAction = 'isolate' | 'show-all' | 'view-author' | 'copy-line';
+/** The actions a blame line's right-click menu can offer (W77; W90). */
+export type BlameMenuAction = 'isolate' | 'show-all' | 'view-author' | 'copy-line' | 'open-line';
 
 /** One choice in a blame line's context menu (data only — no DOM/closure). */
 export interface BlameMenuChoice {
@@ -119,6 +119,8 @@ export interface BlameMenuContext {
   canViewAuthor?: boolean;
   /** Whether line-copy permalinks are wired (W57). */
   canCopyLine?: boolean;
+  /** Whether opening a line permalink in a new tab is wired (W90). */
+  canOpenLine?: boolean;
 }
 
 /**
@@ -134,6 +136,8 @@ export interface BlameMenuContext {
  *  - "View <author>'s contributions" is offered when the W23 panel is wired
  *    AND an email resolved (the panel is email-keyed).
  *  - "Copy link to this line" is offered when the W57 permalink is wired.
+ *  - "Open line in new tab" (W90) follows the copy entry when wired, so a
+ *    specific blamed line is one click to revisit in a fresh tab.
  *
  * The author-actions and the copy/view actions are separated by a hairline so
  * the destructive-ish filter actions read apart from the navigation ones.
@@ -161,6 +165,11 @@ export function buildBlameLineMenu(ctx: BlameMenuContext): BlameMenuChoice[] {
   }
   if (ctx.canCopyLine) {
     choices.push({ action: 'copy-line', label: 'Copy link to this line', separator: true });
+  }
+  // W90: only a hairline above when it's the FIRST nav entry (no copy above it),
+  // so the copy + open pair reads as one group.
+  if (ctx.canOpenLine) {
+    choices.push({ action: 'open-line', label: 'Open line in new tab', separator: !ctx.canCopyLine });
   }
   return choices;
 }

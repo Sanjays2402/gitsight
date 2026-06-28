@@ -140,6 +140,25 @@ test('buildBlameLineMenu offers Copy-line only when wired', () => {
   assert.equal(off.some(c => c.action === 'copy-line'), false);
 });
 
+test('buildBlameLineMenu offers Open-line only when wired (W90)', () => {
+  const on = buildBlameLineMenu({ author: 'Ada', activeAuthor: null, canOpenLine: true });
+  const open = on.find(c => c.action === 'open-line');
+  assert.ok(open);
+  assert.equal(open.label, 'Open line in new tab');
+  // First nav entry (no copy above it) -> gets the hairline separator.
+  assert.equal(open.separator, true);
+  const off = buildBlameLineMenu({ author: 'Ada', activeAuthor: null });
+  assert.equal(off.some(c => c.action === 'open-line'), false);
+});
+
+test('buildBlameLineMenu groups copy + open without a separator between them (W90)', () => {
+  const m = buildBlameLineMenu({ author: 'Ada', activeAuthor: null, canCopyLine: true, canOpenLine: true });
+  const copy = m.find(c => c.action === 'copy-line');
+  const open = m.find(c => c.action === 'open-line');
+  assert.equal(copy.separator, true); // hairline above the pair
+  assert.equal(open.separator, false); // no divider mid-pair
+});
+
 test('buildBlameLineMenu composes all actions in order', () => {
   const m = buildBlameLineMenu({
     author: 'Grace',
@@ -147,8 +166,9 @@ test('buildBlameLineMenu composes all actions in order', () => {
     activeAuthor: 'Ada',
     canViewAuthor: true,
     canCopyLine: true,
+    canOpenLine: true,
   });
-  assert.deepEqual(m.map(c => c.action), ['isolate', 'show-all', 'view-author', 'copy-line']);
+  assert.deepEqual(m.map(c => c.action), ['isolate', 'show-all', 'view-author', 'copy-line', 'open-line']);
 });
 
 // ── blameAuthorPaletteItems (W82) ────────────────────────────────────
