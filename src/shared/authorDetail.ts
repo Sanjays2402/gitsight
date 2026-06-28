@@ -21,6 +21,7 @@
  */
 
 const MS_PER_WEEK = 7 * 86_400_000;
+const MS_PER_DAY = 86_400_000;
 
 /** A weekly commit sparkline for one author. */
 export interface AuthorSparkline {
@@ -62,6 +63,39 @@ export function buildAuthorSparkline(dates: string[], opts: SparklineOptions = {
   }
   const max = bins.reduce((m, n) => Math.max(m, n), 0);
   return { bins, max, total, weeks };
+}
+
+/** An inclusive date range (YYYY-MM-DD) for one sparkline bin (W80). */
+export interface WeekBounds {
+  /** First day of the bin's week (inclusive), YYYY-MM-DD. */
+  since: string;
+  /** Last day of the bin's week (inclusive), YYYY-MM-DD. */
+  until: string;
+}
+
+/** Format a ms instant as a UTC YYYY-MM-DD day key. */
+function utcDayKey(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * Resolve the calendar week a sparkline bin covers into an inclusive
+ * since/until date range (W80), so clicking a bar can filter the graph to that
+ * author's commits in that week. Mirrors `buildAuthorSparkline`'s bucketing
+ * exactly: bin `i` (0 = oldest) maps to `weeksAgo = weeks-1-i`, i.e. the
+ * half-open window `[now - (weeksAgo+1)*7d, now - weeksAgo*7d)`. We return the
+ * inclusive day keys: `since` = the window start day, `until` = the day before
+ * the window end (so adjacent bins don't overlap on the boundary day). Out-of-
+ * range indices return null. `now` is injectable to match the sparkline build.
+ */
+export function weekBounds(sp: AuthorSparkline, index: number, now: number = Date.now()): WeekBounds | null {
+  if (!Number.isInteger(index) || index < 0 || index >= sp.weeks) return null;
+  const weeksAgo = sp.weeks - 1 - index;
+  const startMs = now - (weeksAgo + 1) * MS_PER_WEEK;
+  const endMs = now - weeksAgo * MS_PER_WEEK;
+  // `until` is the last day fully inside the half-open window: one day before
+  // the exclusive end, so the next (newer) bin's `since` is the day after.
+  return { since: utcDayKey(startMs), until: utcDayKey(endMs - MS_PER_DAY) };
 }
 
 /** One file an author has touched, with aggregated churn + frequency. */

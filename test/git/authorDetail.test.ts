@@ -4,6 +4,7 @@ import {
   buildAuthorSparkline,
   aggregateAuthorFiles,
   normalizeNumstatPath,
+  weekBounds,
   AUTHOR_FILES_FORMAT,
 } from '../../src/shared/authorDetail';
 
@@ -96,4 +97,58 @@ test('aggregateAuthorFiles counts a file once per commit even if it appears once
 
 test('AUTHOR_FILES_FORMAT carries the record sep + author email', () => {
   assert.equal(AUTHOR_FILES_FORMAT, '%x1e%aE');
+});
+
+// ── weekBounds (W80) ─────────────────────────────────────────────────
+
+test('weekBounds resolves the newest bin to the trailing 7-day window', () => {
+  const now = Date.parse('2026-06-25T12:00:00Z');
+  const sp = buildAuthorSparkline([], { weeks: 4, now });
+  // Newest bin (index weeks-1) is weeksAgo=0: [now-7d, now).
+  const b = weekBounds(sp, 3, now);
+  assert.deepEqual(b, { since: '2026-06-18', until: '2026-06-24' });
+});
+
+test('weekBounds resolves the oldest bin to the start of the window', () => {
+  const now = Date.parse('2026-06-25T12:00:00Z');
+  const sp = buildAuthorSparkline([], { weeks: 4, now });
+  // Oldest bin (index 0) is weeksAgo=3: [now-28d, now-21d).
+  const b = weekBounds(sp, 0, now);
+  assert.deepEqual(b, { since: '2026-05-28', until: '2026-06-03' });
+});
+
+test('weekBounds windows are contiguous + non-overlapping across bins', () => {
+  const now = Date.parse('2026-06-25T12:00:00Z');
+  const sp = buildAuthorSparkline([], { weeks: 4, now });
+  // Each bin's `until` is the day before the next (newer) bin's `since`.
+  for (let i = 0; i < sp.weeks - 1; i++) {
+    const lo = weekBounds(sp, i, now);
+    const hi = weekBounds(sp, i + 1, now);
+    assert.ok(lo && hi);
+    const dayAfterUntil = new Date(Date.parse(`${lo.until}T00:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    assert.equal(dayAfterUntil, hi.since);
+  }
+});
+
+test('weekBounds since/until of a bin actually contains that bin\'s commits', () => {
+  // A commit on 2026-06-20 lands in the newest bin; its day must fall within
+  // that bin's [since, until] range so the graph filter would surface it.
+  const now = Date.parse('2026-06-25T12:00:00Z');
+  const iso = '2026-06-20T09:00:00Z';
+  const sp = buildAuthorSparkline([iso], { weeks: 4, now });
+  // Find the bin the commit landed in.
+  const idx = sp.bins.findIndex(c => c > 0);
+  assert.ok(idx >= 0);
+  const b = weekBounds(sp, idx, now);
+  assert.ok(b);
+  assert.ok('2026-06-20' >= b.since && '2026-06-20' <= b.until);
+});
+
+test('weekBounds returns null for an out-of-range or non-integer index', () => {
+  const sp = buildAuthorSparkline([], { weeks: 4, now: Date.parse('2026-06-25T12:00:00Z') });
+  assert.equal(weekBounds(sp, -1), null);
+  assert.equal(weekBounds(sp, 4), null);
+  assert.equal(weekBounds(sp, 1.5), null);
 });

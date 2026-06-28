@@ -18,6 +18,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import type { AuthorSparkline, AuthorFile } from '@shared/authorDetail';
+import { weekBounds } from '@shared/authorDetail';
 import { splitComparePath } from './compareFormat';
 import type { AuthorResult } from './data';
 
@@ -28,6 +29,12 @@ export interface AuthorPanelHandlers {
   onViewCommits: (email: string, name: string) => void;
   /** Open the blame view for a file the author touched (W12 reuse). */
   onOpenFile?: (path: string) => void;
+  /**
+   * Drop to the graph filtered to this author's commits in one sparkline week
+   * (W80) — a since/until range from weekBounds. Wired -> the bars become
+   * clickable. The email + name identify the author for the author: filter.
+   */
+  onPickWeek?: (email: string, name: string, since: string, until: string) => void;
 }
 
 /**
@@ -158,7 +165,7 @@ export class AuthorPanel {
     this.body.appendChild(stats);
 
     // Sparkline.
-    this.body.appendChild(this.sparkline(d.sparkline, d.name));
+    this.body.appendChild(this.sparkline(d.sparkline, d.name, d.email));
 
     // Files.
     const filesWrap = el('div', 'author-files');
@@ -198,7 +205,7 @@ export class AuthorPanel {
   }
 
   /** A 26-bar commit sparkline (monochrome track, accent bars). */
-  private sparkline(sp: AuthorSparkline, name: string): HTMLElement {
+  private sparkline(sp: AuthorSparkline, name: string, email: string): HTMLElement {
     const wrap = el('div', 'author-sparkline');
     const head = el('div', 'author-sparkline-head');
     head.innerHTML =
@@ -209,14 +216,31 @@ export class AuthorPanel {
     const chart = el('div', 'author-spark-bars');
     chart.style.setProperty('--spark-accent', authorColor(name));
     const max = Math.max(1, sp.max);
+    // W80: when a week-pick handler is wired, the bars become buttons that
+    // filter the graph to this author's commits in that week (since/until).
+    const pickWeek = this.handlers.onPickWeek;
     sp.bins.forEach((count, i) => {
-      const bar = el('span', 'author-spark-bar');
+      const interactive = !!pickWeek;
+      const bar = el(interactive ? 'button' : 'span', 'author-spark-bar' + (interactive ? ' clickable' : ''));
       const pct = Math.round((count / max) * 100);
       bar.style.height = `${count === 0 ? 2 : Math.max(6, pct)}%`;
       if (count === 0) bar.classList.add('empty');
       // Week index from the end: 0 = oldest, weeks-1 = most recent.
       const weeksAgo = sp.weeks - 1 - i;
-      bar.title = weeksAgo === 0 ? `this week: ${count}` : `${weeksAgo}w ago: ${count}`;
+      const when = weeksAgo === 0 ? 'this week' : `${weeksAgo}w ago`;
+      bar.title = `${when}: ${count}`;
+      if (interactive) {
+        (bar as HTMLButtonElement).type = 'button';
+        const label = count === 1 ? '1 commit' : `${count} commits`;
+        bar.setAttribute('aria-label', `${when}: ${label} — view in graph`);
+        bar.addEventListener('click', () => {
+          const bounds = weekBounds(sp, i);
+          if (bounds) {
+            this.close();
+            pickWeek(email, name, bounds.since, bounds.until);
+          }
+        });
+      }
       chart.appendChild(bar);
     });
     wrap.appendChild(chart);

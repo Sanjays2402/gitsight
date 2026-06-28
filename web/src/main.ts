@@ -27,6 +27,7 @@ import './compareCommitFilter.css';
 import './contributorCompare.css';
 import './contributorSort.css';
 import './contributorChurnBar.css';
+import './authorSparkline.css';
 import './stashCreate.css';
 import './stashSplit.css';
 import './stashFilter.css';
@@ -288,6 +289,15 @@ const authorPanel = new AuthorPanel({
     state.view = 'blame';
     rebuildChrome();
     void loadBlamePath(path);
+  },
+  // W80: clicking a sparkline bar drops to the graph filtered to this author's
+  // commits in that week (author: + since:/until: from the pure weekBounds).
+  onPickWeek: (email, name, since, until) => {
+    state.view = 'graph';
+    rebuildChrome();
+    const value = email || name;
+    const author = /\s/.test(value) ? `author:"${value}"` : `author:${value}`;
+    applyFilter(`${author} since:${since} until:${until}`);
   },
 });
 
