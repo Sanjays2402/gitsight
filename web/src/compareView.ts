@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch, matchSummary } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -200,9 +200,19 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       },
     );
     // W74: the badge reflects the live match count + the focused position. It's
-    // only meaningful while the box has a query, so it starts blank.
+    // only meaningful while the box has a query, so it starts blank. W78: when a
+    // non-empty query matches nothing, surface an explicit notice + scroll the
+    // empty columns into view so the dead-end is obvious, not just two "No
+    // commits match" column bodies the user might not have scrolled to.
     updateBadge = () => {
-      filter.badge.textContent = filter.input.value.trim() ? matchSummary(matches.length, focusIdx) : '';
+      const query = filter.input.value.trim();
+      filter.badge.textContent = query ? matchSummary(matches.length, focusIdx) : '';
+      const notice = emptyFilterMessage(query, matches.length);
+      filter.notice.textContent = notice;
+      filter.notice.hidden = !notice;
+      if (shouldRevealEmpty(query, matches.length)) {
+        cols.scrollIntoView({ block: 'nearest' });
+      }
     };
     result.appendChild(filter.wrap);
   }
@@ -312,13 +322,16 @@ function renderCompareFileRows(
  * fired so the host moves the ring; Enter then opens the focused one.
  * W74: returns the input + a `badge` span the caller updates with a live
  * "N matches" / "i of N" readout (pure compareFormat.matchSummary).
+ * W78: returns a `notice` span the caller fills with an explicit "No commits
+ * match" message when a non-empty query matches nothing (pure
+ * compareFormat.emptyFilterMessage), aria-live so it's announced.
  */
 function buildCommitFilter(
   total: number,
   render: (query: string) => void,
   onEnter: () => void,
   onStep: (delta: number) => void,
-): { wrap: HTMLElement; input: HTMLInputElement; badge: HTMLElement } {
+): { wrap: HTMLElement; input: HTMLInputElement; badge: HTMLElement; notice: HTMLElement } {
   const wrap = el('div', 'compare-commit-filter');
   const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
   input.type = 'search';
@@ -346,8 +359,15 @@ function buildCommitFilter(
   // screen reader hears the count change as the user types / steps.
   const badge = el('span', 'compare-commit-filter-count');
   badge.setAttribute('aria-live', 'polite');
-  wrap.append(input, badge);
-  return { wrap, input, badge };
+  const row = el('div', 'compare-commit-filter-row');
+  row.append(input, badge);
+  // W78: an explicit empty-state notice below the input, shown only when a
+  // non-empty query matches nothing. Aria-live so the dead-end is announced.
+  const notice = el('div', 'compare-commit-filter-empty');
+  notice.setAttribute('aria-live', 'polite');
+  notice.hidden = true;
+  wrap.append(row, notice);
+  return { wrap, input, badge, notice };
 }
 
 function commitColumn(

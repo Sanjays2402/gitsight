@@ -178,3 +178,30 @@ export function matchSummary(count: number, focusIdx: number): string {
   const pos = Math.min(Math.max(0, focusIdx), count - 1) + 1;
   return `${pos} of ${count}`;
 }
+
+// ── Empty-match reveal (W78) ─────────────────────────────────────────
+
+/**
+ * Whether the compare filter should reveal its "no commits match" state (W78).
+ * True only when the user has typed a non-empty query AND it matches nothing,
+ * so the view can scroll the empty columns into view + announce it. A blank
+ * query (everything matches) or a query with results returns false, so we don't
+ * yank the scroll on a partial match or an empty box.
+ */
+export function shouldRevealEmpty(query: string, matchCount: number): boolean {
+  return normalizeCommitQuery(query).length > 0 && matchCount <= 0;
+}
+
+/**
+ * The notice text for the compare filter's empty state (W78). When a non-empty
+ * query matches nothing, returns `No commits match "<query>"` (the raw query
+ * trimmed for display, not lowercased, so the user sees what they typed).
+ * Returns '' when there's a match or the query is blank so the caller can hide
+ * the notice. Long queries are ellipsised so the banner can't blow out.
+ */
+export function emptyFilterMessage(query: string, matchCount: number): string {
+  if (!shouldRevealEmpty(query, matchCount)) return '';
+  const shown = query.trim();
+  const clipped = shown.length > 60 ? `${shown.slice(0, 60)}\u2026` : shown;
+  return `No commits match \u201c${clipped}\u201d`;
+}

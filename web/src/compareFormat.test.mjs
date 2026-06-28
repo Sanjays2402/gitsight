@@ -18,6 +18,8 @@ import {
   firstCompareMatch,
   stepMatch,
   matchSummary,
+  shouldRevealEmpty,
+  emptyFilterMessage,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -192,4 +194,34 @@ test('matchSummary says "No matches" for an empty match set', () => {
 test('matchSummary clamps an out-of-range focus index defensively', () => {
   // A stale focus past the end clamps to the last position rather than over-counting.
   assert.equal(matchSummary(3, 9), '3 of 3');
+});
+
+// ── Empty-match reveal (W78) ─────────────────────────────────────────
+
+test('shouldRevealEmpty is true only for a non-empty query with no matches', () => {
+  assert.equal(shouldRevealEmpty('fix', 0), true);
+  // A blank/whitespace query matches everything -> never reveal.
+  assert.equal(shouldRevealEmpty('', 0), false);
+  assert.equal(shouldRevealEmpty('   ', 0), false);
+  // A query WITH matches -> don't reveal the empty state.
+  assert.equal(shouldRevealEmpty('fix', 3), false);
+});
+
+test('emptyFilterMessage shows the typed query verbatim (not lowercased)', () => {
+  assert.equal(emptyFilterMessage('FixBug', 0), 'No commits match \u201cFixBug\u201d');
+  // Trims surrounding whitespace for display.
+  assert.equal(emptyFilterMessage('  Ada  ', 0), 'No commits match \u201cAda\u201d');
+});
+
+test('emptyFilterMessage is empty when there is a match or a blank query', () => {
+  assert.equal(emptyFilterMessage('fix', 2), '');
+  assert.equal(emptyFilterMessage('', 0), '');
+});
+
+test('emptyFilterMessage ellipsises a very long query', () => {
+  const long = 'a'.repeat(80);
+  const msg = emptyFilterMessage(long, 0);
+  assert.ok(msg.includes('\u2026'));
+  // 60 kept + the ellipsis, wrapped in the quotes + prefix.
+  assert.ok(msg.includes('a'.repeat(60) + '\u2026'));
 });

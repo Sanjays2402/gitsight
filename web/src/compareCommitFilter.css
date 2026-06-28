@@ -10,6 +10,13 @@
 .compare-commit-filter {
   margin: 4px 0 10px;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The input + match-count badge sit on one row (W78 split the notice below). */
+.compare-commit-filter-row {
+  display: flex;
   align-items: center;
   gap: 8px;
 }
@@ -68,4 +75,24 @@
   outline-offset: -2px;
   border-radius: var(--radius-sm, 5px);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/*
+ * Empty-state notice (W78): when a non-empty filter query matches nothing, an
+ * explicit "No commits match" line sits below the input (and the columns scroll
+ * into view) so the dead-end is obvious rather than two silently-empty columns.
+ * A faint warning tint + the warn accent, hidden when there's a match.
+ */
+.compare-commit-filter-empty {
+  font-size: 11.5px;
+  color: var(--fg-muted, var(--fg-faint));
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.compare-commit-filter-empty[hidden] {
+  display: none;
 }
