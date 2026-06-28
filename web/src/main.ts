@@ -94,6 +94,7 @@ import { SearchHistory } from './searchHistory';
 import { DiffSettingsStore } from './diffSettingsStore';
 import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
+import { stashFilterPaletteItems } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear, toggleActivityMetric } from '@shared/activity';
 import { sortContributors, type ContributorSort } from '@shared/contributors';
@@ -459,6 +460,21 @@ function buildPaletteItems(): PaletteItem[] {
       });
     }
   }
+  // Stash filter (W91): on the Stashes view, surface each branch the loaded
+  // stashes were taken on as "Filter stashes on <branch>" so the W59/W63 filter
+  // is reachable from Cmd-K. Mirrors the W82 blame-author / W87 compare sources.
+  if (state.view === 'stashes' && state.stashes.data) {
+    for (const item of stashFilterPaletteItems(state.stashes.data.stashes)) {
+      items.push({
+        id: `stash-filter:${item.term}`,
+        kind: 'action',
+        label: item.label,
+        hint: `Stashes \u00b7 ${item.count}`,
+        value: `stash-filter:${item.term}`,
+        weight: 2,
+      });
+    }
+  }
   return items;
 }
 
@@ -530,6 +546,14 @@ function runPaletteItem(item: PaletteItem): void {
         if (state.view !== 'compare') switchView('compare');
         void runCompare(base, head);
       }
+    } else if (item.value.startsWith('stash-filter:')) {
+      // W91: jump to a branch-filtered Stashes view from the palette. Switches
+      // to the tab if needed, sets the filter (which syncs the W63 deep link),
+      // and re-renders so the pre-filled box + narrowed cards show immediately.
+      const term = item.value.slice('stash-filter:'.length);
+      if (state.view !== 'stashes') switchView('stashes');
+      setStashQuery(term);
+      if (state.view === 'stashes') renderStashesView();
     } else if (id === 'reload') void boot();
     else if (id === 'theme') {
       theme.toggleChrome();

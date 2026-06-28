@@ -359,3 +359,58 @@ export function filterStashes<T extends FilterableStash>(entries: T[], query: st
   if (!q) return entries.slice();
   return entries.filter(e => stashMatchesQuery(e, q));
 }
+
+// ── Stash filter command-palette source (W91) ────────────────────────
+
+/** One Cmd-K entry that jumps to a filtered Stashes view (W91, data only). */
+export interface StashFilterPaletteItem {
+  /** The filter term this entry applies (a branch name). */
+  term: string;
+  label: string;
+  /** How many stashes the term matches, for the palette hint. */
+  count: number;
+}
+
+/**
+ * Build the command-palette source for the loaded stashes (W91), so the
+ * W59/W63 message/branch filter is reachable from Cmd-K, not just the box on
+ * the Stashes view. Mirrors the W82 blame-author palette source: pure + data
+ * only (the view maps each entry to a real PaletteItem with its run), so the
+ * gating is unit-testable.
+ *
+ * Stashes are grouped by the BRANCH they were taken on — the high-value filter
+ * dimension, since a branch typically groups several WIPs while subjects are
+ * near-unique. Each distinct, non-empty branch yields one "Filter stashes on
+ * <branch>" entry carrying the count it matches (verified through the same
+ * `filterStashes` matcher the box uses, so the palette count and the filtered
+ * view agree). Branches de-dupe case-insensitively (first-seen casing kept),
+ * are ordered by frequency (busiest branch first) then first appearance, and
+ * the list is capped at `limit` so a repo with many branches can't flood the
+ * palette; the palette's own fuzzy filter narrows from there.
+ */
+export function stashFilterPaletteItems(
+  entries: ReadonlyArray<FilterableStash>,
+  limit = 12,
+): StashFilterPaletteItem[] {
+  const order: string[] = [];
+  const byKey = new Map<string, { term: string; count: number }>();
+  for (const e of entries) {
+    const term = (e.branch ?? '').trim();
+    if (!term) continue;
+    const key = term.toLowerCase();
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      byKey.set(key, { term, count: 1 });
+      order.push(key);
+    }
+  }
+  const cap = Math.max(0, Math.floor(limit));
+  return order
+    .map(key => byKey.get(key)!)
+    // Busiest branch first; stable on the first-seen order for ties.
+    .sort((a, b) => b.count - a.count || order.indexOf(a.term.toLowerCase()) - order.indexOf(b.term.toLowerCase()))
+    .slice(0, cap)
+    .map(({ term, count }) => ({ term, label: `Filter stashes on ${term}`, count }));
+}

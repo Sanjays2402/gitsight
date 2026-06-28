@@ -21,6 +21,7 @@ import {
   normalizeStashQuery,
   stashMatchesQuery,
   filterStashes,
+  stashFilterPaletteItems,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -271,4 +272,37 @@ test('filterStashes narrows by query, preserving order + identity', () => {
   assert.notEqual(all, FILTER_STASHES); // new array
   // No matches -> empty.
   assert.deepEqual(filterStashes(FILTER_STASHES, 'zzzzz'), []);
+});
+
+// ── stashFilterPaletteItems (W91) ────────────────────────────────────
+
+test('stashFilterPaletteItems groups by branch, busiest first, with counts', () => {
+  const items = stashFilterPaletteItems(FILTER_STASHES);
+  // Two distinct branches; main has 2 stashes so it leads.
+  assert.equal(items.length, 2);
+  assert.deepEqual(items[0], { term: 'main', label: 'Filter stashes on main', count: 2 });
+  assert.deepEqual(items[1], { term: 'feature/web', label: 'Filter stashes on feature/web', count: 1 });
+  // The count agrees with what filterStashes(term) actually matches.
+  assert.equal(filterStashes(FILTER_STASHES, items[0].term).length, items[0].count);
+});
+
+test('stashFilterPaletteItems de-dupes branches case-insensitively, keeping first casing', () => {
+  const items = stashFilterPaletteItems([
+    { subject: 'a', branch: 'Main' },
+    { subject: 'b', branch: 'main' },
+    { subject: 'c', branch: 'MAIN' },
+  ]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].term, 'Main'); // first-seen casing
+  assert.equal(items[0].count, 3);
+});
+
+test('stashFilterPaletteItems skips empty branches and caps the list', () => {
+  const noBranch = stashFilterPaletteItems([
+    { subject: 'detached stash', branch: '' },
+    { subject: 'spaces', branch: '   ' },
+  ]);
+  assert.deepEqual(noBranch, []);
+  const many = Array.from({ length: 30 }, (_, i) => ({ subject: 's', branch: `b${i}` }));
+  assert.equal(stashFilterPaletteItems(many, 5).length, 5);
 });
