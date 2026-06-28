@@ -64,6 +64,7 @@ import { createPalettePicker } from './palettePicker';
 import { createRepoPicker } from './repoPicker';
 import { createRefRail, activeRefFromFilter } from './refRailView';
 import { openRefDetail } from './refDetailPopover';
+import { aheadBehind, indexNodes } from './refInsight';
 import type { RailRef } from '@shared/refRail';
 import { CommitDetailPanel } from './detailPanel';
 import { DayPanel } from './dayPanel';
@@ -452,12 +453,26 @@ function buildPaletteItems(): PaletteItem[] {
   // relevant. The ref HEAD already points at is skipped (a no-op comparison).
   if (state.view === 'compare') {
     const refs = buildRailSections(state.snapshot.commits).flatMap(s => s.refs);
-    for (const item of compareRefPaletteItems(refs, 'HEAD', state.snapshot.head)) {
+    // W95: a divergence lookup so each entry shows the ref's ahead/behind vs
+    // HEAD. Computed client-side from the loaded snapshot (W29 refInsight) — no
+    // backend call. Index the parent graph once + resolve HEAD's tip, then map
+    // each ref name to its tip sha for the symmetric-diff walk.
+    const nodes = indexNodes(state.snapshot.commits);
+    const headSha = headTipSha();
+    const tipByName = new Map<string, string>();
+    for (const ref of refs) tipByName.set(ref.name, ref.tipSha);
+    const divergence = (refName: string) => {
+      const tip = tipByName.get(refName);
+      if (!tip || !headSha) return null;
+      const { ahead, behind, exact } = aheadBehind(tip, headSha, nodes);
+      return { ahead, behind, exact };
+    };
+    for (const item of compareRefPaletteItems(refs, 'HEAD', state.snapshot.head, 30, divergence)) {
       items.push({
         id: `compare:${item.side}:${item.base}:${item.head}`,
         kind: 'action',
         label: item.label,
-        hint: 'Compare',
+        hint: item.hint ? `Compare \u00b7 ${item.hint}` : 'Compare',
         value: `compare-ref:${item.base}:${item.head}`,
         weight: 2,
       });

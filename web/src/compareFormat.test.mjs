@@ -23,6 +23,7 @@ import {
   compareRefPaletteItems,
   compareRouteFromRefs,
   compareRouteError,
+  refDivergenceHint,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -315,4 +316,41 @@ test('compareRouteError gives a distinct message per reason (W92)', () => {
   assert.match(compareRouteError('empty-base'), /base/i);
   assert.match(compareRouteError('empty-head'), /against/i);
   assert.match(compareRouteError('self-compare'), /different/i);
+});
+
+// ── Compare ref palette divergence hint (W95) ────────────────────────
+
+test('refDivergenceHint reads "even with HEAD" when level (W95)', () => {
+  assert.equal(refDivergenceHint({ ahead: 0, behind: 0, exact: true }), 'even with HEAD');
+  // Negative/zero treated as level too.
+  assert.equal(refDivergenceHint({ ahead: 0, behind: 0, exact: false }), 'even with HEAD');
+});
+
+test('refDivergenceHint trims a zero side and joins both (W95)', () => {
+  assert.equal(refDivergenceHint({ ahead: 3, behind: 0, exact: true }), '3 ahead');
+  assert.equal(refDivergenceHint({ ahead: 0, behind: 2, exact: true }), '2 behind');
+  assert.equal(refDivergenceHint({ ahead: 3, behind: 1, exact: true }), '3 ahead, 1 behind');
+});
+
+test('refDivergenceHint marks an inexact (capped) count with ~ (W95)', () => {
+  assert.equal(refDivergenceHint({ ahead: 5, behind: 0, exact: false }), '~5 ahead');
+  assert.equal(refDivergenceHint({ ahead: 5, behind: 2, exact: false }), '~5 ahead, ~2 behind');
+});
+
+test('compareRefPaletteItems attaches a shared divergence hint per ref (W95)', () => {
+  const div = name => (name === 'dev' ? { ahead: 2, behind: 1, exact: true } : null);
+  const items = compareRefPaletteItems([{ name: 'dev' }, { name: 'old' }], 'HEAD', null, 30, div);
+  // dev (2 entries) both carry the same hint; old (no divergence) carries none.
+  const dev = items.filter(i => i.base === 'dev' || (i.head === 'dev' && i.base === 'HEAD'));
+  assert.equal(dev.length, 2);
+  assert.equal(dev[0].hint, '2 ahead, 1 behind');
+  assert.equal(dev[1].hint, '2 ahead, 1 behind');
+  const old = items.filter(i => i.base === 'old' || (i.head === 'old' && i.base === 'HEAD'));
+  assert.equal(old[0].hint, undefined);
+});
+
+test('compareRefPaletteItems omits hints entirely without a lookup (W95/W87)', () => {
+  // The W87 shape (no divergence arg) must be unchanged — no hint key.
+  const items = compareRefPaletteItems([{ name: 'dev' }], 'HEAD');
+  assert.equal('hint' in items[0], false);
 });

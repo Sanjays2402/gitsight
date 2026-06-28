@@ -220,6 +220,37 @@ export interface CompareRefPaletteItem {
   base: string;
   /** The head ref of the comparison this entry loads. */
   head: string;
+  /**
+   * A compact divergence readout vs HEAD (W95), e.g. "3 ahead, 1 behind", set
+   * only when a `divergence` lookup is supplied. Lets the palette double as a
+   * quick "how far has this ref drifted from HEAD" scan. Absent otherwise.
+   */
+  hint?: string;
+}
+
+/** A ref's ahead/behind position vs HEAD over the loaded snapshot (W95). */
+export interface RefDivergence {
+  /** Commits reachable from the ref but not HEAD. */
+  ahead: number;
+  /** Commits reachable from HEAD but not the ref. */
+  behind: number;
+  /** False when the count is a lower bound (history was --max-capped). */
+  exact: boolean;
+}
+
+/**
+ * Compact divergence readout for a compare-ref palette hint (W95). Mirrors the
+ * W29 `aheadBehindLabel` shape but tuned for an inline palette hint: "even with
+ * HEAD" when level, else "N ahead, M behind" trimming a zero side, with a `~`
+ * prefix on an inexact (history-capped) count. Pure so the wording is testable.
+ */
+export function refDivergenceHint(div: RefDivergence): string {
+  const approx = div.exact ? '' : '~';
+  if (div.ahead <= 0 && div.behind <= 0) return 'even with HEAD';
+  const parts: string[] = [];
+  if (div.ahead > 0) parts.push(`${approx}${div.ahead} ahead`);
+  if (div.behind > 0) parts.push(`${approx}${div.behind} behind`);
+  return parts.join(', ');
 }
 
 /**
@@ -239,12 +270,20 @@ export interface CompareRefPaletteItem {
  * space toward the companion, de-dupe case-insensitively, and the ref count is
  * capped at `limit` (each yielding two entries) so a repo with hundreds of refs
  * can't flood the palette; the palette's own fuzzy filter narrows from there.
+ *
+ * W95: when a `divergence` lookup is supplied (the host computes ahead/behind
+ * vs HEAD client-side from the loaded snapshot via the W29 refInsight), each
+ * entry gains a compact `hint` ("3 ahead, 1 behind") so the palette doubles as
+ * a divergence scan. Both directions for a ref share the same hint (it's the
+ * ref's position vs HEAD). Omitted when no lookup is given so the entry shape is
+ * unchanged for callers that don't pass one.
  */
 export function compareRefPaletteItems(
   refs: ReadonlyArray<{ name: string }>,
   head = 'HEAD',
   currentBranch: string | null = null,
   limit = 30,
+  divergence?: (refName: string) => RefDivergence | null,
 ): CompareRefPaletteItem[] {
   const items: CompareRefPaletteItem[] = [];
   const seen = new Set<string>();
@@ -260,8 +299,16 @@ export function compareRefPaletteItems(
     seen.add(key);
     // Comparing the ref HEAD already points at (or a literal "HEAD") is a no-op.
     if (key === 'head' || (currentNorm && key === currentNorm)) continue;
-    items.push({ side: 'against-head', label: `Compare ${name} with HEAD`, base: name, head });
-    items.push({ side: 'from-head', label: `Compare HEAD with ${name}`, base: head, head: name });
+    // W95: the ref's divergence vs HEAD, when the host supplies a lookup.
+    const div = divergence ? divergence(name) : null;
+    const hint = div ? refDivergenceHint(div) : undefined;
+    const against: CompareRefPaletteItem = { side: 'against-head', label: `Compare ${name} with HEAD`, base: name, head };
+    const from: CompareRefPaletteItem = { side: 'from-head', label: `Compare HEAD with ${name}`, base: head, head: name };
+    if (hint !== undefined) {
+      against.hint = hint;
+      from.hint = hint;
+    }
+    items.push(against, from);
     added++;
   }
   return items;
