@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -79,4 +79,74 @@ test('authorEmailFromLines returns empty for an author with no email', () => {
 test('authorEmailFromLines returns empty when the author is absent', () => {
   assert.equal(authorEmailFromLines(lines, 'Nobody'), '');
   assert.equal(authorEmailFromLines([], 'Ada'), '');
+});
+
+// ── buildBlameLineMenu (W77) ─────────────────────────────────────────
+
+test('buildBlameLineMenu offers Isolate for a non-active author', () => {
+  const m = buildBlameLineMenu({ author: 'Ada', activeAuthor: null });
+  assert.equal(m.length, 1);
+  assert.equal(m[0].action, 'isolate');
+  assert.equal(m[0].label, 'Isolate Ada');
+  assert.equal(m[0].author, 'Ada');
+});
+
+test('buildBlameLineMenu offers only Show-all on the active author', () => {
+  const m = buildBlameLineMenu({ author: 'Ada', activeAuthor: 'Ada' });
+  assert.equal(m.length, 1);
+  assert.equal(m[0].action, 'show-all');
+  assert.equal(m[0].label, 'Show all authors');
+});
+
+test('buildBlameLineMenu matches the active author case-insensitively', () => {
+  // Right-clicking "ada" while "ADA" is isolated reads as the active line.
+  const m = buildBlameLineMenu({ author: 'ada', activeAuthor: 'ADA' });
+  assert.deepEqual(m.map(c => c.action), ['show-all']);
+});
+
+test('buildBlameLineMenu adds Show-all when a DIFFERENT author is isolated', () => {
+  const m = buildBlameLineMenu({ author: 'Grace', activeAuthor: 'Ada' });
+  assert.deepEqual(m.map(c => c.action), ['isolate', 'show-all']);
+  assert.equal(m[0].author, 'Grace');
+});
+
+test('buildBlameLineMenu offers View-author only with a wired panel + email', () => {
+  // No email -> no view-author entry even when the panel is wired.
+  const noEmail = buildBlameLineMenu({ author: 'Ada', activeAuthor: null, canViewAuthor: true });
+  assert.equal(noEmail.some(c => c.action === 'view-author'), false);
+  // Email present + wired -> the entry shows, carrying the email + a separator.
+  const withEmail = buildBlameLineMenu({
+    author: 'Ada',
+    email: 'ada@x.io',
+    activeAuthor: null,
+    canViewAuthor: true,
+  });
+  const view = withEmail.find(c => c.action === 'view-author');
+  assert.ok(view);
+  assert.equal(view.email, 'ada@x.io');
+  assert.equal(view.label, "View Ada's contributions");
+  assert.equal(view.separator, true);
+  // Not wired -> no entry regardless of email.
+  const notWired = buildBlameLineMenu({ author: 'Ada', email: 'ada@x.io', activeAuthor: null });
+  assert.equal(notWired.some(c => c.action === 'view-author'), false);
+});
+
+test('buildBlameLineMenu offers Copy-line only when wired', () => {
+  const on = buildBlameLineMenu({ author: 'Ada', activeAuthor: null, canCopyLine: true });
+  const copy = on.find(c => c.action === 'copy-line');
+  assert.ok(copy);
+  assert.equal(copy.separator, true);
+  const off = buildBlameLineMenu({ author: 'Ada', activeAuthor: null });
+  assert.equal(off.some(c => c.action === 'copy-line'), false);
+});
+
+test('buildBlameLineMenu composes all actions in order', () => {
+  const m = buildBlameLineMenu({
+    author: 'Grace',
+    email: 'grace@navy.mil',
+    activeAuthor: 'Ada',
+    canViewAuthor: true,
+    canCopyLine: true,
+  });
+  assert.deepEqual(m.map(c => c.action), ['isolate', 'show-all', 'view-author', 'copy-line']);
 });

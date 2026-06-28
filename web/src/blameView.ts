@@ -94,6 +94,14 @@ export interface BlameViewOptions {
    * when a range is set AND this is wired.
    */
   onViewRangeCommits?: (range: { start: number; end: number }) => void;
+  /**
+   * Fired when a blame row is right-clicked (W77) with the line, its author +
+   * resolved email, and the anchor coordinates — the host opens a context menu
+   * (built from buildBlameLineMenu) so the W40/W76 author isolate + the W57
+   * line copy + the W23 contributor panel are reachable without hunting the
+   * legend. Absent = no context menu (the browser default stands).
+   */
+  onLineMenu?: (info: { line: number; author: string; email: string; x: number; y: number }) => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -221,6 +229,23 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
     });
   }
   wrap.appendChild(rows);
+  // Right-click a row to reach the author isolate / line copy / contributor
+  // panel without hunting the legend (W77). Delegated so it works for both the
+  // plain and windowed renderers; the model is keyed by 1-based line.
+  if (opts.onLineMenu) {
+    const byLine = new Map<number, BlameLineInfo>();
+    for (const l of model.lines) byLine.set(l.line, l);
+    rows.addEventListener('contextmenu', e => {
+      const row = (e.target as HTMLElement)?.closest<HTMLElement>('.blame-row');
+      if (!row) return;
+      const line = Number(row.dataset.line);
+      const info = byLine.get(line);
+      if (!info) return;
+      e.preventDefault();
+      const email = authorEmailFromLines(model.lines, info.author);
+      opts.onLineMenu!({ line, author: info.author, email, x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY });
+    });
+  }
   if (shouldVirtualizeBlame(model.lines.length)) {
     new BlameWindowController(rows, model, opts.revealLine ?? null, active, copyable, range);
   } else {

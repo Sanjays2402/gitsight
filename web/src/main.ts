@@ -72,7 +72,7 @@ import { AuthorPanel } from './authorPanel';
 import { ContributorComparePanel } from './contributorCompareView';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
-import { toggleAuthorFilter } from './blameLegend';
+import { toggleAuthorFilter, buildBlameLineMenu } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
@@ -1349,6 +1349,30 @@ function renderBlameView(): void {
         : null,
     // W69: jump from a selected blame range to the commits that authored it.
     onViewRangeCommits: (range: { start: number; end: number }) => viewRangeCommits(range),
+    // W77: right-clicking a line opens a context menu so the W40/W76 author
+    // isolate, the W57 line copy, and the W23 contributor panel are reachable
+    // without hunting the legend. The pure buildBlameLineMenu decides the items
+    // from the line's author + the active isolate; here we map each to its run.
+    onLineMenu: (info: { line: number; author: string; email: string; x: number; y: number }) => {
+      const choices = buildBlameLineMenu({
+        author: info.author,
+        email: info.email,
+        activeAuthor: state.blameAuthor,
+        canViewAuthor: !!info.email,
+        canCopyLine: true,
+      });
+      const items: ContextMenuItem[] = choices.map(c => {
+        if (c.action === 'isolate' || c.action === 'show-all') {
+          return { label: c.label, icon: 'users', separator: c.separator, run: () => toggleBlameAuthor(c.author ?? info.author) };
+        }
+        if (c.action === 'view-author') {
+          return { label: c.label, icon: 'users', separator: c.separator, run: () => void authorPanel.open(c.email || c.author!, c.author!) };
+        }
+        // copy-line
+        return { label: c.label, icon: 'link', separator: c.separator, run: () => void copyBlameLineLink(info.line) };
+      });
+      openContextMenu(info.x, info.y, items);
+    },
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');

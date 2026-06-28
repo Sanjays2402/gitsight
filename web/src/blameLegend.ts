@@ -89,3 +89,78 @@ export function authorEmailFromLines(
   }
   return '';
 }
+
+// ── Blame line context menu (W77) ────────────────────────────────────
+
+/** The actions a blame line's right-click menu can offer (W77). */
+export type BlameMenuAction = 'isolate' | 'show-all' | 'view-author' | 'copy-line';
+
+/** One choice in a blame line's context menu (data only — no DOM/closure). */
+export interface BlameMenuChoice {
+  action: BlameMenuAction;
+  label: string;
+  /** The author this choice acts on (isolate / view-author). */
+  author?: string;
+  /** The author's resolved email (view-author only), when known. */
+  email?: string;
+  /** Draw a hairline separator above this item. */
+  separator?: boolean;
+}
+
+/** The state a blame line menu is built from (W77). */
+export interface BlameMenuContext {
+  /** The right-clicked line's author name. */
+  author: string;
+  /** The right-clicked line's author email (may be empty). */
+  email?: string;
+  /** The currently-isolated author, or null when showing all. */
+  activeAuthor: string | null;
+  /** Whether a "view contributor" panel can be opened (email-keyed W23). */
+  canViewAuthor?: boolean;
+  /** Whether line-copy permalinks are wired (W57). */
+  canCopyLine?: boolean;
+}
+
+/**
+ * Build the choice list for a blame line's right-click menu (W77), so the
+ * W40/W76 author isolate is reachable without hunting the legend. Pure (data
+ * only — the view maps each choice to a real ContextMenuItem with its closure),
+ * so the gating logic is unit-testable:
+ *
+ *  - Right-clicking the ACTIVE author's line offers only "Show all authors".
+ *  - Right-clicking a non-active author offers "Isolate <author>"; if a
+ *    DIFFERENT author is currently isolated, "Show all authors" is added too
+ *    so you can clear without first isolating this one.
+ *  - "View <author>'s contributions" is offered when the W23 panel is wired
+ *    AND an email resolved (the panel is email-keyed).
+ *  - "Copy link to this line" is offered when the W57 permalink is wired.
+ *
+ * The author-actions and the copy/view actions are separated by a hairline so
+ * the destructive-ish filter actions read apart from the navigation ones.
+ */
+export function buildBlameLineMenu(ctx: BlameMenuContext): BlameMenuChoice[] {
+  const choices: BlameMenuChoice[] = [];
+  const isActive = ctx.activeAuthor !== null && norm(ctx.activeAuthor) === norm(ctx.author);
+  if (isActive) {
+    choices.push({ action: 'show-all', label: 'Show all authors' });
+  } else {
+    choices.push({ action: 'isolate', label: `Isolate ${ctx.author}`, author: ctx.author });
+    // Another author is isolated -> let the user clear straight from here too.
+    if (ctx.activeAuthor !== null) {
+      choices.push({ action: 'show-all', label: 'Show all authors' });
+    }
+  }
+  if (ctx.canViewAuthor && ctx.email) {
+    choices.push({
+      action: 'view-author',
+      label: `View ${ctx.author}'s contributions`,
+      author: ctx.author,
+      email: ctx.email,
+      separator: true,
+    });
+  }
+  if (ctx.canCopyLine) {
+    choices.push({ action: 'copy-line', label: 'Copy link to this line', separator: true });
+  }
+  return choices;
+}
