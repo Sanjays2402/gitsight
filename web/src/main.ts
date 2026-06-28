@@ -67,6 +67,7 @@ import { openRefDetail } from './refDetailPopover';
 import type { RailRef } from '@shared/refRail';
 import { CommitDetailPanel } from './detailPanel';
 import { DayPanel } from './dayPanel';
+import { dayPanelAction } from './dayFormat';
 import { renderActivity } from './activityView';
 import { renderContributors } from './contributorsView';
 import { AuthorPanel } from './authorPanel';
@@ -271,6 +272,11 @@ const dayPanel = new DayPanel({
     state.activityDay = null;
     if (state.view === 'activity') syncHash();
   },
+  // W84: when the command palette or keyboard-help overlay is open it owns
+  // Escape; the day panel must not also close on that same keypress (which
+  // would silently drop its day= deep link). Both consts are declared below
+  // but this only runs on a runtime keypress, so the references resolve fine.
+  canCloseOnEsc: () => !palette.isOpen() && !keyboardHelp.isOpen(),
 });
 
 /**
@@ -1297,15 +1303,21 @@ function stepActivityYear(delta: number): void {
 }
 
 /**
- * Reconcile the day panel with a deep-linked day (W79). Opens the panel for
- * `date` when it differs from the currently-open one, or closes it when the URL
- * carries no day. Guarded so a no-op back/forward doesn't re-fetch the same day.
+ * Reconcile the day panel with a deep-linked day (W79; W84). The decision —
+ * open the linked day, close a panel the URL no longer carries, or do nothing
+ * — comes from the pure `dayPanelAction` so Esc, the close button, and
+ * back/forward all converge on the same URL <-> panel state. Guarded so a
+ * no-op back/forward doesn't re-fetch the same day.
  */
 function syncDayPanelToRoute(date: string | null): void {
-  if (date) {
-    if (dayPanel.currentDate() !== date) void dayPanel.open(date);
-  } else if (dayPanel.isOpen()) {
-    dayPanel.close();
+  switch (dayPanelAction(dayPanel.currentDate(), date)) {
+    case 'open':
+      void dayPanel.open(date!);
+      break;
+    case 'close':
+      dayPanel.close();
+      break;
+    // 'none' -> already in sync; leave it.
   }
 }
 

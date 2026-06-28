@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { formatDayHeading, commitCountLabel, dayAuthorTally } from './dayFormat.ts';
+import { formatDayHeading, commitCountLabel, dayAuthorTally, dayPanelAction } from './dayFormat.ts';
 
 test('formatDayHeading renders a full human date (UTC-stable)', () => {
   assert.equal(formatDayHeading('2026-06-25'), 'Thursday, June 25, 2026');
@@ -51,4 +51,23 @@ test('dayAuthorTally breaks ties alphabetically', () => {
     { author: 'Amy', email: 'a@x' },
   ]);
   assert.deepEqual(tally.map(t => t.name), ['Amy', 'Zed']);
+});
+
+// ── dayPanelAction (W84) ─────────────────────────────────────────────
+
+test('dayPanelAction opens a differing route day', () => {
+  assert.equal(dayPanelAction(null, '2026-06-25'), 'open');
+  assert.equal(dayPanelAction('2026-06-20', '2026-06-25'), 'open');
+});
+
+test('dayPanelAction is a no-op when the open day matches the route', () => {
+  assert.equal(dayPanelAction('2026-06-25', '2026-06-25'), 'none');
+});
+
+test('dayPanelAction closes when the route drops the day', () => {
+  assert.equal(dayPanelAction('2026-06-25', null), 'close');
+});
+
+test('dayPanelAction is a no-op when nothing is open and no day routed', () => {
+  assert.equal(dayPanelAction(null, null), 'none');
 });

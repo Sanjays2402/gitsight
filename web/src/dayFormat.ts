@@ -57,3 +57,26 @@ export function dayAuthorTally(
     (a, b) => b.count - a.count || a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
   );
 }
+
+/** What reconciling the day panel against a route should do (W84). */
+export type DayPanelAction = 'open' | 'close' | 'none';
+
+/**
+ * Decide how to reconcile the open day panel with a deep-linked day (W84), so
+ * every code path that touches the panel's URL state — Esc, the close button,
+ * and back/forward — converges on the same decision instead of each re-deriving
+ * it inline:
+ *
+ *   - A route carrying a day that differs from the open one -> 'open' (load it).
+ *   - A route carrying the SAME day already open -> 'none' (no re-fetch).
+ *   - A route with no day while a panel is open -> 'close'.
+ *   - A route with no day and nothing open -> 'none'.
+ *
+ * `openDate` is the panel's currently-open day (null when closed); `routeDay`
+ * is the URL's day= value (null when absent). Pure so the convergence is
+ * unit-testable without the DOM.
+ */
+export function dayPanelAction(openDate: string | null, routeDay: string | null): DayPanelAction {
+  if (routeDay) return openDate === routeDay ? 'none' : 'open';
+  return openDate ? 'close' : 'none';
+}

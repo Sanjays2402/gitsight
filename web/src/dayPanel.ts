@@ -34,6 +34,14 @@ export interface DayPanelHandlers {
   onOpened?: (date: string) => void;
   /** Fired after the panel closes (W79) — host clears the deep link. */
   onClosed?: () => void;
+  /**
+   * Whether this panel may handle an Escape keypress (W84). When a higher-
+   * priority overlay (command palette, keyboard-help) is open, it owns Escape,
+   * so the day panel must NOT also close on that same Esc — otherwise it would
+   * silently drop its day= deep link out from under the other overlay. Absent =
+   * the panel always handles Esc (its prior behaviour).
+   */
+  canCloseOnEsc?: () => boolean;
 }
 
 /**
@@ -69,7 +77,11 @@ export class DayPanel {
     document.body.appendChild(this.root);
 
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && this.isOpen()) this.close();
+      if (e.key !== 'Escape' || !this.isOpen()) return;
+      // W84: defer to a higher-priority overlay that owns Escape (palette /
+      // help). Closing here on the same Esc would drop the day= deep link.
+      if (this.handlers.canCloseOnEsc && !this.handlers.canCloseOnEsc()) return;
+      this.close();
     });
   }
 
