@@ -373,6 +373,27 @@ export function buildChurnCalendar(stdout: string, opts: CalendarOptions = {}): 
   return buildActivityCalendarFromCounts(parseChurnByDay(stdout), opts);
 }
 
+// ── Metric switching (W88) ───────────────────────────────────────────
+
+/** Which quantity the activity calendar's cells count (W39/W88). */
+export type ActivityMetric = 'commits' | 'churn';
+
+/** True when a value is a valid activity metric (guards a deep-link param). */
+export function isActivityMetric(v: unknown): v is ActivityMetric {
+  return v === 'commits' || v === 'churn';
+}
+
+/**
+ * Flip the activity metric between commits and churn (W88). A degenerate or
+ * unknown current value normalises to 'commits' so a first toggle lands on
+ * 'churn' deterministically — this is the single source of truth the keyboard
+ * shortcut, the on-screen toggle, and any future caller share, so every path
+ * agrees on what "the other metric" is.
+ */
+export function toggleActivityMetric(current: unknown): ActivityMetric {
+  return current === 'churn' ? 'commits' : 'churn';
+}
+
 // ── Year scoping (W43) ───────────────────────────────────────────────
 
 /**

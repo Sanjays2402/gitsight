@@ -81,6 +81,7 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
       shortcuts: [
         { keys: ['\u2190'], description: 'Scope the calendar to the older year', views: ['activity'] },
         { keys: ['\u2192'], description: 'Scope the calendar to the newer year', views: ['activity'] },
+        { keys: ['m'], description: 'Toggle the commits / churn metric', views: ['activity'] },
         { keys: ['p'], description: 'Pin a focused day\u2019s commit preview (Esc closes)', views: ['activity'] },
       ],
     },

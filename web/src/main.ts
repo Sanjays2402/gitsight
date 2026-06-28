@@ -94,7 +94,7 @@ import { DiffSettingsStore } from './diffSettingsStore';
 import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { commitWebUrl } from '@shared/remoteUrl';
-import { adjacentYear } from '@shared/activity';
+import { adjacentYear, toggleActivityMetric } from '@shared/activity';
 import { sortContributors, type ContributorSort } from '@shared/contributors';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
@@ -2243,6 +2243,8 @@ function installKeyboard(): void {
     }
     // Activity tab (W48): left/right arrows step the scoped calendar year,
     // mirroring the year picker's prev/next. Older = left, newer = right.
+    // W88: `m` toggles the commits<->churn metric so the deep-linkable switch
+    // is reachable from the keyboard, not just the on-screen segmented control.
     if (state.view === 'activity') {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -2250,6 +2252,9 @@ function installKeyboard(): void {
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         stepActivityYear(1);
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        switchActivityMetric(toggleActivityMetric(state.activityMetric));
       }
       return;
     }

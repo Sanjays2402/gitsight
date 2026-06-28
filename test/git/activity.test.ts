@@ -9,6 +9,8 @@ import {
   buildActivityCalendarFromCounts,
   parseChurnByDay,
   buildChurnCalendar,
+  isActivityMetric,
+  toggleActivityMetric,
   buildStreaks,
   activeDaysOf,
   commitYear,
@@ -269,6 +271,30 @@ test('buildChurnCalendar on empty output yields an empty calendar', () => {
   const cal = buildChurnCalendar('');
   assert.deepEqual(cal.weeks, []);
   assert.equal(cal.total, 0);
+});
+
+// ── Metric switching (W88) ───────────────────────────────────────────
+
+test('isActivityMetric accepts the two metrics and rejects anything else', () => {
+  assert.equal(isActivityMetric('commits'), true);
+  assert.equal(isActivityMetric('churn'), true);
+  assert.equal(isActivityMetric('lines'), false);
+  assert.equal(isActivityMetric(''), false);
+  assert.equal(isActivityMetric(undefined), false);
+  assert.equal(isActivityMetric(null), false);
+});
+
+test('toggleActivityMetric flips between commits and churn', () => {
+  assert.equal(toggleActivityMetric('commits'), 'churn');
+  assert.equal(toggleActivityMetric('churn'), 'commits');
+});
+
+test('toggleActivityMetric normalises a junk current value to churn', () => {
+  // Anything that isn't 'churn' is treated as commits, so a first toggle lands
+  // on churn deterministically (so keyboard + on-screen toggle agree).
+  assert.equal(toggleActivityMetric('lines'), 'churn');
+  assert.equal(toggleActivityMetric(undefined), 'churn');
+  assert.equal(toggleActivityMetric(''), 'churn');
 });
 
 // ── Year scoping (W43) ───────────────────────────────────────────────
