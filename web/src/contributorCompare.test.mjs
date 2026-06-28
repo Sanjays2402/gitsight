@@ -11,6 +11,7 @@ import {
   fileOverlap,
   buildContributorComparison,
   overlapPercent,
+  swapComparePair,
 } from './contributorCompare.ts';
 
 const file = (path, insertions, deletions, commits = 1) => ({ path, insertions, deletions, commits });
@@ -94,4 +95,25 @@ test('buildContributorComparison assembles both summaries + overlap', () => {
   assert.deepEqual(cmp.overlap.shared, ['x.ts']);
   // union = 1 + 2 - 1 = 2; jaccard = 1/2
   assert.equal(overlapPercent(cmp.overlap), 50);
+});
+
+test('swapComparePair reverses the pair without mutating the input (W89)', () => {
+  const pair = ['ada@x.z', 'grace@x.z'];
+  const swapped = swapComparePair(pair);
+  assert.deepEqual(swapped, ['grace@x.z', 'ada@x.z']);
+  // Original untouched (fresh tuple).
+  assert.deepEqual(pair, ['ada@x.z', 'grace@x.z']);
+  assert.notEqual(swapped, pair);
+});
+
+test('swapComparePair is an involution and works for object pairs (W89)', () => {
+  const a = { email: 'a@x.z', name: 'A' };
+  const b = { email: 'b@x.z', name: 'B' };
+  const once = swapComparePair([a, b]);
+  assert.equal(once[0], b);
+  assert.equal(once[1], a);
+  // Swapping twice restores the original order (and identities).
+  const twice = swapComparePair(once);
+  assert.equal(twice[0], a);
+  assert.equal(twice[1], b);
 });

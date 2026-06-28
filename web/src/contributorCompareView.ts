@@ -27,6 +27,8 @@ export interface ContributorCompareHandlers {
   onOpenFile?: (path: string) => void;
   /** Copy a shareable deep link to this comparison (W47). */
   onShareLink?: () => void;
+  /** Swap the two authors' left/right order (W89); re-opens reversed. */
+  onSwap?: () => void;
 }
 
 /**
@@ -49,6 +51,16 @@ export class ContributorComparePanel {
     const header = el('div', 'cc-head');
     const title = el('div', 'cc-title', 'Compare contributors');
     const actions = el('div', 'cc-head-actions');
+    // Swap order (W89): flip which author is on the left so the fixed A|B
+    // layout (and the W47 shared link) reflects the order the user wants.
+    if (handlers.onSwap) {
+      const swap = el('button', 'btn icon-only');
+      swap.title = 'Swap left and right';
+      swap.setAttribute('aria-label', 'Swap comparison order');
+      swap.innerHTML = icons.swap;
+      swap.addEventListener('click', () => handlers.onSwap!());
+      actions.appendChild(swap);
+    }
     // Share link (W47): copy a #contributors?vs=a,b deep-link.
     if (handlers.onShareLink) {
       const share = el('button', 'btn icon-only');

@@ -72,6 +72,7 @@ import { renderActivity } from './activityView';
 import { renderContributors } from './contributorsView';
 import { AuthorPanel } from './authorPanel';
 import { ContributorComparePanel } from './contributorCompareView';
+import { swapComparePair } from './contributorCompare';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
@@ -328,6 +329,7 @@ const contributorComparePanel = new ContributorComparePanel({
     void loadBlamePath(path);
   },
   onShareLink: () => void shareContributorCompareLink(),
+  onSwap: () => swapContributorCompare(),
 });
 
 /**
@@ -1781,6 +1783,22 @@ async function shareContributorCompareLink(): Promise<void> {
   } catch {
     toast('Copy failed');
   }
+}
+
+/**
+ * Swap the two authors' left/right order in the comparison (W89). Reverses the
+ * selection (pure swapComparePair), re-opens the panel in the new order, and
+ * syncs the hash so the #contributors?vs=a,b deep link reflects the order the
+ * user is viewing. Re-renders the leaderboard so the 'vs' chips track the
+ * selection. No-op unless exactly two authors are selected.
+ */
+function swapContributorCompare(): void {
+  if (state.compareSelection.length !== 2) return;
+  state.compareSelection = swapComparePair([state.compareSelection[0], state.compareSelection[1]]);
+  const [a, b] = state.compareSelection;
+  void contributorComparePanel.open(a, b);
+  syncHash();
+  if (state.view === 'contributors') renderContributorsView();
 }
 
 /** Lazily load the stash list when the tab first opens (W19). */

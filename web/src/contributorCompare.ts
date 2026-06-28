@@ -115,3 +115,20 @@ export function buildContributorComparison(a: AuthorDetail, b: AuthorDetail): Co
 export function overlapPercent(overlap: FileOverlap): number {
   return Math.round(overlap.jaccard * 100);
 }
+
+// ── Compare pair ordering (W89) ──────────────────────────────────────
+
+/**
+ * Swap the two halves of a comparison pair (W89). The W47 deep link
+ * (#contributors?vs=a,b) and the W35 panel both render a FIXED A|B order; this
+ * flips it so the user can put either author on the left, and the shared link
+ * reflects the order they're actually viewing. Pure (a fresh reversed tuple,
+ * no mutation) so the ordering logic is testable without the panel — the view
+ * passes its `[a, b]` selection and re-opens with `[b, a]`.
+ *
+ * Works over any `[T, T]` so it serves both the `{email,name}` selection in
+ * main.ts and a bare email pair.
+ */
+export function swapComparePair<T>(pair: readonly [T, T]): [T, T] {
+  return [pair[1], pair[0]];
+}
