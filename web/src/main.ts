@@ -73,7 +73,7 @@ import { AuthorPanel } from './authorPanel';
 import { ContributorComparePanel } from './contributorCompareView';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
-import { toggleAuthorFilter, buildBlameLineMenu } from './blameLegend';
+import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { renderStashes } from './stashView';
@@ -415,6 +415,16 @@ function buildPaletteItems(): PaletteItem[] {
       weight: 3,
     });
   }
+  // Blame author isolate (W82): when the Blame view has a loaded model, surface
+  // an "Isolate <author>" entry per author (+ "Show all" when one's isolated)
+  // so the W40/W76 isolate is reachable from Cmd-K, mirroring the right-click
+  // (W77) + the legend. Scoped to the loaded file's authors only.
+  if (state.view === 'blame' && state.blame.data) {
+    for (const item of blameAuthorPaletteItems(state.blame.data.authors, state.blameAuthor)) {
+      const value = item.action === 'show-all' ? 'blame-show-all' : `blame-isolate:${item.author}`;
+      items.push({ id: `blame:${value}`, kind: 'action', label: item.label, hint: 'Blame', value, weight: 2 });
+    }
+  }
   return items;
 }
 
@@ -468,7 +478,13 @@ function runPaletteItem(item: PaletteItem): void {
     searchHistory.record(query);
   } else if (item.kind === 'action') {
     const id = item.value.slice('action:'.length);
-    if (id === 'reload') void boot();
+    if (item.value === 'blame-show-all') {
+      // W82: clear the blame author isolate from the palette.
+      showAllBlameAuthors();
+    } else if (item.value.startsWith('blame-isolate:')) {
+      // W82: isolate the named author in the loaded blame from the palette.
+      isolateBlameAuthor(item.value.slice('blame-isolate:'.length));
+    } else if (id === 'reload') void boot();
     else if (id === 'theme') {
       theme.toggleChrome();
       rebuildChrome();
@@ -1893,9 +1909,34 @@ function viewRangeCommits(range: { start: number; end: number }): void {
  * blameLegend.toggleAuthorFilter; here we just re-render the loaded model.
  */
 function toggleBlameAuthor(author: string): void {
-  state.blameAuthor = toggleAuthorFilter(state.blameAuthor, author);
-  // Reflect the isolated author in the URL so the filtered view is shareable
-  // + survives back/forward (W76).
+  setBlameAuthor(toggleAuthorFilter(state.blameAuthor, author));
+}
+
+/**
+ * Isolate a specific author in the loaded blame (W82, command-palette entry).
+ * Unlike the toggle, this always sets (never clears) so "Isolate <name>" from
+ * Cmd-K is unambiguous. A no-op when that author is already active.
+ */
+function isolateBlameAuthor(author: string): void {
+  const next = author.trim();
+  if (!next) return;
+  if (state.blameAuthor && state.blameAuthor.trim().toLowerCase() === next.toLowerCase()) return;
+  setBlameAuthor(next);
+}
+
+/** Clear the blame author isolate (W82, command-palette "Show all"). */
+function showAllBlameAuthors(): void {
+  if (state.blameAuthor === null) return;
+  setBlameAuthor(null);
+}
+
+/**
+ * Apply a new isolated-author value + reflect it (W40/W76/W82). Syncs the hash
+ * so the filtered view is shareable + survives back/forward, and re-renders
+ * the loaded model when the Blame view is live.
+ */
+function setBlameAuthor(author: string | null): void {
+  state.blameAuthor = author;
   syncHash();
   if (state.view === 'blame') renderBlameView();
 }

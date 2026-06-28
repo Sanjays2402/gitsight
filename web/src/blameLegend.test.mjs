@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -149,4 +149,49 @@ test('buildBlameLineMenu composes all actions in order', () => {
     canCopyLine: true,
   });
   assert.deepEqual(m.map(c => c.action), ['isolate', 'show-all', 'view-author', 'copy-line']);
+});
+
+// ── blameAuthorPaletteItems (W82) ────────────────────────────────────
+
+const blameAuthors = [{ author: 'Ada' }, { author: 'Grace' }, { author: 'Linus' }];
+
+test('blameAuthorPaletteItems offers Isolate for every author when none active', () => {
+  const items = blameAuthorPaletteItems(blameAuthors, null);
+  assert.deepEqual(items.map(i => i.action), ['isolate', 'isolate', 'isolate']);
+  assert.deepEqual(items.map(i => i.author), ['Ada', 'Grace', 'Linus']);
+  assert.equal(items[0].label, 'Blame: isolate Ada');
+});
+
+test('blameAuthorPaletteItems leads with Show-all + omits the active author', () => {
+  const items = blameAuthorPaletteItems(blameAuthors, 'Grace');
+  // Show-all first, then isolate for the OTHER two (Grace is already active).
+  assert.deepEqual(items.map(i => i.action), ['show-all', 'isolate', 'isolate']);
+  assert.equal(items[0].label, 'Blame: show all authors');
+  assert.deepEqual(items.slice(1).map(i => i.author), ['Ada', 'Linus']);
+});
+
+test('blameAuthorPaletteItems matches the active author case-insensitively', () => {
+  const items = blameAuthorPaletteItems([{ author: 'ada' }, { author: 'Grace' }], 'ADA');
+  // "ada" is the active author -> omitted; only Grace gets an isolate entry.
+  assert.deepEqual(items.map(i => i.action), ['show-all', 'isolate']);
+  assert.equal(items[1].author, 'Grace');
+});
+
+test('blameAuthorPaletteItems de-dupes authors + skips blanks', () => {
+  const items = blameAuthorPaletteItems(
+    [{ author: 'Ada' }, { author: ' ada ' }, { author: '' }, { author: 'Grace' }],
+    null,
+  );
+  assert.deepEqual(items.map(i => i.author), ['Ada', 'Grace']);
+});
+
+test('blameAuthorPaletteItems caps the isolate entries at the limit', () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({ author: `Author ${i}` }));
+  const items = blameAuthorPaletteItems(many, null, 5);
+  assert.equal(items.length, 5);
+  assert.ok(items.every(i => i.action === 'isolate'));
+  // Show-all doesn't count toward the isolate cap.
+  const withActive = blameAuthorPaletteItems(many, 'Author 0', 5);
+  assert.equal(withActive[0].action, 'show-all');
+  assert.equal(withActive.filter(i => i.action === 'isolate').length, 5);
 });

@@ -164,3 +164,62 @@ export function buildBlameLineMenu(ctx: BlameMenuContext): BlameMenuChoice[] {
   }
   return choices;
 }
+
+// ── Blame author command-palette source (W82) ────────────────────────
+
+/** A palette action for the blame author isolate (W82). */
+export type BlameAuthorPaletteAction = 'isolate' | 'show-all';
+
+/** One Cmd-K entry scoped to the loaded blame's authors (W82, data only). */
+export interface BlameAuthorPaletteItem {
+  action: BlameAuthorPaletteAction;
+  label: string;
+  /** The author to isolate (isolate only; absent for show-all). */
+  author?: string;
+}
+
+/**
+ * Build the command-palette source for the loaded blame's authors (W82), so
+ * the W40/W76 isolate is reachable from Cmd-K, not just the legend (W40) or a
+ * right-click (W77). Mirrors the W32 commit-search provider pattern: pure +
+ * data only (the view maps each entry to a real PaletteItem with its run),
+ * so the gating is unit-testable.
+ *
+ *  - When an author is isolated, the first entry is "Show all authors" so the
+ *    filter can be cleared from the palette, followed by an "Isolate <name>"
+ *    for every OTHER author (re-isolating the active one is a no-op, so it's
+ *    omitted).
+ *  - When nothing is isolated, every author gets an "Isolate <name>" entry.
+ *
+ * Authors are de-duped case-insensitively (the blame model's author list is
+ * already distinct, but this stays defensive) and capped at `limit` isolate
+ * entries so a file touched by hundreds of authors can't flood the palette;
+ * the palette's own fuzzy filter narrows from there.
+ */
+export function blameAuthorPaletteItems(
+  authors: ReadonlyArray<{ author: string }>,
+  active: string | null,
+  limit = 12,
+): BlameAuthorPaletteItem[] {
+  const items: BlameAuthorPaletteItem[] = [];
+  const activeNorm = active ? norm(active) : null;
+  if (activeNorm) {
+    items.push({ action: 'show-all', label: 'Blame: show all authors' });
+  }
+  const seen = new Set<string>();
+  const cap = Math.max(0, Math.floor(limit));
+  let added = 0;
+  for (const a of authors) {
+    const name = (a.author || '').trim();
+    if (!name) continue;
+    const key = norm(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Re-isolating the already-active author would be a no-op — skip it.
+    if (activeNorm && key === activeNorm) continue;
+    if (added >= cap) break;
+    items.push({ action: 'isolate', label: `Blame: isolate ${name}`, author: name });
+    added++;
+  }
+  return items;
+}
