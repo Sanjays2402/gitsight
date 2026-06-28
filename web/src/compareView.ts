@@ -208,7 +208,7 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       const query = filter.input.value.trim();
       filter.badge.textContent = query ? matchSummary(matches.length, focusIdx) : '';
       const notice = emptyFilterMessage(query, matches.length);
-      filter.notice.textContent = notice;
+      filter.noticeText.textContent = notice;
       filter.notice.hidden = !notice;
       if (shouldRevealEmpty(query, matches.length)) {
         cols.scrollIntoView({ block: 'nearest' });
@@ -325,13 +325,16 @@ function renderCompareFileRows(
  * W78: returns a `notice` span the caller fills with an explicit "No commits
  * match" message when a non-empty query matches nothing (pure
  * compareFormat.emptyFilterMessage), aria-live so it's announced.
+ * W83: the notice also carries an inline "Clear filter" button so a dead-end
+ * query is one click from recovery — it resets the box + re-renders both
+ * columns. The caller fills `noticeText` (not `notice`) so the button survives.
  */
 function buildCommitFilter(
   total: number,
   render: (query: string) => void,
   onEnter: () => void,
   onStep: (delta: number) => void,
-): { wrap: HTMLElement; input: HTMLInputElement; badge: HTMLElement; notice: HTMLElement } {
+): { wrap: HTMLElement; input: HTMLInputElement; badge: HTMLElement; notice: HTMLElement; noticeText: HTMLElement } {
   const wrap = el('div', 'compare-commit-filter');
   const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
   input.type = 'search';
@@ -363,11 +366,24 @@ function buildCommitFilter(
   row.append(input, badge);
   // W78: an explicit empty-state notice below the input, shown only when a
   // non-empty query matches nothing. Aria-live so the dead-end is announced.
+  // W83: it pairs the message text with an inline "Clear filter" button so the
+  // dead-end is one click from recovery (resets the box + re-renders).
   const notice = el('div', 'compare-commit-filter-empty');
   notice.setAttribute('aria-live', 'polite');
   notice.hidden = true;
+  const noticeText = el('span', 'compare-commit-filter-empty-text');
+  const clear = el('button', 'compare-commit-filter-clear');
+  clear.type = 'button';
+  clear.textContent = 'Clear filter';
+  clear.title = 'Clear the commit filter';
+  clear.addEventListener('click', () => {
+    input.value = '';
+    render('');
+    input.focus();
+  });
+  notice.append(noticeText, clear);
   wrap.append(row, notice);
-  return { wrap, input, badge, notice };
+  return { wrap, input, badge, notice, noticeText };
 }
 
 function commitColumn(

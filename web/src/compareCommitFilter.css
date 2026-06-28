@@ -82,8 +82,13 @@
  * explicit "No commits match" line sits below the input (and the columns scroll
  * into view) so the dead-end is obvious rather than two silently-empty columns.
  * A faint warning tint + the warn accent, hidden when there's a match.
+ * W83: it lays the message text + an inline "Clear filter" button on one row so
+ * a dead-end query is one click from recovery.
  */
 .compare-commit-filter-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 11.5px;
   color: var(--fg-muted, var(--fg-faint));
   padding: 5px 9px;
@@ -95,4 +100,41 @@
 
 .compare-commit-filter-empty[hidden] {
   display: none;
+}
+
+.compare-commit-filter-empty-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * Inline "Clear filter" button in the empty-state notice (W83). Quiet, text-
+ * weight affordance — a hairline pill that brightens to the accent on hover/
+ * focus so the recovery action reads as secondary to the message but is still
+ * obviously clickable. Token-driven so it tracks the theme.
+ */
+.compare-commit-filter-clear {
+  flex: 0 0 auto;
+  appearance: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-muted, var(--fg-faint));
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 5px);
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s var(--ease), border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.compare-commit-filter-clear:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.compare-commit-filter-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
