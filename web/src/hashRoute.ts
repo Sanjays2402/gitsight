@@ -74,6 +74,13 @@ export interface BlameRoute {
    * highlighted. Absent for a single-line link.
    */
   lineEnd?: number;
+  /**
+   * An isolated author's NAME (W76). When present, the blame heatmap fades
+   * every other author's lines so one person's contribution stands out (the
+   * W40 isolate filter), and the link restores that on load + back/forward.
+   * Absent = no author isolated.
+   */
+  author?: string;
 }
 
 export interface StashesRoute {
@@ -293,6 +300,22 @@ export function formatLineParam(start: number, end?: number | null): string {
 }
 
 /**
+ * Normalise + validate an isolated-author NAME for a blame deep-link (W76).
+ * The blame heatmap isolates by author NAME (the legend carries no email), and
+ * the value is a pure client-side filter — it never reaches git — but the hash
+ * value is still cleaned so a crafted `#blame?...&author=` can't smuggle
+ * control characters into the DOM: control chars are stripped, whitespace is
+ * collapsed + trimmed, and the length is bounded. Returns the cleaned name, or
+ * null when it's empty so the link degrades to a non-isolated blame view.
+ */
+export function sanitizeBlameAuthor(author: string | null | undefined): string | null {
+  // eslint-disable-next-line no-control-regex
+  const a = (author ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!a) return null;
+  return a.slice(0, 160);
+}
+
+/**
  * Normalise + validate a stash filter query for a deep link (W63). The query
  * is purely a client-side substring match against stash subjects/branches (it
  * never reaches git), but the hash value is still cleaned so a crafted
@@ -369,6 +392,9 @@ export function buildHash(route: Route): string {
         // W57 single line, or W65 range (line=N-M) when lineEnd extends it.
         const line = sanitizeLine(route.line);
         if (line !== null) p.set('line', formatLineParam(line, route.lineEnd));
+        // W76: an isolated author, when one is set + survives sanitising.
+        const author = sanitizeBlameAuthor(route.author);
+        if (author) p.set('author', author);
         return `blame?${p.toString()}`;
       }
     }
@@ -481,6 +507,10 @@ export function parseHash(hash: string): Route | null {
       route.line = range.start;
       if (range.end > range.start) route.lineEnd = range.end;
     }
+    // W76: an isolated author name, if present + non-empty after cleaning.
+    const rawAuthor = params.get('author');
+    const author = rawAuthor !== null ? sanitizeBlameAuthor(decodeURIComponent(rawAuthor)) : null;
+    if (author) route.author = author;
     return route;
   }
 

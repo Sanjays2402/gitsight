@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -497,6 +497,56 @@ test('parseHash reads a graph?commits= link back', () => {
 
 test('buildHash(parseHash(x)) round-trips a graph commits link', () => {
   const original = 'graph?commits=aaaa1111%2Cbbbb2222';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Blame author-isolate deep-link (W76) ─────────────────────────────
+
+test('sanitizeBlameAuthor cleans control chars + whitespace, bounds length', () => {
+  assert.equal(sanitizeBlameAuthor('Ada Lovelace'), 'Ada Lovelace');
+  assert.equal(sanitizeBlameAuthor('  Grace  Hopper  '), 'Grace Hopper'); // collapse + trim
+  assert.equal(sanitizeBlameAuthor('Bjarne\tStroustrup'), 'Bjarne Stroustrup'); // tab -> space
+  // Empty / nullish -> null (degrades to a non-isolated view).
+  assert.equal(sanitizeBlameAuthor(''), null);
+  assert.equal(sanitizeBlameAuthor('   '), null);
+  assert.equal(sanitizeBlameAuthor(null), null);
+  assert.equal(sanitizeBlameAuthor(undefined), null);
+  // Length is bounded.
+  assert.equal(sanitizeBlameAuthor('x'.repeat(200)).length, 160);
+});
+
+test('buildHash emits an author= param on a blame link when isolated', () => {
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', author: 'Ada Lovelace' }),
+    'blame?path=src%2Fmain.ts&author=Ada+Lovelace',
+  );
+  // No author -> the bare blame path link (no author param).
+  assert.equal(buildHash({ view: 'blame', path: 'src/main.ts' }), 'blame?path=src%2Fmain.ts');
+  // An empty author degrades to no param.
+  assert.equal(buildHash({ view: 'blame', path: 'src/main.ts', author: '  ' }), 'blame?path=src%2Fmain.ts');
+});
+
+test('buildHash combines a line range with an isolated author', () => {
+  assert.equal(
+    buildHash({ view: 'blame', path: 'a.ts', line: 10, lineEnd: 20, author: 'Ada' }),
+    'blame?path=a.ts&line=10-20&author=Ada',
+  );
+});
+
+test('parseHash reads a blame author= param back', () => {
+  assert.deepEqual(parseHash('#blame?path=src%2Fmain.ts&author=Ada+Lovelace'), {
+    view: 'blame',
+    path: 'src/main.ts',
+    author: 'Ada Lovelace',
+  });
+  // A blank author param is dropped (non-isolated view).
+  assert.deepEqual(parseHash('#blame?path=a.ts&author='), { view: 'blame', path: 'a.ts' });
+});
+
+test('buildHash(parseHash(x)) round-trips a blame author link', () => {
+  const original = 'blame?path=src%2Fmain.ts&author=Ada+Lovelace';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

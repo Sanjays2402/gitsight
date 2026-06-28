@@ -658,12 +658,13 @@ async function boot(): Promise<void> {
     openCompareFromEmails(pair);
   }
 
-  // Load a deep-linked file blame once the app is up (W57; range W65). loadBlameAt
-  // blames at the linked rev; the revealLine + range jump are threaded through runBlame.
+  // Load a deep-linked file blame once the app is up (W57; range W65; author
+  // W76). loadBlameAt blames at the linked rev; the revealLine + range jump +
+  // isolated author are threaded through runBlame.
   if (pendingBlame && state.view === 'blame') {
-    const { path, rev, line, lineEnd } = pendingBlame;
+    const { path, rev, line, lineEnd, author } = pendingBlame;
     pendingBlame = null;
-    void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null);
+    void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null, author ?? null);
   }
 }
 
@@ -1639,14 +1640,21 @@ async function loadBlameAt(rev: string, path: string): Promise<void> {
 }
 
 /** Shared blame loader: fetch `path` at `rev`, optionally revealing a line. */
-async function runBlame(rev: string, path: string, line: number | null, lineEnd: number | null = null): Promise<void> {
+async function runBlame(
+  rev: string,
+  path: string,
+  line: number | null,
+  lineEnd: number | null = null,
+  author: string | null = null,
+): Promise<void> {
   state.blamePath = path;
   state.blameRev = rev;
   state.blameLine = line;
   // A range deep-link (W65) carries an end line; a plain load clears it.
   state.blameLineEnd = lineEnd;
-  // A fresh file/rev starts with no author isolated (W40).
-  state.blameAuthor = null;
+  // A fresh file/rev starts with no author isolated (W40), unless a deep link
+  // (W76) restores one — threaded in so the isolate survives a load.
+  state.blameAuthor = author;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
   const res = await loadBlame(rev, path, {
@@ -1698,6 +1706,8 @@ async function copyBlameLineLink(line: number): Promise<void> {
     path: state.blamePath,
     rev: state.blameRev,
     line,
+    // Preserve an active author isolate (W76) so a copied line link keeps it.
+    author: state.blameAuthor ?? undefined,
   });
   const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
   try {
@@ -1727,6 +1737,8 @@ async function copyBlameLineRangeLink(start: number, end: number): Promise<void>
     rev: state.blameRev,
     line: start,
     lineEnd: end,
+    // Preserve an active author isolate (W76) so a copied range link keeps it.
+    author: state.blameAuthor ?? undefined,
   });
   const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
   try {
@@ -1773,6 +1785,9 @@ function viewRangeCommits(range: { start: number; end: number }): void {
  */
 function toggleBlameAuthor(author: string): void {
   state.blameAuthor = toggleAuthorFilter(state.blameAuthor, author);
+  // Reflect the isolated author in the URL so the filtered view is shareable
+  // + survives back/forward (W76).
+  syncHash();
   if (state.view === 'blame') renderBlameView();
 }
 
@@ -2001,10 +2016,11 @@ function applyInitialRoute(): void {
       pendingContributorSort = sort;
     }
   }
-  // Remember a file-blame deep link (#blame?path=&rev=&line=, W57; range W65);
-  // boot() loads the file + jumps to the line once the app is up.
+  // Remember a file-blame deep link (#blame?path=&rev=&line=, W57; range W65;
+  // author W76); boot() loads the file + jumps to the line + isolates the
+  // author once the app is up.
   if (route.view === 'blame' && route.path) {
-    pendingBlame = { path: route.path, rev: route.rev, line: route.line, lineEnd: route.lineEnd };
+    pendingBlame = { path: route.path, rev: route.rev, line: route.line, lineEnd: route.lineEnd, author: route.author };
   }
   // Seed a stash filter deep-link (#stashes?q=, W63); the first Stashes render
   // pre-fills the box + narrows the cards. boot() resets stashQuery, so stash
@@ -2035,8 +2051,8 @@ let pendingCompareEmails: [string, string] | null = null;
  */
 let pendingContributorSort: ContributorSort | null = null;
 
-/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65). */
-let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number } | null = null;
+/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65; author W76). */
+let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number; author?: string } | null = null;
 
 /**
  * A calendar year from an #activity?year= deep-link (W48). boot() resets
@@ -2081,13 +2097,15 @@ function syncHash(): void {
     route = { view: 'activity', year: state.activityYear, metric: state.activityMetric };
   } else if (state.view === 'blame' && state.blamePath) {
     // A shareable file-blame deep-link (W57): path + rev + the revealed line,
-    // or a line range (W65) when an end line is selected.
+    // or a line range (W65) when an end line is selected, plus an isolated
+    // author (W76) when one is active.
     route = {
       view: 'blame',
       path: state.blamePath,
       rev: state.blameRev,
       line: state.blameLine ?? undefined,
       lineEnd: state.blameLineEnd ?? undefined,
+      author: state.blameAuthor ?? undefined,
     };
   } else if (state.view === 'stashes' && state.stashQuery) {
     // A shareable filtered-stash deep-link (W63): the filter query.
@@ -2224,14 +2242,16 @@ function installHashRouting(): void {
     // File-blame deep-link on back/forward (W57): switch to the Blame tab if
     // needed, then load the file at the linked rev + jump to the line. Only
     // reload when the target actually changed so a same-line back/forward is
-    // a no-op.
+    // a no-op. An author-only change (W76) is a pure re-render, not a refetch.
     if (route.view === 'blame' && route.path) {
       const targetRev = route.rev ?? 'HEAD';
-      const changed =
+      const nextAuthor = route.author ?? null;
+      const targetChanged =
         route.path !== state.blamePath ||
         targetRev !== state.blameRev ||
         (route.line ?? null) !== state.blameLine ||
         (route.lineEnd ?? null) !== state.blameLineEnd;
+      const authorChanged = nextAuthor !== state.blameAuthor;
       if (state.view !== 'blame') {
         state.view = 'blame';
         detailPanel.close();
@@ -2239,7 +2259,14 @@ function installHashRouting(): void {
         authorPanel.close();
         rebuildChrome();
       }
-      if (changed) void runBlame(targetRev, route.path, route.line ?? null, route.lineEnd ?? null);
+      if (targetChanged) {
+        void runBlame(targetRev, route.path, route.line ?? null, route.lineEnd ?? null, nextAuthor);
+      } else if (authorChanged) {
+        // Same file/line, only the isolated author moved — re-render the loaded
+        // model with the new W40 filter instead of re-fetching the blame.
+        state.blameAuthor = nextAuthor;
+        if (state.view === 'blame') renderBlameView();
+      }
       return;
     }
     // Filtered-stash deep-link on back/forward (W63): switch to the Stashes
