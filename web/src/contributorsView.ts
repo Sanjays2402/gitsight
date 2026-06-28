@@ -35,6 +35,13 @@ export interface ContributorsViewOptions {
   sort?: ContributorSort;
   /** Fired when the user picks a sort segment (W60); host re-sorts + re-renders. */
   onSort?: (sort: ContributorSort) => void;
+  /**
+   * Fired when a row's churn bar is clicked (W73). The host opens that author's
+   * W23 detail panel scrolled to their most-touched files, so churn -> the
+   * files that drove it is one click. Absent = the churn bar stays inert (the
+   * whole row still filters via onPick).
+   */
+  onPickChurn?: (c: Contributor) => void;
 }
 
 /** The sort segments shown in the leaderboard header (W60). */
@@ -129,6 +136,21 @@ export function renderContributors(stats: ContributorStats, opts: ContributorsVi
       churnFill.style.width = cChurn > 0 ? `${Math.max(2, Math.round(churnShare(c, maxChurn) * 100))}%` : '0';
       churnFill.style.background = authorColor(c.name);
       churnWrap.appendChild(churnFill);
+      // W73: clicking the churn track (rather than the name) opens the author's
+      // detail scrolled to their most-touched files — "what drove this churn?".
+      // stopPropagation keeps the row's onPick (author filter) from also firing.
+      // Mirrors the graph row's sha-chip pattern: a secondary click affordance
+      // inside the clickable row, so it stays a plain element (no nested
+      // interactive role inside the row button). Only wired when there's real
+      // churn to explain.
+      if (opts.onPickChurn && cChurn > 0) {
+        churnWrap.classList.add('clickable');
+        churnWrap.title = `${cChurn.toLocaleString()} lines changed \u2014 click to see the files`;
+        churnWrap.addEventListener('click', e => {
+          e.stopPropagation();
+          opts.onPickChurn!(c);
+        });
+      }
       bars.appendChild(churnWrap);
     }
 

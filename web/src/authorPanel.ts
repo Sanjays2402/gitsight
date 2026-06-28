@@ -41,6 +41,8 @@ export class AuthorPanel {
   private handlers: AuthorPanelHandlers;
   private controller: AbortController | null = null;
   private openEmail: string | null = null;
+  /** When true, the next render scrolls + flashes the files section (W73). */
+  private focusFilesOnRender = false;
 
   constructor(handlers: AuthorPanelHandlers) {
     this.handlers = handlers;
@@ -75,8 +77,9 @@ export class AuthorPanel {
     return this.openEmail;
   }
 
-  async open(email: string, name: string): Promise<void> {
+  async open(email: string, name: string, opts: { focusFiles?: boolean } = {}): Promise<void> {
     this.openEmail = email;
+    this.focusFilesOnRender = !!opts.focusFiles;
     this.root.hidden = false;
     this.root.classList.add('show');
     this.titleEl.textContent = name || email;
@@ -95,6 +98,7 @@ export class AuthorPanel {
     this.controller?.abort();
     this.controller = null;
     this.openEmail = null;
+    this.focusFilesOnRender = false;
     this.root.classList.remove('show');
     this.root.hidden = true;
   }
@@ -179,6 +183,18 @@ export class AuthorPanel {
       this.handlers.onViewCommits(d.email, d.name);
     });
     this.body.appendChild(action);
+
+    // W73: when opened via a churn-bar click ("what drove this churn?"), scroll
+    // the files section into view + flash it so the most-touched files — the
+    // files that produced the churn — are the immediate focus. One-shot.
+    if (this.focusFilesOnRender) {
+      this.focusFilesOnRender = false;
+      requestAnimationFrame(() => {
+        filesWrap.scrollIntoView({ block: 'nearest' });
+        filesWrap.classList.add('flash');
+        setTimeout(() => filesWrap.classList.remove('flash'), 1200);
+      });
+    }
   }
 
   /** A 26-bar commit sparkline (monochrome track, accent bars). */

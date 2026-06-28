@@ -1268,6 +1268,11 @@ function renderContributorsView(): void {
       selectedForCompare: state.compareSelection.map(e => e.email),
       sort: state.contributorSort,
       onSort: key => switchContributorSort(key),
+      // W73: clicking a row's churn bar opens the author detail scrolled to
+      // their most-touched files — churn -> the files that drove it, one click.
+      onPickChurn: c => {
+        void authorPanel.open(c.email || c.name, c.name, { focusFiles: true });
+      },
     },
   );
   surface.replaceChildren(node);

@@ -52,6 +52,45 @@
   opacity: 0.9;
 }
 
+/*
+ * A clickable churn track (W73): clicking it opens the author detail scrolled
+ * to their most-touched files. A subtle hover cue (pointer + the fill brightens
+ * + a faint inset ring) signals it's its own target, distinct from the row's
+ * author-filter click, without shouting.
+ */
+.contributor-churn-bar.clickable {
+  cursor: pointer;
+  transition: box-shadow 0.12s ease;
+}
+
+.contributor-churn-bar.clickable:hover {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.contributor-churn-bar.clickable:hover .contributor-churn-bar-fill {
+  opacity: 0.95;
+}
+
+/*
+ * Flash the author panel's files section when it's opened via a churn-bar
+ * click (W73). A brief accent wash draws the eye straight to the most-touched
+ * files — the files that produced the churn the user clicked — then fades. The
+ * animation is one-shot (the controller adds + removes the class).
+ */
+.author-files.flash {
+  animation: churn-files-flash 1.2s ease;
+  border-radius: var(--radius-md, 6px);
+}
+
+@keyframes churn-files-flash {
+  0% {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 @media (max-width: 600px) {
   /* On the compact layout the row is tight; drop the secondary track to keep
    * the commit bar legible. */
