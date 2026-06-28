@@ -95,7 +95,7 @@ import { SearchHistory } from './searchHistory';
 import { DiffSettingsStore } from './diffSettingsStore';
 import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
-import { stashFilterPaletteItems } from '@shared/stashes';
+import { stashFilterPaletteItems, stashSubjectFilterPaletteItems } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear, toggleActivityMetric } from '@shared/activity';
 import { sortContributors, type ContributorSort } from '@shared/contributors';
@@ -485,6 +485,25 @@ function buildPaletteItems(): PaletteItem[] {
     for (const item of stashFilterPaletteItems(state.stashes.data.stashes)) {
       items.push({
         id: `stash-filter:${item.term}`,
+        kind: 'action',
+        label: item.label,
+        hint: `Stashes \u00b7 ${item.count}`,
+        value: `stash-filter:${item.term}`,
+        weight: 2,
+      });
+    }
+    // W96: a second tier keyed by the most common SUBJECT WORDS (boilerplate +
+    // stop-words stripped) so a WIP is findable by what it was about, not just
+    // which branch it sat on. Same `stash-filter:` run path as the W91 branch
+    // tier (both set the W63 deep link). De-duped against branch terms so a word
+    // that equals a branch name isn't offered twice.
+    const branchTerms = new Set(
+      stashFilterPaletteItems(state.stashes.data.stashes).map(i => i.term.toLowerCase()),
+    );
+    for (const item of stashSubjectFilterPaletteItems(state.stashes.data.stashes)) {
+      if (branchTerms.has(item.term.toLowerCase())) continue;
+      items.push({
+        id: `stash-word:${item.term}`,
         kind: 'action',
         label: item.label,
         hint: `Stashes \u00b7 ${item.count}`,

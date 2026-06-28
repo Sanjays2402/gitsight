@@ -414,3 +414,93 @@ export function stashFilterPaletteItems(
     .slice(0, cap)
     .map(({ term, count }) => ({ term, label: `Filter stashes on ${term}`, count }));
 }
+
+// ── Stash subject-word command-palette source (W96) ──────────────────
+
+/**
+ * Stop-words dropped from stash-subject tokens (W96): articles, prepositions,
+ * pronouns, and the git-stash boilerplate verbs ("wip", "on", "index") so the
+ * suggested words are about WHAT the work was, not scaffolding. Lowercased.
+ */
+const STASH_STOP_WORDS = new Set([
+  'wip', 'on', 'in', 'the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'with',
+  'at', 'by', 'from', 'into', 'is', 'it', 'this', 'that', 'index', 'changes',
+  'change', 'fix', 'update', 'add', 'wip:', 'stash',
+]);
+
+/**
+ * Tokenise a stash subject into significant lowercased words (W96). Strips the
+ * leading "WIP on <branch>:" / "On <branch>:" boilerplate git prepends (so the
+ * branch name + the scaffolding don't pollute the word list), splits on
+ * non-word characters, drops stop-words + very short tokens + bare numbers, and
+ * de-dupes within the one subject so a word repeated in a message counts once
+ * for that stash. Pure so the tokenising is unit-testable.
+ */
+export function stashSubjectWords(subject: string): string[] {
+  // Drop the "WIP on <branch>:" / "On <branch>:" prefix git writes.
+  const body = (subject ?? '').replace(/^(?:WIP on|On) [^:]+:\s*/i, '');
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of body.toLowerCase().split(/[^a-z0-9]+/)) {
+    const w = raw.trim();
+    if (w.length < 3) continue; // too short to be meaningful
+    if (/^\d+$/.test(w)) continue; // bare numbers aren't useful filters
+    if (STASH_STOP_WORDS.has(w)) continue;
+    if (seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+  }
+  return out;
+}
+
+/** One Cmd-K entry that filters stashes by a subject word (W96, data only). */
+export interface StashSubjectPaletteItem {
+  /** The subject word this entry filters by. */
+  term: string;
+  label: string;
+  /** How many stashes the word matches (via filterStashes), for the hint. */
+  count: number;
+}
+
+/**
+ * Build a second tier of stash-filter palette entries keyed by SUBJECT WORD
+ * (W96), complementing the W91 branch tier so a WIP is findable by what it was
+ * about, not just which branch it sat on. Tokenises every stash subject
+ * (stashSubjectWords — boilerplate + stop-words stripped), counts how many
+ * stashes each significant word appears in, and emits "Filter stashes: <word>"
+ * for the most common words.
+ *
+ * Each word's count is verified through the same `filterStashes` matcher the
+ * box uses (a substring match over subject OR branch), so the palette count and
+ * the resulting filtered view agree — even when the matcher catches a stash the
+ * tokeniser didn't (e.g. the word appears mid-token). Only words matching at
+ * least `minCount` stashes are surfaced (a one-off word is just the subject
+ * itself — no better than typing it), ordered by match count (most common
+ * first) then first appearance, and capped at `limit` so a large stash list
+ * can't flood the palette; the palette's own fuzzy filter narrows from there.
+ */
+export function stashSubjectFilterPaletteItems(
+  entries: ReadonlyArray<FilterableStash>,
+  limit = 8,
+  minCount = 2,
+): StashSubjectPaletteItem[] {
+  const order: string[] = [];
+  const firstSeen = new Map<string, number>();
+  for (const e of entries) {
+    for (const word of stashSubjectWords(e.subject ?? '')) {
+      if (!firstSeen.has(word)) {
+        firstSeen.set(word, order.length);
+        order.push(word);
+      }
+    }
+  }
+  const cap = Math.max(0, Math.floor(limit));
+  const floor = Math.max(1, Math.floor(minCount));
+  const list = order
+    // Count via the real matcher so the palette + the filtered view agree.
+    .map(word => ({ term: word, count: filterStashes(entries as FilterableStash[], word).length }))
+    .filter(w => w.count >= floor)
+    .sort((a, b) => b.count - a.count || firstSeen.get(a.term)! - firstSeen.get(b.term)!)
+    .slice(0, cap);
+  return list.map(({ term, count }) => ({ term, label: `Filter stashes: ${term}`, count }));
+}

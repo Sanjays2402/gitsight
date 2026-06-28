@@ -22,6 +22,8 @@ import {
   stashMatchesQuery,
   filterStashes,
   stashFilterPaletteItems,
+  stashSubjectWords,
+  stashSubjectFilterPaletteItems,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -305,4 +307,56 @@ test('stashFilterPaletteItems skips empty branches and caps the list', () => {
   assert.deepEqual(noBranch, []);
   const many = Array.from({ length: 30 }, (_, i) => ({ subject: 's', branch: `b${i}` }));
   assert.equal(stashFilterPaletteItems(many, 5).length, 5);
+});
+
+// ── stashSubjectWords / subject-word palette (W96) ───────────────────
+
+test('stashSubjectWords strips the WIP/On prefix and stop-words', () => {
+  // "WIP on main: fix the lane layout" -> drops prefix + "fix"/"the" stop-words.
+  assert.deepEqual(stashSubjectWords('WIP on main: fix the lane layout'), ['lane', 'layout']);
+  // "On feature/web: compare patch assembly" -> branch + prefix gone.
+  assert.deepEqual(stashSubjectWords('On feature/web: compare patch assembly'), ['compare', 'patch', 'assembly']);
+});
+
+test('stashSubjectWords drops short tokens, bare numbers, and de-dupes', () => {
+  // "a" / "to" too short or stop-word; "42" is a bare number; "blame" repeats.
+  assert.deepEqual(
+    stashSubjectWords('WIP on dev: blame to a 42 blame heatmap'),
+    ['blame', 'heatmap'],
+  );
+  // A subject with no prefix still tokenises.
+  assert.deepEqual(stashSubjectWords('refactor renderer'), ['refactor', 'renderer']);
+  // Empty / boilerplate-only -> nothing.
+  assert.deepEqual(stashSubjectWords('WIP on main:'), []);
+});
+
+test('stashSubjectFilterPaletteItems surfaces words shared by 2+ stashes', () => {
+  const stashes = [
+    { subject: 'WIP on main: blame ignore revs', branch: 'main' },
+    { subject: 'WIP on main: blame heatmap legend', branch: 'main' },
+    { subject: 'On feature/web: compare patch assembly', branch: 'feature/web' },
+  ];
+  const items = stashSubjectFilterPaletteItems(stashes);
+  // "blame" appears in two subjects -> surfaced; one-off words are dropped.
+  assert.ok(items.length >= 1);
+  assert.equal(items[0].term, 'blame');
+  assert.equal(items[0].label, 'Filter stashes: blame');
+  assert.equal(items[0].count, 2);
+  // The count agrees with what filterStashes(term) actually matches.
+  assert.equal(filterStashes(stashes, items[0].term).length, items[0].count);
+  // A one-off word like "assembly" isn't offered (count 1 < minCount 2).
+  assert.ok(!items.some(i => i.term === 'assembly'));
+});
+
+test('stashSubjectFilterPaletteItems caps the list and respects minCount', () => {
+  // 10 distinct words each shared by exactly 2 stashes.
+  const stashes: Array<{ subject: string; branch: string }> = [];
+  for (let i = 0; i < 10; i++) {
+    stashes.push({ subject: `WIP on main: topic${i}word alpha${i}beta`, branch: 'main' });
+    stashes.push({ subject: `WIP on dev: topic${i}word gamma${i}delta`, branch: 'dev' });
+  }
+  const capped = stashSubjectFilterPaletteItems(stashes, 4);
+  assert.equal(capped.length, 4);
+  // With minCount 3 nothing qualifies (each word hits only 2 stashes).
+  assert.deepEqual(stashSubjectFilterPaletteItems(stashes, 8, 3), []);
 });
