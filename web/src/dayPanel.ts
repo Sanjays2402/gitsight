@@ -30,6 +30,10 @@ export interface DayPanelHandlers {
   onViewInGraph: (date: string) => void;
   /** Copy a sha to the clipboard. */
   onCopySha?: (sha: string) => void;
+  /** Fired after the panel opens for a date (W79) — host syncs the deep link. */
+  onOpened?: (date: string) => void;
+  /** Fired after the panel closes (W79) — host clears the deep link. */
+  onClosed?: () => void;
 }
 
 /**
@@ -83,6 +87,9 @@ export class DayPanel {
     this.root.classList.add('show');
     this.titleEl.textContent = formatDayHeading(date);
     this.showLoading();
+    // W79: announce the open date so the host can sync the #activity?day= link
+    // before the fetch resolves (the panel is already visible).
+    this.handlers.onOpened?.(date);
 
     this.controller?.abort();
     this.controller = new AbortController();
@@ -94,11 +101,15 @@ export class DayPanel {
   }
 
   close(): void {
+    const wasOpen = !this.root.hidden;
     this.controller?.abort();
     this.controller = null;
     this.openDate = null;
     this.root.classList.remove('show');
     this.root.hidden = true;
+    // W79: only notify on a real close so a redundant close() (e.g. switchView
+    // closing every panel) doesn't clobber another view's deep link.
+    if (wasOpen) this.handlers.onClosed?.();
   }
 
   private showLoading(): void {

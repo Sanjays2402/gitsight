@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -225,6 +225,44 @@ test('parseHash drops a junk year + unknown metric to defaults', () => {
 
 test('buildHash(parseHash(x)) round-trips a scoped activity link', () => {
   const original = 'activity?year=2026&metric=churn';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── activity day-panel deep-link (W79) ───────────────────────────────
+
+test('sanitizeDayKey accepts a YYYY-MM-DD key, rejects junk', () => {
+  assert.equal(sanitizeDayKey('2026-06-27'), '2026-06-27');
+  assert.equal(sanitizeDayKey('  2026-06-27  '), '2026-06-27'); // trimmed
+  assert.equal(sanitizeDayKey('2026-6-7'), null); // not zero-padded
+  assert.equal(sanitizeDayKey('2026/06/27'), null); // wrong separators
+  assert.equal(sanitizeDayKey('nope'), null);
+  assert.equal(sanitizeDayKey(''), null);
+  assert.equal(sanitizeDayKey(null), null);
+});
+
+test('buildHash emits activity?day= for an open day panel', () => {
+  assert.equal(buildHash({ view: 'activity', day: '2026-06-27' }), 'activity?day=2026-06-27');
+  // A junk day degrades to the bare tab.
+  assert.equal(buildHash({ view: 'activity', day: 'nope' }), 'activity');
+});
+
+test('buildHash composes day with year + metric', () => {
+  assert.equal(
+    buildHash({ view: 'activity', year: 2026, metric: 'churn', day: '2026-06-27' }),
+    'activity?year=2026&metric=churn&day=2026-06-27',
+  );
+});
+
+test('parseHash reads activity?day= into a day-scoped route', () => {
+  assert.deepEqual(parseHash('#activity?day=2026-06-27'), { view: 'activity', day: '2026-06-27' });
+  // A junk day drops to the bare activity tab.
+  assert.deepEqual(parseHash('#activity?day=nope'), { view: 'activity' });
+});
+
+test('buildHash(parseHash(x)) round-trips a day-panel link', () => {
+  const original = 'activity?day=2026-06-27';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

@@ -135,6 +135,8 @@ interface AppState {
   activityYear: number | null;
   /** Years available in history, newest-first, learned from the last load (W43). */
   activityYears: number[];
+  /** The open day-panel's date on the Activity view (W79), or null for none. */
+  activityDay: string | null;
   contributors: AsyncSlot<ContributorsPayload>;
   /** Active leaderboard sort key (W60). */
   contributorSort: ContributorSort;
@@ -186,6 +188,7 @@ const state: AppState = {
   activityMetric: 'commits',
   activityYear: null,
   activityYears: [],
+  activityDay: null,
   contributors: slot<ContributorsPayload>(),
   contributorSort: 'commits',
   compareSelection: [],
@@ -257,6 +260,16 @@ const dayPanel = new DayPanel({
     applyFilter(`since:${date} until:${date}`);
   },
   onCopySha: sha => void copySha(sha),
+  // W79: keep the URL in sync with the open day so it's a shareable permalink
+  // (#activity?day=YYYY-MM-DD), restored on load + back/forward.
+  onOpened: date => {
+    state.activityDay = date;
+    if (state.view === 'activity') syncHash();
+  },
+  onClosed: () => {
+    state.activityDay = null;
+    if (state.view === 'activity') syncHash();
+  },
 });
 
 /**
@@ -594,6 +607,9 @@ async function boot(): Promise<void> {
   state.activityYear = pendingActivityYear;
   pendingActivityYear = null;
   state.activityYears = [];
+  // A reload/repo-switch closes any open day panel; a deep-linked day (W79) is
+  // opened after boot via pendingActivityDay so its #activity?day= link survives.
+  state.activityDay = null;
   state.contributors = slot<ContributorsPayload>();
   state.contributorSort = 'commits';
   // A deep-linked sort (W66) survives boot's reset via the pending stash.
@@ -665,6 +681,15 @@ async function boot(): Promise<void> {
     const { path, rev, line, lineEnd, author } = pendingBlame;
     pendingBlame = null;
     void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null, author ?? null);
+  }
+
+  // Open a deep-linked day panel once the Activity tab is up (W79). The panel
+  // fetches the day itself; opening it sets state.activityDay + re-syncs the
+  // hash via the onOpened hook.
+  if (pendingActivityDay && state.view === 'activity') {
+    const date = pendingActivityDay;
+    pendingActivityDay = null;
+    void dayPanel.open(date);
   }
 }
 
@@ -1243,6 +1268,19 @@ function stepActivityYear(delta: number): void {
   const next = adjacentYear(state.activityYears, state.activityYear, delta);
   if (next === state.activityYear) return;
   switchActivityYear(next);
+}
+
+/**
+ * Reconcile the day panel with a deep-linked day (W79). Opens the panel for
+ * `date` when it differs from the currently-open one, or closes it when the URL
+ * carries no day. Guarded so a no-op back/forward doesn't re-fetch the same day.
+ */
+function syncDayPanelToRoute(date: string | null): void {
+  if (date) {
+    if (dayPanel.currentDate() !== date) void dayPanel.open(date);
+  } else if (dayPanel.isOpen()) {
+    dayPanel.close();
+  }
 }
 
 function renderContributorsView(): void {
@@ -2023,6 +2061,8 @@ function applyInitialRoute(): void {
     state.activityYear = route.year ?? null;
     state.activityMetric = route.metric ?? 'commits';
     pendingActivityYear = route.year ?? null;
+    // A deep-linked open day-panel (W79); boot opens it after the app is up.
+    if (route.day) pendingActivityDay = route.day;
   }
   // Remember a commit permalink (#commit/<sha>, W27); boot() opens the
   // detail panel once the snapshot has loaded.
@@ -2096,6 +2136,13 @@ let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number;
 let pendingActivityYear: number | null = null;
 
 /**
+ * A day key from an #activity?day= deep-link (W79). boot() opens the W22 day
+ * panel for it once the Activity tab is up; stashed here so it survives boot's
+ * reset, then cleared.
+ */
+let pendingActivityDay: string | null = null;
+
+/**
  * A stash filter query from a #stashes?q= deep-link (W63). boot() resets
  * stashQuery, so we stash the value here and restore it after the reset.
  */
@@ -2127,8 +2174,14 @@ function syncHash(): void {
   } else if (state.view === 'contributors') {
     route = { view: 'contributors' };
   } else if (state.view === 'activity') {
-    // A shareable scoped-calendar deep-link (W48): year + metric.
-    route = { view: 'activity', year: state.activityYear, metric: state.activityMetric };
+    // A shareable scoped-calendar deep-link (W48): year + metric, plus an open
+    // day-panel drill-down (W79) when one is showing.
+    route = {
+      view: 'activity',
+      year: state.activityYear,
+      metric: state.activityMetric,
+      day: state.activityDay ?? undefined,
+    };
   } else if (state.view === 'blame' && state.blamePath) {
     // A shareable file-blame deep-link (W57): path + rev + the revealed line,
     // or a line range (W65) when an end line is selected, plus an isolated
@@ -2253,16 +2306,17 @@ function installHashRouting(): void {
     }
     // Scoped-calendar deep-link on back/forward (W48): switch to the Activity
     // tab if needed, then re-scope the calendar to the URL's year + metric.
+    // W79: also open/close the day panel to match the URL's day= param.
     if (route.view === 'activity') {
       const nextYear = route.year ?? null;
       const nextMetric = route.metric ?? 'commits';
+      const nextDay = route.day ?? null;
       const scopeChanged = nextYear !== state.activityYear || nextMetric !== state.activityMetric;
       state.activityYear = nextYear;
       state.activityMetric = nextMetric;
       if (state.view !== 'activity') {
         state.view = 'activity';
         detailPanel.close();
-        dayPanel.close();
         authorPanel.close();
         if (scopeChanged) state.activity = slot<ActivityPayload>();
         rebuildChrome();
@@ -2271,6 +2325,10 @@ function installHashRouting(): void {
         state.activity = slot<ActivityPayload>();
         renderActivityView();
       }
+      // Reconcile the day panel with the URL (W79): open the linked day, or
+      // close a panel the URL no longer carries. Guarded so a no-op back/forward
+      // doesn't re-fetch the same day.
+      syncDayPanelToRoute(nextDay);
       return;
     }
     // File-blame deep-link on back/forward (W57): switch to the Blame tab if

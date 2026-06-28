@@ -23,6 +23,7 @@
 
 import { sanitizeRef } from './compareFormat.ts';
 import { isContributorSort, type ContributorSort } from '../../src/shared/contributors.ts';
+import { isDayKey } from '../../src/shared/activity.ts';
 
 /** Views that participate in hash routing. */
 export type RouteView = 'graph' | 'activity' | 'contributors' | 'blame' | 'compare' | 'stashes';
@@ -44,6 +45,12 @@ export interface ActivityRoute {
   year?: number | null;
   /** Which metric the cells count (W48): 'churn' is the only non-default. */
   metric?: RouteActivityMetric;
+  /**
+   * An open day drill-down panel's date (W79), YYYY-MM-DD. When present the
+   * link re-opens the W22/W75 day panel for that day on load + back/forward.
+   * Absent = no panel open.
+   */
+  day?: string;
 }
 
 export interface ContributorsRoute {
@@ -158,6 +165,19 @@ export function sanitizeYear(year: string | number | null | undefined): number |
   const n = typeof year === 'number' ? year : Number(String(year).trim());
   if (!Number.isInteger(n) || n < 1970 || n > 9999) return null;
   return n;
+}
+
+/**
+ * Normalise + validate a day key for an activity day-panel deep-link (W79).
+ * Reuses the shared `isDayKey` guard (the single source of truth for the
+ * YYYY-MM-DD shape the calendar buckets by) so the URL can only carry a
+ * structurally valid day; the value drives a /api/day fetch but is also bounded
+ * here. Returns the trimmed key, or null for anything else so a junk `day=`
+ * param degrades to no open panel.
+ */
+export function sanitizeDayKey(day: string | null | undefined): string | null {
+  const d = (day ?? '').trim();
+  return isDayKey(d) ? d : null;
 }
 
 /**
@@ -370,11 +390,14 @@ export function buildHash(route: Route): string {
   if (route.view === 'activity') {
     // A scoped-calendar deep-link (W48): activity?year=YYYY&metric=churn.
     // Only emit params that diverge from the defaults (rolling window +
-    // commits) so the common case stays the bare `activity` tab.
+    // commits) so the common case stays the bare `activity` tab. W79 adds an
+    // optional day= for an open day-panel drill-down.
     const p = new URLSearchParams();
     const year = sanitizeYear(route.year);
     if (year !== null) p.set('year', String(year));
     if (route.metric === 'churn') p.set('metric', 'churn');
+    const day = sanitizeDayKey(route.day);
+    if (day) p.set('day', day);
     const qs = p.toString();
     return qs ? `activity?${qs}` : 'activity';
   }
@@ -487,6 +510,10 @@ export function parseHash(hash: string): Route | null {
     const route: ActivityRoute = { view: 'activity' };
     if (year !== null) route.year = year;
     if (metric === 'churn') route.metric = 'churn';
+    // W79: an open day-panel drill-down, when the day key is valid.
+    const rawDay = params.get('day');
+    const day = rawDay !== null ? sanitizeDayKey(decodeURIComponent(rawDay)) : null;
+    if (day) route.day = day;
     return route;
   }
 
