@@ -1507,6 +1507,9 @@ function renderBlameView(): void {
     // W81: a header copy-link button shares a permalink to the whole file's
     // blame (current rev + active author isolate), reusing buildHash.
     onCopyFileLink: () => void copyBlameFileLink(),
+    // W86: a sibling button opens the same file-blame permalink in a new tab,
+    // so a shared-with-yourself link is one click without the clipboard.
+    onOpenFileLink: () => openBlameFileLink(),
   };
   if (s.status === 'loading') {
     const wrap = el('div', 'blame');
@@ -1925,20 +1928,42 @@ async function copyBlameLineRangeLink(start: number, end: number): Promise<void>
  * "share this view" affordance. Reuses buildHash; no line is included.
  */
 async function copyBlameFileLink(): Promise<void> {
-  if (!state.blamePath) return;
-  const hash = buildHash({
-    view: 'blame',
-    path: state.blamePath,
-    rev: state.blameRev,
-    author: state.blameAuthor ?? undefined,
-  });
-  const url = `${location.origin}${location.pathname}${location.search}#${hash}`;
+  const url = blameFileLinkUrl();
+  if (!url) return;
   try {
     await navigator.clipboard.writeText(url);
     toast('Blame link copied');
   } catch {
     toast('Copy failed');
   }
+}
+
+/**
+ * Build the shareable file-blame permalink URL for the loaded file (W81/W86):
+ * a #blame?path=&rev=&author= link at the current rev, preserving any active
+ * W40/W76 author isolate. Returns '' when no file is loaded. Shared by the W81
+ * copy button + the W86 open-in-new-tab button.
+ */
+function blameFileLinkUrl(): string {
+  if (!state.blamePath) return '';
+  const hash = buildHash({
+    view: 'blame',
+    path: state.blamePath,
+    rev: state.blameRev,
+    author: state.blameAuthor ?? undefined,
+  });
+  return `${location.origin}${location.pathname}${location.search}#${hash}`;
+}
+
+/**
+ * Open the file-blame permalink in a new tab (W86). Reuses the W81 link builder
+ * so the copied link + the opened tab are identical; noopener/noreferrer keep
+ * the new tab from reaching back into this one.
+ */
+function openBlameFileLink(): void {
+  const url = blameFileLinkUrl();
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /**

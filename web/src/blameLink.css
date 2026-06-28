@@ -47,18 +47,22 @@ button.blame-ln.link:focus-visible {
 }
 
 /*
- * Header copy-link button (W81) — a quiet icon-only button beside the blame
- * form that copies a #blame?path=&rev=&author= permalink to the whole file's
- * blame. Inherits the shared .btn.icon-only chrome; this only nudges the faint
- * resting colour up on hover so it reads as a secondary affordance, not a
- * primary action competing with the Blame submit button.
+ * Header link buttons beside the blame form: the W81 copy-link button copies a
+ * #blame?path=&rev=&author= permalink to the whole file's blame, and the W86
+ * open-link button opens that same permalink in a new tab. Both inherit the
+ * shared .btn.icon-only chrome; this only nudges the faint resting colour up on
+ * hover so they read as secondary affordances, not primary actions competing
+ * with the Blame submit button.
  */
-.blame-copy-link {
+.blame-copy-link,
+.blame-open-link {
   color: var(--fg-faint);
 }
 
 .blame-copy-link:hover,
-.blame-copy-link:focus-visible {
+.blame-copy-link:focus-visible,
+.blame-open-link:hover,
+.blame-open-link:focus-visible {
   color: var(--accent);
 }
 

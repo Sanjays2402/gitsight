@@ -110,6 +110,14 @@ export interface BlameViewOptions {
    * still covers a specific line; this covers the file as a whole.
    */
   onCopyFileLink?: () => void;
+  /**
+   * Fired when the header's "Open in new tab" button is clicked (W86) — the
+   * host opens the same #blame?path=&rev=&author= permalink (the W81 file link)
+   * in a new browser tab so a shared-with-yourself link is one click away,
+   * without going through the clipboard. Only shown when a file is loaded AND
+   * this is wired.
+   */
+  onOpenFileLink?: () => void;
 }
 
 /** Render the blame surface (form + heatmap) into a detached node. */
@@ -463,6 +471,19 @@ function buildForm(opts: BlameViewOptions): HTMLElement {
     copy.innerHTML = icons.link;
     copy.addEventListener('click', () => opts.onCopyFileLink!());
     form.appendChild(copy);
+  }
+
+  // Open-in-new-tab button (W86): opens the same file-blame permalink in a new
+  // tab so a shared-with-yourself link is one click, no clipboard round-trip.
+  // Sits beside the W81 copy-link button under the same load + wiring gate.
+  if (opts.path && opts.onOpenFileLink) {
+    const open = el('button', 'btn icon-only blame-open-link');
+    open.type = 'button';
+    open.title = 'Open this file\u2019s blame link in a new tab';
+    open.setAttribute('aria-label', 'Open blame link in a new tab');
+    open.innerHTML = icons.external;
+    open.addEventListener('click', () => opts.onOpenFileLink!());
+    form.appendChild(open);
   }
 
   form.addEventListener('submit', e => {
