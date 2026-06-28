@@ -156,3 +156,25 @@ export function stepMatch(count: number, current: number, delta: number): number
   // Wrap with a positive modulo so -1 maps to count-1.
   return ((current + delta) % count + count) % count;
 }
+
+/**
+ * Legible match-count readout for the compare filter box (W74). Reports how
+ * many commits match the query and, once the user steps a focus ring through
+ * them (W70), the 1-based position of the focused match — so a wide range's
+ * "where am I in the matches" is visible at a glance.
+ *
+ * - No matches (count 0): "No matches".
+ * - Matches but nothing focused (focusIdx < 0): "N matches" (or "1 match").
+ * - A focused match: "i of N" (1-based), clamped into range defensively.
+ *
+ * Returns '' for a non-positive count when the caller wants to hide the badge
+ * entirely on an empty query — but callers typically only mount the badge when
+ * the filter box is shown, so the explicit "No matches" covers a live query
+ * that simply matches nothing.
+ */
+export function matchSummary(count: number, focusIdx: number): string {
+  if (count <= 0) return 'No matches';
+  if (focusIdx < 0) return count === 1 ? '1 match' : `${count} matches`;
+  const pos = Math.min(Math.max(0, focusIdx), count - 1) + 1;
+  return `${pos} of ${count}`;
+}

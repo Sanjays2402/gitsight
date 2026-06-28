@@ -9,10 +9,14 @@
 
 .compare-commit-filter {
   margin: 4px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .compare-commit-filter-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
   appearance: none;
   font: inherit;
@@ -33,6 +37,24 @@
   outline: none;
   border-color: var(--accent);
   background: var(--bg-elev);
+}
+
+/*
+ * Match-count badge beside the filter box (W74): a quiet "N matches" / "i of N"
+ * readout so a wide range's match count + the stepped focus position (W70) are
+ * legible. Tabular numerals keep the width steady as the count ticks; the badge
+ * collapses (no reserved gap) when empty so a blank query stays clean.
+ */
+.compare-commit-filter-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+.compare-commit-filter-count:empty {
+  display: none;
 }
 
 /*

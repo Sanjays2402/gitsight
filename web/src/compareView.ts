@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch, matchSummary } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -153,6 +153,9 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
   // so Down/Up can step through matches and Enter opens the focused one.
   let matches: CompareCommit[] = [];
   let focusIdx = -1;
+  // W74: a small "N matches" / "i of N" badge beside the filter box. Assigned
+  // when the filter is built (only above the threshold); a no-op until then.
+  let updateBadge: () => void = () => {};
   const applyFocusRing = () => {
     cols.querySelectorAll('.compare-commit.kbd-focus').forEach(x => x.classList.remove('kbd-focus'));
     if (focusIdx < 0 || focusIdx >= matches.length) return;
@@ -173,26 +176,35 @@ function buildResult(cmp: RangeComparison, opts: CompareViewOptions): HTMLElemen
       commitColumn('Only in ' + cmp.head, ahead, cmp.ahead.length, 'ahead', opts),
       commitColumn('Only in ' + cmp.base, behind, cmp.behind.length, 'behind', opts),
     );
+    // W74: refresh the count badge for the new match set (empty query ->
+    // everything matches, so it reads e.g. "12 matches").
+    updateBadge();
   };
   renderCols('');
   if (totalCommits >= COMMIT_FILTER_THRESHOLD) {
-    result.appendChild(
-      buildCommitFilter(
-        totalCommits,
-        renderCols,
-        () => {
-          // W62/W70: Enter opens the focused match if one is ringed, else the
-          // first match (ahead column first), so a search resolves to an action.
-          const target = focusIdx >= 0 && focusIdx < matches.length ? matches[focusIdx] : matches[0];
-          if (target && opts.onOpenCommit) opts.onOpenCommit(target.sha);
-        },
-        // W70: Down/Up step the focus ring through the current match list.
-        delta => {
-          focusIdx = stepMatch(matches.length, focusIdx, delta);
-          applyFocusRing();
-        },
-      ),
+    const filter = buildCommitFilter(
+      totalCommits,
+      renderCols,
+      () => {
+        // W62/W70: Enter opens the focused match if one is ringed, else the
+        // first match (ahead column first), so a search resolves to an action.
+        const target = focusIdx >= 0 && focusIdx < matches.length ? matches[focusIdx] : matches[0];
+        if (target && opts.onOpenCommit) opts.onOpenCommit(target.sha);
+      },
+      // W70: Down/Up step the focus ring through the current match list.
+      delta => {
+        focusIdx = stepMatch(matches.length, focusIdx, delta);
+        applyFocusRing();
+        // W74: the focused position changed -> refresh the "i of N" badge.
+        updateBadge();
+      },
     );
+    // W74: the badge reflects the live match count + the focused position. It's
+    // only meaningful while the box has a query, so it starts blank.
+    updateBadge = () => {
+      filter.badge.textContent = filter.input.value.trim() ? matchSummary(matches.length, focusIdx) : '';
+    };
+    result.appendChild(filter.wrap);
   }
   result.appendChild(cols);
 
@@ -298,13 +310,15 @@ function renderCompareFileRows(
  * the host opens the focused/first matching commit's detail.
  * W70: Down/Up step a focus ring through the match list — `onStep(delta)` is
  * fired so the host moves the ring; Enter then opens the focused one.
+ * W74: returns the input + a `badge` span the caller updates with a live
+ * "N matches" / "i of N" readout (pure compareFormat.matchSummary).
  */
 function buildCommitFilter(
   total: number,
   render: (query: string) => void,
   onEnter: () => void,
   onStep: (delta: number) => void,
-): HTMLElement {
+): { wrap: HTMLElement; input: HTMLInputElement; badge: HTMLElement } {
   const wrap = el('div', 'compare-commit-filter');
   const input = el('input', 'compare-commit-filter-input') as HTMLInputElement;
   input.type = 'search';
@@ -328,8 +342,12 @@ function buildCommitFilter(
       onStep(-1);
     }
   });
-  wrap.appendChild(input);
-  return wrap;
+  // W74: a live match-count badge to the right of the input. Aria-live so a
+  // screen reader hears the count change as the user types / steps.
+  const badge = el('span', 'compare-commit-filter-count');
+  badge.setAttribute('aria-live', 'polite');
+  wrap.append(input, badge);
+  return { wrap, input, badge };
 }
 
 function commitColumn(

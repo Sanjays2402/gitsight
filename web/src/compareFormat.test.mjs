@@ -17,6 +17,7 @@ import {
   filterCompareCommits,
   firstCompareMatch,
   stepMatch,
+  matchSummary,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -166,4 +167,29 @@ test('stepMatch on a single-item list always lands on 0', () => {
   assert.equal(stepMatch(1, -1, 1), 0);
   assert.equal(stepMatch(1, 0, 1), 0); // wrap back onto itself
   assert.equal(stepMatch(1, 0, -1), 0);
+});
+
+// ── Match-count badge (W74) ──────────────────────────────────────────
+
+test('matchSummary reports a plain count when nothing is focused', () => {
+  assert.equal(matchSummary(12, -1), '12 matches');
+  // Singular for one match.
+  assert.equal(matchSummary(1, -1), '1 match');
+});
+
+test('matchSummary reports a 1-based position once a match is focused', () => {
+  assert.equal(matchSummary(12, 0), '1 of 12');
+  assert.equal(matchSummary(12, 4), '5 of 12');
+  assert.equal(matchSummary(12, 11), '12 of 12');
+});
+
+test('matchSummary says "No matches" for an empty match set', () => {
+  assert.equal(matchSummary(0, -1), 'No matches');
+  assert.equal(matchSummary(0, 3), 'No matches'); // focus is meaningless at 0
+  assert.equal(matchSummary(-1, -1), 'No matches');
+});
+
+test('matchSummary clamps an out-of-range focus index defensively', () => {
+  // A stale focus past the end clamps to the last position rather than over-counting.
+  assert.equal(matchSummary(3, 9), '3 of 3');
 });
