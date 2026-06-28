@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, sanitizeRef, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -37,6 +37,8 @@ export interface CompareViewOptions {
   head: string;
   /** Submit a new ref pair (drives a fresh /api/compare load). */
   onCompare: (base: string, head: string) => void;
+  /** Surface a rejected ref pair (W92): empty or self-compare. */
+  onInvalidPair?: (message: string) => void;
   /** Fetch a single file's parsed diff for the head ref (W7). */
   loadDiff?: (rev: string, path: string) => Promise<FileDiffResult>;
   /** Current diff layout mode (W38; per-surface W46): split or unified. */
@@ -89,9 +91,12 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
   form.append(baseField.wrap, swap, headField.wrap, submit);
   form.addEventListener('submit', e => {
     e.preventDefault();
-    const base = sanitizeRef(baseField.input.value);
-    const head = sanitizeRef(headField.input.value);
-    if (base && head) opts.onCompare(base, head);
+    // W92: validate the pair through the shared route guard so an empty ref or
+    // a self-comparison (main...main, always empty) is rejected with a notice
+    // instead of firing a no-op load + writing a junk #compare hash.
+    const route = compareRouteFromRefs(baseField.input.value, headField.input.value);
+    if (route.ok) opts.onCompare(route.base, route.head);
+    else opts.onInvalidPair?.(compareRouteError(route.reason));
   });
   return form;
 }

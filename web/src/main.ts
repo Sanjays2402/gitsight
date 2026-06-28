@@ -78,7 +78,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
-import { compareRefPaletteItems } from './compareFormat';
+import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -1596,6 +1596,8 @@ function renderCompareView(): void {
     base: state.compareBase,
     head: state.compareHead,
     onCompare: (base: string, head: string) => runCompare(base, head),
+    // W92: surface a rejected ref pair (empty / self-compare) as a toast.
+    onInvalidPair: (message: string) => toast(message),
     loadDiff: (rev: string, path: string) =>
       loadFileDiff(rev, path, {
         repo: state.repo ?? undefined,
@@ -1722,18 +1724,31 @@ async function ensureCompare(): Promise<void> {
   await runCompare(state.compareBase, state.compareHead);
 }
 
-/** Run a fresh comparison for a ref pair (W18). */
-async function runCompare(base: string, head: string): Promise<void> {
-  state.compareBase = base;
-  state.compareHead = head;
+/**
+ * Run a fresh comparison for a ref pair (W18). W92: every caller — the form,
+ * the W87 palette ref entries, the W29 ref-rail \"compare with HEAD\" action, and
+ * a deep link's round-trip — funnels through the shared `compareRouteFromRefs`
+ * guard here, so an empty ref or a self-comparison (always an empty diff) is
+ * rejected with a toast instead of firing a no-op load + writing a junk
+ * `#compare?base=main&head=main` hash. Returns true when the comparison ran.
+ */
+async function runCompare(base: string, head: string): Promise<boolean> {
+  const route = compareRouteFromRefs(base, head);
+  if (!route.ok) {
+    toast(compareRouteError(route.reason));
+    return false;
+  }
+  state.compareBase = route.base;
+  state.compareHead = route.head;
   state.compare = { status: 'loading', data: null, error: '' };
   // Reflect the ref pair in the URL so the comparison is shareable (W24).
   syncHash();
   if (state.view === 'compare') renderCompareView();
-  const res = await loadCompare(base, head, { repo: state.repo ?? undefined });
+  const res = await loadCompare(route.base, route.head, { repo: state.repo ?? undefined });
   if (res.ok) state.compare = { status: 'ready', data: res.comparison, error: '' };
   else state.compare = { status: 'error', data: null, error: res.error };
   if (state.view === 'compare') renderCompareView();
+  return true;
 }
 
 /**

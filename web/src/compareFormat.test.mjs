@@ -21,6 +21,8 @@ import {
   shouldRevealEmpty,
   emptyFilterMessage,
   compareRefPaletteItems,
+  compareRouteFromRefs,
+  compareRouteError,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -273,4 +275,44 @@ test('compareRefPaletteItems caps the ref count (W87)', () => {
   const items = compareRefPaletteItems(many, 'HEAD', null, 5);
   // 5 refs * 2 directions.
   assert.equal(items.length, 10);
+});
+
+// ── Compare ref-pair validation (W92) ────────────────────────────────
+
+test('compareRouteFromRefs accepts a valid pair, trimming each ref (W92)', () => {
+  assert.deepEqual(compareRouteFromRefs('  main  ', ' HEAD '), {
+    ok: true,
+    base: 'main',
+    head: 'HEAD',
+  });
+  assert.deepEqual(compareRouteFromRefs('v1.0.0', 'feature/x'), {
+    ok: true,
+    base: 'v1.0.0',
+    head: 'feature/x',
+  });
+});
+
+test('compareRouteFromRefs rejects an empty/unsafe base or head (W92)', () => {
+  assert.deepEqual(compareRouteFromRefs('', 'HEAD'), { ok: false, reason: 'empty-base' });
+  assert.deepEqual(compareRouteFromRefs('   ', 'HEAD'), { ok: false, reason: 'empty-base' });
+  // A flag-shaped base fails sanitizeRef -> empty-base.
+  assert.deepEqual(compareRouteFromRefs('--output=x', 'HEAD'), { ok: false, reason: 'empty-base' });
+  // A valid base but an empty/unsafe head -> empty-head.
+  assert.deepEqual(compareRouteFromRefs('main', ''), { ok: false, reason: 'empty-head' });
+  assert.deepEqual(compareRouteFromRefs('main', 'a b'), { ok: false, reason: 'empty-head' });
+});
+
+test('compareRouteFromRefs rejects a self-comparison (case-insensitive) (W92)', () => {
+  assert.deepEqual(compareRouteFromRefs('main', 'main'), { ok: false, reason: 'self-compare' });
+  // Same ref differing only by case + surrounding whitespace.
+  assert.deepEqual(compareRouteFromRefs('  Main ', 'main'), { ok: false, reason: 'self-compare' });
+  assert.deepEqual(compareRouteFromRefs('HEAD', 'head'), { ok: false, reason: 'self-compare' });
+  // Different refs are fine.
+  assert.equal(compareRouteFromRefs('main', 'dev').ok, true);
+});
+
+test('compareRouteError gives a distinct message per reason (W92)', () => {
+  assert.match(compareRouteError('empty-base'), /base/i);
+  assert.match(compareRouteError('empty-head'), /against/i);
+  assert.match(compareRouteError('self-compare'), /different/i);
 });

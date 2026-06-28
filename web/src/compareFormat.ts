@@ -266,3 +266,50 @@ export function compareRefPaletteItems(
   }
   return items;
 }
+
+// ── Compare ref-pair validation (W92) ────────────────────────────────
+
+/** The outcome of validating a base/head ref pair for a comparison (W92). */
+export type CompareRouteResult =
+  | { ok: true; base: string; head: string }
+  | { ok: false; reason: 'empty-base' | 'empty-head' | 'self-compare' };
+
+/** The non-ok reasons a compare pair can be rejected for (W92). */
+export type CompareRouteError = Exclude<CompareRouteResult, { ok: true }>['reason'];
+
+/**
+ * Validate + normalise a base/head ref pair into a runnable comparison (W92).
+ * The single source of truth shared by the Compare form submit, the W87
+ * command-palette ref entries, and a deep link's round-trip, so every path
+ * that loads a comparison agrees on what's valid:
+ *
+ *  - Each ref runs through `sanitizeRef` (trim, reject flags/spaces/over-long);
+ *    a ref that doesn't survive yields an `empty-base` / `empty-head` reason.
+ *  - A self-comparison (base and head resolve to the same ref, case-insensitive)
+ *    is rejected with `self-compare` — `git diff main...main` is always empty, so
+ *    loading it just writes a junk `#compare?base=main&head=main` hash and an
+ *    empty result. Callers surface a quiet notice instead of running it.
+ *
+ * Pure so the gating is unit-testable without the DOM or a backend; the view
+ * maps an `ok:false` reason to a toast and an `ok:true` to a `runCompare`.
+ */
+export function compareRouteFromRefs(base: string, head: string): CompareRouteResult {
+  const b = sanitizeRef(base);
+  if (!b) return { ok: false, reason: 'empty-base' };
+  const h = sanitizeRef(head);
+  if (!h) return { ok: false, reason: 'empty-head' };
+  if (b.toLowerCase() === h.toLowerCase()) return { ok: false, reason: 'self-compare' };
+  return { ok: true, base: b, head: h };
+}
+
+/** Human notice for a rejected compare ref pair (W92), for a toast/aria. */
+export function compareRouteError(reason: CompareRouteError): string {
+  switch (reason) {
+    case 'empty-base':
+      return 'Enter a base ref to compare';
+    case 'empty-head':
+      return 'Enter a ref to compare against';
+    case 'self-compare':
+      return 'Pick two different refs to compare';
+  }
+}
