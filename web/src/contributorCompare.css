@@ -293,3 +293,10 @@
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
+/* W117: the share button flashes accent on a successful copy (1.4s) so a
+   returning sharer (W109 focuses it) gets inline confirmation, not just a
+   toast. Token-only; the check glyph swap happens in the view. */
+.cc-head-actions .btn.copied {
+  color: var(--accent);
+}

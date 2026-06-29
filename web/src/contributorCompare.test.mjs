@@ -15,6 +15,7 @@ import {
   comparePanelKeyAction,
   nextTrapIndex,
   firstTrapTarget,
+  shareConfirmLabel,
 } from './contributorCompare.ts';
 
 const file = (path, insertions, deletions, commits = 1) => ({ path, insertions, deletions, commits });
@@ -190,4 +191,13 @@ test('firstTrapTarget prefer falls back through swap/close when absent (W109)', 
   assert.equal(firstTrapTarget(['close', 'other'], 'share'), 0);
   // prefer=swap with no swap falls to close.
   assert.equal(firstTrapTarget(['share', 'close'], 'swap'), 1);
+});
+
+// ── shareConfirmLabel (W117): share-button copy confirmation ─────────
+
+test('shareConfirmLabel flips to a confirm after a copy (W117)', () => {
+  assert.equal(shareConfirmLabel(false), 'Copy a shareable link to this comparison');
+  assert.equal(shareConfirmLabel(true), 'Comparison link copied');
+  // The two states differ so a returning sharer knows the copy landed.
+  assert.notEqual(shareConfirmLabel(false), shareConfirmLabel(true));
 });

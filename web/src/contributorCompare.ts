@@ -204,3 +204,18 @@ export function firstTrapTarget(
   if (close >= 0) return close;
   return 0;
 }
+
+// ── Share-button confirm label (W117) ────────────────────────────────
+
+/**
+ * Tooltip/aria label for the comparison share button (W117). W109 lands focus
+ * on this button after a deep-link open, so a returning sharer can copy in one
+ * key; afterward the button briefly flips to a confirm state so the copy is
+ * acknowledged inline rather than only via the transient toast. `copied` is the
+ * just-flashed state. Pure so the wording is testable; the view swaps the label
+ * for a beat after writing the clipboard. Distinct phrasings (re-copy vs copy)
+ * so a repeat sharer knows the link is already on the clipboard.
+ */
+export function shareConfirmLabel(copied: boolean): string {
+  return copied ? 'Comparison link copied' : 'Copy a shareable link to this comparison';
+}

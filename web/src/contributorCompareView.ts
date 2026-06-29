@@ -18,6 +18,7 @@ import {
   comparePanelKeyAction,
   nextTrapIndex,
   firstTrapTarget,
+  shareConfirmLabel,
   type ContributorComparison,
   type AuthorSummary,
 } from './contributorCompare';
@@ -77,14 +78,28 @@ export class ContributorComparePanel {
       swap.addEventListener('click', () => handlers.onSwap!());
       actions.appendChild(swap);
     }
-    // Share link (W47): copy a #contributors?vs=a,b deep-link.
+    // Share link (W47): copy a #contributors?vs=a,b deep-link. W117: after a
+    // copy, the button flashes a check + "copied" label for a beat so a repeat
+    // sharer (W109 lands focus here) gets inline confirmation, not just a toast.
     if (handlers.onShareLink) {
       const share = el('button', 'btn icon-only');
-      share.title = 'Copy a shareable link to this comparison';
+      share.title = shareConfirmLabel(false);
       share.setAttribute('aria-label', 'Copy comparison link');
       share.dataset.ccRole = 'share';
       share.innerHTML = icons.link;
-      share.addEventListener('click', () => handlers.onShareLink!());
+      let confirmTimer: number | undefined;
+      share.addEventListener('click', () => {
+        handlers.onShareLink!();
+        share.classList.add('copied');
+        share.innerHTML = icons.check;
+        share.title = shareConfirmLabel(true);
+        window.clearTimeout(confirmTimer);
+        confirmTimer = window.setTimeout(() => {
+          share.classList.remove('copied');
+          share.innerHTML = icons.link;
+          share.title = shareConfirmLabel(false);
+        }, 1400);
+      });
       actions.appendChild(share);
     }
     const close = el('button', 'btn icon-only');

@@ -46,6 +46,7 @@ export const icons = {
       '<path d="M2 6h12M5 3v3"/>',
   ),
   close: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+  check: svg('<path d="M3.5 8.5 6.5 11.5 12.5 4.5"/>'),
   arrowRight: svg('<path d="M3 8h10M9 4l4 4-4 4"/>'),
   repo: svg(
     '<path d="M4 2.5h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4.5A1.5 1.5 0 0 1 3 13V4a1.5 1.5 0 0 1 1.5-1.5Z"/>' +
