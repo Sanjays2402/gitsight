@@ -15,7 +15,7 @@ import { el } from './format';
 import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { buildRailSections, refQuery, type RailRef } from '@shared/refRail';
-import { compareDivergence } from './compareFormat';
+import { compareDivergence, divergenceClass } from './compareFormat';
 import type { GraphSnapshot } from '@shared/graphSnapshot';
 
 const GROUP_ICON = {
@@ -92,9 +92,19 @@ export function createRefRail(opts: RefRailOptions): HTMLElement | null {
       item.title = ref.name;
       const ico = icons[GROUP_ICON[ref.group]] ?? icons.branch;
       const pick = el('button', 'rail-ref-pick');
+      // W114: a divergence dot before HEAD so the most-diverged refs read at a
+      // glance, not just after the W110 sort. Reuses the W110 ahead/behind
+      // lookup + the W105 class (level/ahead/behind/diverged); hidden when no
+      // lookup is wired or the ref is even, so a clean rail stays quiet.
+      const div = opts.divergence ? opts.divergence(ref) : null;
+      const dotCls = div && (div.ahead > 0 || div.behind > 0) ? ` rail-div-dot ${divergenceClass(div)}` : '';
+      const dot = dotCls
+        ? `<span class="${dotCls.trim()}" title="${div!.ahead} ahead, ${div!.behind} behind"></span>`
+        : '';
       pick.innerHTML =
         `<span class="rail-ico">${ico}</span>` +
         `<span class="rail-name">${escapeHtml(ref.name)}</span>` +
+        dot +
         (ref.isHead ? `<span class="rail-head" title="HEAD">HEAD</span>` : '');
       pick.addEventListener('click', () => opts.onPick(refQuery(ref), ref));
       item.appendChild(pick);

@@ -67,3 +67,30 @@
 .rail-sort.on .rail-ico {
   color: var(--accent);
 }
+
+/*
+ * Per-row divergence dot (W114). Surfaces the W105 class as a small dot at the
+ * end of each rail ref name so the busiest branches read at a glance before
+ * you flip the W110 sort. Pushed right (margin-left:auto) so it sits just left
+ * of the HEAD badge; same colour bands as the W105 popover dot. Token-only.
+ */
+.rail-div-dot {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+
+.rail-div-dot.ahead {
+  background: var(--accent);
+}
+
+.rail-div-dot.behind {
+  background: var(--fg-muted);
+}
+
+.rail-div-dot.diverged {
+  background: var(--danger);
+}
