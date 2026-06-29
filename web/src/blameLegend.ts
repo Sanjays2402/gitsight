@@ -208,6 +208,26 @@ export function blameAuthorShareHint(lines: number, share: number): string {
 }
 
 /**
+ * Sort blame authors for the palette by ownership (W102): most lines first,
+ * name as a stable case-insensitive tie-break, so the biggest owners survive a
+ * `limit` cap on a many-author file. Stat-less authors (no `lines`) count as
+ * zero and sink below anyone with a line count, then sort by name. Pure + does
+ * NOT mutate the input (works over a fresh copy) so a frozen author list stays
+ * intact. The `share` ordering is implied by `lines` over a single file, so
+ * lines alone is the ownership key. Generic over any author-shape with the
+ * optional `lines`.
+ */
+export function sortBlameAuthorsForPalette<T extends { author: string; lines?: number }>(
+  authors: ReadonlyArray<T>,
+): T[] {
+  return authors.slice().sort((a, b) => {
+    const la = typeof a.lines === 'number' ? a.lines : 0;
+    const lb = typeof b.lines === 'number' ? b.lines : 0;
+    return lb - la || norm(a.author).localeCompare(norm(b.author));
+  });
+}
+
+/**
  * Build the command-palette source for the loaded blame's authors (W82), so
  * the W40/W76 isolate is reachable from Cmd-K, not just the legend (W40) or a
  * right-click (W77). Mirrors the W32 commit-search provider pattern: pure +
@@ -229,6 +249,11 @@ export function blameAuthorShareHint(lines: number, share: number): string {
  * does), each isolate entry gains a compact `hint` ("128 lines · 34%") so the
  * palette doubles as a "who owns this file" scan. Omitted when the author has no
  * stats, so the W82 entry shape is unchanged for stat-less callers.
+ *
+ * W102: the list is sorted by ownership (lines desc, name tie-break) BEFORE the
+ * cap, so on a file touched by more authors than `limit` the biggest owners
+ * always survive the truncation — a tail of one-line drive-by authors can never
+ * crowd the people who actually own the file out of the palette.
  */
 export function blameAuthorPaletteItems(
   authors: ReadonlyArray<{ author: string; lines?: number; share?: number }>,
@@ -243,7 +268,7 @@ export function blameAuthorPaletteItems(
   const seen = new Set<string>();
   const cap = Math.max(0, Math.floor(limit));
   let added = 0;
-  for (const a of authors) {
+  for (const a of sortBlameAuthorsForPalette(authors)) {
     const name = (a.author || '').trim();
     if (!name) continue;
     const key = norm(name);

@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -249,4 +249,41 @@ test('blameAuthorPaletteItems omits the hint for stat-less authors (W97/W82)', (
   const withActive = blameAuthorPaletteItems([{ author: 'Ada', lines: 5, share: 1 }], 'Ada');
   assert.equal(withActive[0].action, 'show-all');
   assert.equal('hint' in withActive[0], false);
+});
+
+// ── sortBlameAuthorsForPalette (W102) ────────────────────────────────
+
+test('sortBlameAuthorsForPalette orders by lines desc, name tie-break (W102)', () => {
+  const out = sortBlameAuthorsForPalette([
+    { author: 'Ada', lines: 12 },
+    { author: 'Grace', lines: 200 },
+    { author: 'Bob', lines: 12 },
+  ]);
+  assert.deepEqual(out.map(a => a.author), ['Grace', 'Ada', 'Bob']);
+});
+
+test('sortBlameAuthorsForPalette sinks stat-less authors below counted ones (W102)', () => {
+  const out = sortBlameAuthorsForPalette([
+    { author: 'NoStat' },
+    { author: 'Ada', lines: 1 },
+  ]);
+  assert.deepEqual(out.map(a => a.author), ['Ada', 'NoStat']);
+});
+
+test('sortBlameAuthorsForPalette does not mutate a frozen input (W102)', () => {
+  const input = Object.freeze([{ author: 'B', lines: 1 }, { author: 'A', lines: 9 }]);
+  const out = sortBlameAuthorsForPalette(input);
+  assert.equal(out[0].author, 'A');
+  assert.equal(input[0].author, 'B'); // original order intact
+});
+
+test('blameAuthorPaletteItems keeps the biggest owners under the cap (W102)', () => {
+  const authors = [
+    { author: 'tail', lines: 1 },
+    { author: 'owner', lines: 500 },
+    { author: 'mid', lines: 50 },
+  ];
+  const items = blameAuthorPaletteItems(authors, null, 2);
+  // 2 isolate entries; the 1-line drive-by is dropped, owners survive.
+  assert.deepEqual(items.map(i => i.author), ['owner', 'mid']);
 });
