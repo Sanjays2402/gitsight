@@ -174,7 +174,39 @@ export function buildBlameLineMenu(ctx: BlameMenuContext): BlameMenuChoice[] {
   return choices;
 }
 
-// ── Blame author command-palette source (W82) ────────────────────────
+// ── Blame author isolate keyboard cycle (W126) ───────────────────────
+
+/**
+ * Pick the next author to isolate when cycling the blame legend from the
+ * keyboard (W126: `a`/`A` on the Blame view). Walks the authors in the same
+ * ownership order the palette uses (W102: most lines first, share + name
+ * tie-breaks) so `a` steps from the biggest owner down. The cycle is:
+ *
+ *   show-all (null) -> author[0] -> author[1] -> ... -> author[n-1] -> null -> ...
+ *
+ * so repeatedly pressing `a` isolates each author in turn and then returns to
+ * "show all", never getting stuck. Returns the next author NAME to isolate, or
+ * null to show all. An empty author list yields null (nothing to isolate).
+ * Case-insensitive match on the active author; an active author no longer in the
+ * list (e.g. after a file switch) restarts at the first. Pure so the cycle is
+ * testable; the view feeds the result into setBlameAuthor.
+ */
+export function nextBlameAuthor(
+  authors: ReadonlyArray<{ author: string; lines?: number; share?: number }>,
+  active: string | null,
+): string | null {
+  const sorted = sortBlameAuthorsForPalette(authors)
+    .map(a => (a.author || '').trim())
+    .filter(Boolean);
+  if (sorted.length === 0) return null;
+  if (!active) return sorted[0];
+  const activeNorm = norm(active);
+  const idx = sorted.findIndex(name => norm(name) === activeNorm);
+  // Active not in the list -> restart the cycle at the biggest owner.
+  if (idx < 0) return sorted[0];
+  // Last author -> wrap back to "show all"; otherwise step to the next.
+  return idx >= sorted.length - 1 ? null : sorted[idx + 1];
+}
 
 /** A palette action for the blame author isolate (W82). */
 export type BlameAuthorPaletteAction = 'isolate' | 'show-all';

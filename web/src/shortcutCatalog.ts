@@ -107,6 +107,7 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
     {
       title: 'Blame',
       shortcuts: [
+        { keys: ['a'], description: 'Cycle the isolated author (Esc-free)', views: ['blame'] },
         { keys: ['c'], description: 'Filter to concentrated-ownership authors', views: ['blame'] },
         { keys: ['t'], description: 'Filter to spread-thin authors', views: ['blame'] },
       ],

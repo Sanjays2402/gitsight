@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter, ownershipKeyAction } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -382,4 +382,39 @@ test('sortBlameAuthorsForPalette: lines still dominate share (W107)', () => {
     { author: 'many', lines: 90, share: 0.1 },
   ]);
   assert.deepEqual(out.map(a => a.author), ['many', 'few']); // lines win over share
+});
+
+// ── nextBlameAuthor: keyboard isolate cycle (W126) ───────────────────
+
+const CYCLE_AUTHORS = [
+  { author: 'Grace', lines: 30, share: 0.3 },
+  { author: 'Ada', lines: 60, share: 0.6 },
+  { author: 'Bob', lines: 10, share: 0.1 },
+];
+
+test('nextBlameAuthor cycles show-all -> owners (by ownership order) -> show-all (W126)', () => {
+  // Ownership order (W102): Ada (60) > Grace (30) > Bob (10).
+  // From show-all, the first press isolates the biggest owner.
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, null), 'Ada');
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'Ada'), 'Grace');
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'Grace'), 'Bob');
+  // Last owner wraps back to show-all (null), so the cycle never sticks.
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'Bob'), null);
+});
+
+test('nextBlameAuthor matches the active author case-insensitively (W126)', () => {
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'ada'), 'Grace');
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'GRACE'), 'Bob');
+});
+
+test('nextBlameAuthor restarts at the biggest owner when the active is gone (W126)', () => {
+  // An active author no longer in the list (e.g. after a file switch) -> first.
+  assert.equal(nextBlameAuthor(CYCLE_AUTHORS, 'Nobody'), 'Ada');
+});
+
+test('nextBlameAuthor returns null for an empty author list (W126)', () => {
+  assert.equal(nextBlameAuthor([], null), null);
+  assert.equal(nextBlameAuthor([], 'Ada'), null);
+  // Blank author names are skipped, so an all-blank list is effectively empty.
+  assert.equal(nextBlameAuthor([{ author: '  ' }], null), null);
 });
