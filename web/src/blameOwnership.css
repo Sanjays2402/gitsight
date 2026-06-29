@@ -1,0 +1,32 @@
+/*
+ * Blame ownership quick-filter (W116). Two chips in the legend ("Concentrated"
+ * / "Spread thin") that narrow the author list to one W112 ownership band;
+ * non-matching legend authors fade. Token-only so it inherits the editorial
+ * light/dark themes; co-located + imported from main.ts.
+ */
+
+.blame-own-chip {
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+
+.blame-own-chip:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.blame-own-chip.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* An author chip filtered out by the active ownership band fades back. */
+.blame-legend-item.own-dim {
+  opacity: 0.32;
+}

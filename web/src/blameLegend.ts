@@ -229,6 +229,32 @@ export function ownershipTag(lines: number, share: number): string {
   return '';
 }
 
+/** The ownership filter the blame legend can scope to (W116). */
+export type OwnershipFilter = 'concentrated' | 'spread-thin';
+
+/**
+ * Whether a blame author passes the active ownership filter (W116). Reuses the
+ * W112 ownershipTag bands so the quick filter agrees exactly with the micro-tag:
+ * a 'concentrated' filter keeps only authors tagged \"concentrated\", 'spread-thin'
+ * only those tagged \"spread thin\", and a null filter keeps everyone. Pure so the
+ * predicate is testable; the legend dims/hides non-matching chips. Stat-less
+ * authors (no tag) never match a non-null filter, so they fall away when one's on.
+ */
+export function matchesOwnership(lines: number, share: number, filter: OwnershipFilter | null): boolean {
+  if (!filter) return true;
+  const tag = ownershipTag(lines, share);
+  return filter === 'concentrated' ? tag === 'concentrated' : tag === 'spread thin';
+}
+
+/**
+ * Toggle the ownership filter (W116): clicking the active band clears it,
+ * clicking the other switches to it. Mirrors toggleAuthorFilter's shape so the
+ * two legend toggles behave identically. Returns the next filter (or null).
+ */
+export function toggleOwnershipFilter(current: OwnershipFilter | null, clicked: OwnershipFilter): OwnershipFilter | null {
+  return current === clicked ? null : clicked;
+}
+
 /**
  * Sort blame authors for the palette by ownership (W102; W107): most lines
  * first, share as a secondary tie-break, name as the final stable key — so the

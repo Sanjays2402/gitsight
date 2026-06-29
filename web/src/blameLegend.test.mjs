@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -319,6 +319,31 @@ test('blameAuthorShareHint appends the W112 tag when skewed', () => {
   assert.equal(blameAuthorShareHint(20, 0.8), '20 lines \u00b7 80% \u00b7 concentrated');
   // Balanced -> the W97 shape is unchanged (no tag).
   assert.equal(blameAuthorShareHint(128, 0.34), '128 lines \u00b7 34%');
+});
+
+// ── matchesOwnership / toggleOwnershipFilter quick filter (W116) ──────
+
+test('matchesOwnership keeps everyone when no filter is set (W116)', () => {
+  assert.equal(matchesOwnership(200, 0.05, null), true);
+  assert.equal(matchesOwnership(20, 0.8, null), true);
+});
+
+test('matchesOwnership keeps only the selected band (W116)', () => {
+  // spread-thin: many lines, tiny share.
+  assert.equal(matchesOwnership(200, 0.05, 'spread-thin'), true);
+  assert.equal(matchesOwnership(200, 0.05, 'concentrated'), false);
+  // concentrated: big share, few lines.
+  assert.equal(matchesOwnership(20, 0.8, 'concentrated'), true);
+  assert.equal(matchesOwnership(20, 0.8, 'spread-thin'), false);
+  // balanced authors match neither band, so they fall away when one's on.
+  assert.equal(matchesOwnership(128, 0.34, 'concentrated'), false);
+  assert.equal(matchesOwnership(128, 0.34, 'spread-thin'), false);
+});
+
+test('toggleOwnershipFilter switches bands and clears on the active one (W116)', () => {
+  assert.equal(toggleOwnershipFilter(null, 'concentrated'), 'concentrated');
+  assert.equal(toggleOwnershipFilter('concentrated', 'spread-thin'), 'spread-thin');
+  assert.equal(toggleOwnershipFilter('concentrated', 'concentrated'), null);
 });
 
 // ── sortBlameAuthorsForPalette three-key sort (W107) ─────────────────

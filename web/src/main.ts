@@ -20,6 +20,7 @@ import './activityPeek.css';
 import './blameLegend.css';
 import './blameIgnore.css';
 import './blameLink.css';
+import './blameOwnership.css';
 import './blameRangeCommits.css';
 import './graphMinimap.css';
 import './compareSplit.css';
@@ -78,7 +79,7 @@ import { ContributorComparePanel } from './contributorCompareView';
 import { swapComparePair } from './contributorCompare';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
-import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
+import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion } from './compareFormat';
@@ -167,6 +168,8 @@ interface AppState {
   blameRev: string;
   /** The isolated author in the blame view, or null for all (W40). */
   blameAuthor: string | null;
+  /** The active ownership-band filter in the blame legend, or null (W116). */
+  blameOwnership: 'concentrated' | 'spread-thin' | null;
   /** Commits to ignore when blaming the current file (W44). */
   blameIgnoreRevs: string[];
   /** 1-based line to reveal after the blame loads (W21 jump-to-line). */
@@ -216,6 +219,7 @@ const state: AppState = {
   blamePath: null,
   blameRev: 'HEAD',
   blameAuthor: null,
+  blameOwnership: null,
   blameIgnoreRevs: [],
   blameLine: null,
   blameLineEnd: null,
@@ -770,6 +774,7 @@ async function boot(): Promise<void> {
   state.blameIgnoreRevs = [];
   state.blameLine = null;
   state.blameLineEnd = null;
+  state.blameOwnership = null;
   state.compare = slot<ComparePayload>();
   state.stashes = slot<StashesPayload>();
   // A fresh load clears the stash filter, except a deep-linked query (W63)
@@ -1579,6 +1584,9 @@ function renderBlameView(): void {
     rev: state.blameRev,
     activeAuthor: state.blameAuthor,
     onToggleAuthor: (author: string) => toggleBlameAuthor(author),
+    // W116: ownership-band quick filter chips (concentrated / spread-thin).
+    ownershipFilter: state.blameOwnership,
+    onToggleOwnership: (band: 'concentrated' | 'spread-thin') => toggleBlameOwnership(band),
     onOpenAuthor: (author: string, email: string) => {
       // W51: open the author's W23 contributor panel from a blame legend
       // chip. Prefer the resolved email (the panel is email-keyed); fall
@@ -2002,6 +2010,9 @@ async function runBlame(
   // A fresh file/rev starts with no author isolated (W40), unless a deep link
   // (W76) restores one — threaded in so the isolate survives a load.
   state.blameAuthor = author;
+  // A fresh file clears any W116 ownership-band filter so it can't hide a new
+  // file's whole legend (bands differ per file).
+  state.blameOwnership = null;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
   const res = await loadBlame(rev, path, {
@@ -2262,6 +2273,17 @@ function showAllBlameAuthors(): void {
 function setBlameAuthor(author: string | null): void {
   state.blameAuthor = author;
   syncHash();
+  if (state.view === 'blame') renderBlameView();
+}
+
+/**
+ * Toggle the blame legend's ownership-band filter (W116): clicking the active
+ * band clears it, clicking the other switches. Pure toggle + a re-render; no
+ * hash sync (it's a transient legend scan, not a shareable view like the W76
+ * author isolate). No-op off the Blame view.
+ */
+function toggleBlameOwnership(band: 'concentrated' | 'spread-thin'): void {
+  state.blameOwnership = toggleOwnershipFilter(state.blameOwnership, band);
   if (state.view === 'blame') renderBlameView();
 }
 

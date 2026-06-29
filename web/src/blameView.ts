@@ -23,7 +23,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { blameHeat, type BlameModel, type BlameLineInfo } from '@shared/blame';
 import { heatColor, authorDot, relativeAgeFromUnix, blameSummary } from './blameFormat';
-import { buildAgeRamp, isAuthorDimmed, authorEmailFromLines } from './blameLegend';
+import { buildAgeRamp, isAuthorDimmed, authorEmailFromLines, matchesOwnership } from './blameLegend';
 import {
   shouldVirtualizeBlame,
   blameWindow,
@@ -53,6 +53,14 @@ export interface BlameViewOptions {
   activeAuthor?: string | null;
   /** Fired when a legend author is clicked (W40); host toggles the filter. */
   onToggleAuthor?: (author: string) => void;
+  /**
+   * The active ownership filter (W116): 'concentrated' / 'spread-thin' / null.
+   * When set, legend authors not in that band fade so a \"who owns / who's
+   * spread thin\" scan narrows to one stake type. Null = no ownership filter.
+   */
+  ownershipFilter?: 'concentrated' | 'spread-thin' | null;
+  /** Fired when an ownership filter chip is clicked (W116); host toggles it. */
+  onToggleOwnership?: (band: 'concentrated' | 'spread-thin') => void;
   /**
    * Fired when a legend author's "view contributor" affordance is clicked
    * (W51) with the author's name + resolved email — the host opens that
@@ -156,13 +164,35 @@ export function renderBlame(model: BlameModel | null, opts: BlameViewOptions): H
   const summary = el('span', 'blame-summary');
   summary.textContent = blameSummary(model.totalLines, model.authors.length);
   legend.appendChild(summary);
+  // W116: ownership quick-filter chips. Show only when the file has enough
+  // authors to be worth scanning + the host wired the toggle; clicking narrows
+  // the legend to that band (the W112 ownershipTag) — the active one is marked.
+  if (opts.onToggleOwnership && model.authors.length > 3) {
+    const own = opts.ownershipFilter ?? null;
+    const bands: Array<['concentrated' | 'spread-thin', string]> = [
+      ['concentrated', 'Concentrated'],
+      ['spread-thin', 'Spread thin'],
+    ];
+    for (const [band, label] of bands) {
+      const chip = el('button', 'blame-own-chip' + (own === band ? ' active' : ''));
+      chip.type = 'button';
+      chip.textContent = label;
+      chip.title = own === band ? `Show all authors` : `Show only ${label.toLowerCase()} authors`;
+      chip.setAttribute('aria-pressed', String(own === band));
+      chip.addEventListener('click', () => opts.onToggleOwnership!(band));
+      legend.appendChild(chip);
+    }
+  }
   for (const a of model.authors.slice(0, 10)) {
     const isActive = active !== null && active.trim().toLowerCase() === a.author.trim().toLowerCase();
     const email = opts.onOpenAuthor ? authorEmailFromLines(model.lines, a.author) : '';
+    // W116: an ownership-band filter fades authors not in the selected stake
+    // type (concentrated / spread-thin), reusing the W112 bands.
+    const ownDim = !matchesOwnership(a.lines, a.share, opts.ownershipFilter ?? null);
     // A chip wraps the isolate button (W40) and an optional "view
     // contributor" affordance (W51) so both actions share one row without
     // nesting interactive elements.
-    const chip = el('div', 'blame-legend-item' + (isActive ? ' active' : ''));
+    const chip = el('div', 'blame-legend-item' + (isActive ? ' active' : '') + (ownDim ? ' own-dim' : ''));
 
     const isolate = el(
       opts.onToggleAuthor ? 'button' : 'span',
