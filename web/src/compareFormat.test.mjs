@@ -28,6 +28,8 @@ import {
   compareInvalidNotice,
   nextRefSuggestion,
   divergenceClass,
+  suggestionLabel,
+  compareDivergence,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -419,4 +421,54 @@ test('divergenceClass distinguishes the four shapes (W105)', () => {
   assert.equal(divergenceClass({ ahead: 3, behind: 0 }), 'ahead');
   assert.equal(divergenceClass({ ahead: 0, behind: 2 }), 'behind');
   assert.equal(divergenceClass({ ahead: 3, behind: 2 }), 'diverged');
+});
+
+// ── suggestionLabel (W108): self-compare inline affordance ───────────
+
+test('suggestionLabel names a clean ref (W108)', () => {
+  assert.equal(suggestionLabel('dev'), 'Compare with dev instead');
+  assert.equal(suggestionLabel('feature/x'), 'Compare with feature/x instead');
+  // Trims surrounding whitespace via sanitizeRef.
+  assert.equal(suggestionLabel('  main '), 'Compare with main instead');
+});
+
+test('suggestionLabel returns empty for a blank or unsafe ref (W108)', () => {
+  assert.equal(suggestionLabel(''), '');
+  assert.equal(suggestionLabel('   '), '');
+  assert.equal(suggestionLabel('--flag'), ''); // sanitizeRef rejects a flag
+  assert.equal(suggestionLabel('a b'), ''); // and a spaced ref
+});
+
+// ── compareDivergence (W110): rail divergence ordering ───────────────
+
+test('compareDivergence ranks diverged > one-sided > level (W110)', () => {
+  const diverged = { ahead: 3, behind: 2 };
+  const ahead = { ahead: 5, behind: 0 };
+  const level = { ahead: 0, behind: 0 };
+  // diverged sorts before a bigger one-sided drift, which sorts before level.
+  assert.ok(compareDivergence(diverged, ahead) < 0);
+  assert.ok(compareDivergence(ahead, level) < 0);
+  assert.ok(compareDivergence(diverged, level) < 0);
+});
+
+test('compareDivergence breaks a same-class tie by total drift (W110)', () => {
+  // Both diverged: the bigger ahead+behind leads.
+  assert.ok(compareDivergence({ ahead: 5, behind: 5 }, { ahead: 1, behind: 1 }) < 0);
+  // Ahead vs behind share rank 2; bigger drift wins.
+  assert.ok(compareDivergence({ ahead: 9, behind: 0 }, { ahead: 0, behind: 2 }) < 0);
+});
+
+test('compareDivergence is stable (0) for equal positions (W110)', () => {
+  assert.equal(compareDivergence({ ahead: 0, behind: 0 }, { ahead: 0, behind: 0 }), 0);
+  assert.equal(compareDivergence({ ahead: 3, behind: 1 }, { ahead: 3, behind: 1 }), 0);
+});
+
+test('compareDivergence sorts a ref list most-diverged first (W110)', () => {
+  const refs = [
+    { name: 'level', ahead: 0, behind: 0 },
+    { name: 'ahead', ahead: 4, behind: 0 },
+    { name: 'diverged', ahead: 2, behind: 3 },
+  ];
+  const order = refs.slice().sort((a, b) => compareDivergence(a, b)).map(r => r.name);
+  assert.deepEqual(order, ['diverged', 'ahead', 'level']);
 });

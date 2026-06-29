@@ -16,6 +16,9 @@
 }
 
 .compare-self-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 11.5px;
   color: var(--fg-muted, var(--fg-faint));
   padding: 5px 9px;
@@ -27,4 +30,46 @@
 
 .compare-self-notice[hidden] {
   display: none;
+}
+
+.compare-self-notice-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * Inline "Compare with <ref> instead" suggestion (W108). W103 pre-fills HEAD on
+ * a self-clash; this surfaces the recovery as a visible, clickable pill so it's
+ * not a hidden keystroke. Quiet hairline that brightens to the accent on
+ * hover/focus, matching the W83 clear-filter affordance. Hidden when there's no
+ * suggestion. Token-driven so it tracks the theme.
+ */
+.compare-self-suggest {
+  flex: 0 0 auto;
+  appearance: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-muted, var(--fg-faint));
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 5px);
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s var(--ease), border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.compare-self-suggest[hidden] {
+  display: none;
+}
+
+.compare-self-suggest:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.compare-self-suggest:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

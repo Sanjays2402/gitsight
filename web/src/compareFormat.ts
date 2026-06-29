@@ -448,3 +448,54 @@ export function divergenceClass(div: { ahead: number; behind: number }): Diverge
   if (behind) return 'behind';
   return 'level';
 }
+
+// ── Self-compare suggestion affordance (W108) ────────────────────────
+
+/**
+ * Label for the inline "compare against <ref>?" affordance shown beside the
+ * W98 self-notice (W108). W103 silently retyped HEAD on a clash; this surfaces
+ * the suggestion as a visible, clickable link so the recovery isn't a hidden
+ * keystroke. Pure so the wording is testable; the view wires a button to a real
+ * onCompare. Returns '' for a blank/unsafe ref so the caller hides the link.
+ */
+export function suggestionLabel(ref: string): string {
+  const r = sanitizeRef(ref ?? '');
+  return r ? `Compare with ${r} instead` : '';
+}
+
+// ── Divergence ordering (W110) ───────────────────────────────────────
+
+/**
+ * Rank a divergence class so the rail can sort refs most-diverged first (W110):
+ * a real divergence (both ahead and behind, needing a merge) is the most
+ * interesting, then a one-sided drift (ahead or behind), then level refs that
+ * are even with HEAD. Pure so the ordering is testable.
+ */
+function divergenceRank(cls: DivergenceClass): number {
+  switch (cls) {
+    case 'diverged':
+      return 3;
+    case 'ahead':
+    case 'behind':
+      return 2;
+    case 'level':
+      return 0;
+  }
+}
+
+/**
+ * Comparator that orders two refs by how far each has diverged from HEAD (W110),
+ * most-diverged first, reusing the W105 classes: diverged > ahead/behind >
+ * level. Within the same class the bigger total drift (ahead + behind) sorts
+ * first so the busiest ref leads, and a stable tie keeps 0 so the caller's
+ * existing order (alphabetical sections) survives. Pure (returns a number) so a
+ * rail header toggle can sort the ref list without the comparator touching DOM.
+ */
+export function compareDivergence(
+  a: { ahead: number; behind: number },
+  b: { ahead: number; behind: number },
+): number {
+  const rankDelta = divergenceRank(divergenceClass(b)) - divergenceRank(divergenceClass(a));
+  if (rankDelta !== 0) return rankDelta;
+  return (b.ahead + b.behind) - (a.ahead + a.behind);
+}

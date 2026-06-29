@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError, compareInvalidNotice } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError, compareInvalidNotice, suggestionLabel } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -97,10 +97,17 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
   // W98: a quiet inline notice under the form that names a self-compare clash
   // (or empty side) when the W92 guard rejects the pair — so two valid-looking
   // refs explain themselves, beyond the transient toast. Hidden when the pair
-  // is valid; cleared on the next good submit.
+  // is valid; cleared on the next good submit. W108: the notice pairs the
+  // message text with an inline "Compare with <ref> instead" button so the W103
+  // suggestion is visible + one click away, not just silently pre-filled.
   const notice = el('div', 'compare-self-notice');
   notice.setAttribute('aria-live', 'polite');
   notice.hidden = true;
+  const noticeText = el('span', 'compare-self-notice-text');
+  const suggestBtn = el('button', 'compare-self-suggest');
+  suggestBtn.type = 'button';
+  suggestBtn.hidden = true;
+  notice.append(noticeText, suggestBtn);
 
   form.append(baseField.wrap, swap, headField.wrap, submit);
   form.addEventListener('submit', e => {
@@ -111,27 +118,47 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
     const route = compareRouteFromRefs(baseField.input.value, headField.input.value);
     if (route.ok) {
       notice.hidden = true; // W98: a valid pair clears the inline notice
-      notice.textContent = '';
+      noticeText.textContent = '';
+      suggestBtn.hidden = true;
       opts.onCompare(route.base, route.head);
     } else {
       // W98: name the clash inline + still fire the W92 toast for parity.
-      const text = compareInvalidNotice(route.reason, baseField.input.value, headField.input.value);
-      notice.textContent = text;
+      noticeText.textContent = compareInvalidNotice(route.reason, baseField.input.value, headField.input.value);
       notice.hidden = false;
-      // W103: on a self-compare, fast-track recovery — pre-fill HEAD with the
-      // most-diverged other ref (host-supplied), select it, and let one more
-      // Enter run the comparison. No host pick -> just focus + select HEAD.
+      suggestBtn.hidden = true;
+      // W103/W108: on a self-compare, fast-track recovery — pre-fill HEAD with
+      // the most-diverged other ref (host-supplied), select it, AND surface a
+      // visible "Compare with <ref> instead" link so the fix is clickable, not
+      // just a hidden keystroke. No host pick -> just focus + select HEAD.
       if (route.reason === 'self-compare') {
         const suggestion = opts.suggestRef?.(baseField.input.value);
-        if (suggestion) headField.input.value = suggestion;
+        if (suggestion) {
+          headField.input.value = suggestion;
+          const label = suggestionLabel(suggestion);
+          if (label) {
+            suggestBtn.textContent = label;
+            suggestBtn.hidden = false;
+          }
+        }
         headField.input.focus();
         headField.input.select();
       }
       opts.onInvalidPair?.(compareRouteError(route.reason));
     }
   });
+  // W108: clicking the suggestion runs the comparison straight away (HEAD is
+  // already pre-filled) so recovery is one click, not a click-then-Enter.
+  suggestBtn.addEventListener('click', () => {
+    const route = compareRouteFromRefs(baseField.input.value, headField.input.value);
+    if (route.ok) {
+      notice.hidden = true;
+      noticeText.textContent = '';
+      suggestBtn.hidden = true;
+      opts.onCompare(route.base, route.head);
+    }
+  });
   // Editing either ref clears a stale clash notice so it doesn't linger.
-  const clearNotice = () => { if (!notice.hidden) { notice.hidden = true; notice.textContent = ''; } };
+  const clearNotice = () => { if (!notice.hidden) { notice.hidden = true; noticeText.textContent = ''; suggestBtn.hidden = true; } };
   baseField.input.addEventListener('input', clearNotice);
   headField.input.addEventListener('input', clearNotice);
   const wrap = el('div', 'compare-form-wrap');
