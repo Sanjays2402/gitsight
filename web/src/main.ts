@@ -1198,6 +1198,9 @@ function buildMainArea(): HTMLElement {
       divergence: ref => (railHead ? aheadBehind(ref.tipSha, railHead, railNodes) : null),
       onToggleSort: () => {
         state.railSortByDivergence = !state.railSortByDivergence;
+        // W113: reflect the sort in the URL so it's shareable + survives back/
+        // forward, mirroring the W66 contributor-sort deep link.
+        syncHash();
         rebuildChrome();
       },
     });
@@ -2492,6 +2495,12 @@ function applyInitialRoute(): void {
     pendingGraphWeek = { author: r.author, name: r.author, since: r.since, until: r.until };
     state.filter = `${authorFilterTerm(r.author)} since:${r.since} until:${r.until}`;
   }
+  // Seed the rail \"most diverged\" sort from #graph?railsort=divergence (W113).
+  // railSortByDivergence isn't reset by boot, so set it directly — the first
+  // graph render builds the rail already sorted.
+  if (route.view === 'graph' && (route as PlainRoute).railSort) {
+    state.railSortByDivergence = true;
+  }
   // Remember a contributor comparison (#contributors?vs=a,b, W47); boot()
   // pre-selects the two authors + opens the panel once contributors load.
   if (route.view === 'contributors' && route.vs) {
@@ -2630,6 +2639,9 @@ function syncHash(): void {
   } else if (state.view === 'stashes' && state.stashQuery) {
     // A shareable filtered-stash deep-link (W63): the filter query.
     route = { view: 'stashes', q: state.stashQuery };
+  } else if (state.view === 'graph' && state.railSortByDivergence) {
+    // A shareable rail \"most diverged\" sort (W113): #graph?railsort=divergence.
+    route = { view: 'graph', railSort: 'divergence' };
   } else {
     // The compare + contributors views are handled above; the rest are
     // plain single-tab routes.
@@ -2665,6 +2677,11 @@ function installHashRouting(): void {
         state.graphWeek = null;
         state.filter = '';
         renderGraphView();
+      }
+      // ...and a W113 rail \"most diverged\" sort (a bare URL = natural order).
+      if (state.view === 'graph' && state.railSortByDivergence) {
+        state.railSortByDivergence = false;
+        rebuildChrome();
       }
       return;
     }
@@ -2741,6 +2758,22 @@ function installHashRouting(): void {
         rebuildChrome();
       }
       openCompareFromEmails(route.vs);
+      return;
+    }
+    // Rail \"most diverged\" sort deep-link on back/forward (W113): switch to the
+    // graph if needed, then turn the sort on. Closes any open permalink/scope.
+    if (route.view === 'graph' && (route as PlainRoute).railSort) {
+      const wasOff = !state.railSortByDivergence;
+      state.railSortByDivergence = true;
+      if (state.view !== 'graph') {
+        state.view = 'graph';
+        detailPanel.close();
+        dayPanel.close();
+        authorPanel.close();
+        rebuildChrome();
+      } else if (wasOff) {
+        rebuildChrome();
+      }
       return;
     }
     // Sort-scoped leaderboard deep-link on back/forward (W66): switch to the
@@ -2860,6 +2893,10 @@ function installHashRouting(): void {
       state.filter = '';
       rebuildMainArea();
       renderGraphView();
+    } else if (route.view === 'graph' && state.railSortByDivergence) {
+      // Bare #graph reached on back/forward -> drop a W113 \"most diverged\" sort.
+      state.railSortByDivergence = false;
+      rebuildChrome();
     }
   });
 }

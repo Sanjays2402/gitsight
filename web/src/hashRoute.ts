@@ -103,6 +103,12 @@ export interface PlainRoute {
    * the detail panel for. Absent for a bare view route.
    */
   sha?: string;
+  /**
+   * The rail's \"most diverged\" sort (W113): `#graph?railsort=divergence`. The
+   * shareable form of the W110 toggle — only present when the sort is on, so a
+   * bare graph stays a bare graph. Mirrors the W66 contributor-sort grammar.
+   */
+  railSort?: RailSort;
 }
 
 /**
@@ -224,6 +230,21 @@ export function sanitizeEmail(email: string): string | null {
 export function sanitizeContributorSort(sort: string | null | undefined): ContributorSort | null {
   const s = (sort ?? '').trim().toLowerCase();
   return isContributorSort(s) ? s : null;
+}
+
+/** The rail sort a `#graph?railsort=` deep link can carry (W113). */
+export type RailSort = 'divergence';
+
+/**
+ * Normalise + validate a rail-sort key for a graph deep-link (W113). The only
+ * non-default rail order is the W110 \"most diverged\" sort, so the grammar is a
+ * single allowed value; trimmed + lowercased, returns null for anything else so
+ * a junk `railsort=` param degrades to the natural alphabetical sections rather
+ * than scoping to nonsense. Mirrors the W66 sanitizeContributorSort shape.
+ */
+export function sanitizeRailSort(sort: string | null | undefined): RailSort | null {
+  const s = (sort ?? '').trim().toLowerCase();
+  return s === 'divergence' ? 'divergence' : null;
 }
 
 /**
@@ -496,6 +517,13 @@ export function buildHash(route: Route): string {
     const sha = sanitizeSha(route.sha);
     return sha ? `commit/${sha}` : '';
   }
+  // A bare graph with the W113 rail sort on: #graph?railsort=divergence. Only
+  // emitted when the non-default sort is set; otherwise the bare graph clears.
+  if (route.view === 'graph' && (route as PlainRoute).railSort) {
+    const railSort = sanitizeRailSort((route as PlainRoute).railSort);
+    if (railSort) return `graph?railsort=${railSort}`;
+    return '';
+  }
   // All non-graph views are handled above; PlainRoute is now graph-only, so a
   // bare graph route clears the hash.
   return '';
@@ -618,6 +646,9 @@ export function parseHash(hash: string): Route | null {
       const commits = sanitizeShaList(decodeURIComponent(raw));
       if (commits.length > 0) return { view: 'graph', commits };
     }
+    // W113: a bare graph scoped only by the rail's \"most diverged\" sort.
+    const railSort = sanitizeRailSort(params.get('railsort'));
+    if (railSort) return { view: 'graph', railSort };
     return { view: 'graph' };
   }
 

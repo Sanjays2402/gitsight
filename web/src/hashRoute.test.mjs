@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter, sanitizeRailSort } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -646,4 +646,39 @@ test('buildHash(parseHash(x)) round-trips a graph author-week link', () => {
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);
+});
+
+// ── rail divergence sort deep-link (W113) ────────────────────────────
+
+test('sanitizeRailSort accepts divergence (case/space-tolerant), rejects rest', () => {
+  assert.equal(sanitizeRailSort('divergence'), 'divergence');
+  assert.equal(sanitizeRailSort('  DIVERGENCE '), 'divergence');
+  assert.equal(sanitizeRailSort('name'), null);
+  assert.equal(sanitizeRailSort(''), null);
+  assert.equal(sanitizeRailSort(null), null);
+});
+
+test('buildHash emits graph?railsort=divergence only when the sort is on', () => {
+  assert.equal(buildHash({ view: 'graph', railSort: 'divergence' }), 'graph?railsort=divergence');
+  // No railSort -> bare graph clears the hash; a junk value degrades too.
+  assert.equal(buildHash({ view: 'graph' }), '');
+  assert.equal(buildHash({ view: 'graph', railSort: 'bogus' }), '');
+});
+
+test('parseHash reads a rail divergence sort into a graph route', () => {
+  assert.deepEqual(parseHash('#graph?railsort=divergence'), { view: 'graph', railSort: 'divergence' });
+  // A junk railsort degrades to the bare graph (natural sections).
+  assert.deepEqual(parseHash('#graph?railsort=lol'), { view: 'graph' });
+});
+
+test('buildHash(parseHash(x)) round-trips the rail divergence sort', () => {
+  const original = 'graph?railsort=divergence';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+test('a sha permalink wins over a rail sort param on the same graph hash', () => {
+  // commit/<sha> takes the permalink path before any ?railsort.
+  assert.deepEqual(parseHash('#commit/abcd1234'), { view: 'graph', sha: 'abcd1234' });
 });
