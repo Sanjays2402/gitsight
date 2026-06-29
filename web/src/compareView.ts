@@ -39,6 +39,12 @@ export interface CompareViewOptions {
   onCompare: (base: string, head: string) => void;
   /** Surface a rejected ref pair (W92): empty or self-compare. */
   onInvalidPair?: (message: string) => void;
+  /**
+   * Most-diverged other ref to retype into HEAD on a self-compare (W103). The
+   * host computes it from the loaded snapshot; the form pre-fills + selects it
+   * so a `main...main` clash is one keystroke from a real comparison.
+   */
+  suggestRef?: (base: string) => string | null;
   /** Fetch a single file's parsed diff for the head ref (W7). */
   loadDiff?: (rev: string, path: string) => Promise<FileDiffResult>;
   /** Current diff layout mode (W38; per-surface W46): split or unified. */
@@ -112,6 +118,15 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
       const text = compareInvalidNotice(route.reason, baseField.input.value, headField.input.value);
       notice.textContent = text;
       notice.hidden = false;
+      // W103: on a self-compare, fast-track recovery — pre-fill HEAD with the
+      // most-diverged other ref (host-supplied), select it, and let one more
+      // Enter run the comparison. No host pick -> just focus + select HEAD.
+      if (route.reason === 'self-compare') {
+        const suggestion = opts.suggestRef?.(baseField.input.value);
+        if (suggestion) headField.input.value = suggestion;
+        headField.input.focus();
+        headField.input.select();
+      }
       opts.onInvalidPair?.(compareRouteError(route.reason));
     }
   });
