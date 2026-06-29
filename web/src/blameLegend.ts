@@ -195,16 +195,38 @@ export interface BlameAuthorPaletteItem {
 }
 
 /**
- * Compact ownership readout for a blame-author palette hint (W97). Renders the
- * author's line count + rounded share of the file, e.g. "128 lines · 34%", or
- * just the count when the share is unknown. Singular "1 line". Pure so the
- * wording is testable; the view composes it into the palette item hint.
+ * Compact ownership readout for a blame-author palette hint (W97; W112). Renders
+ * the author's line count + rounded share of the file, e.g. "128 lines · 34%",
+ * or just the count when the share is unknown. Singular "1 line". W112: when the
+ * lines/share are mismatched — many lines but a tiny share, or few lines but a
+ * big share — a "concentrated" / "spread thin" micro-tag is appended so the
+ * skew is visible at a glance. Pure so the wording is testable; the view
+ * composes it into the palette item hint.
  */
 export function blameAuthorShareHint(lines: number, share: number): string {
   const n = Math.max(0, Math.floor(lines || 0));
   const lineWord = n === 1 ? 'line' : 'lines';
   const pct = Number.isFinite(share) && share > 0 ? Math.round(share * 100) : 0;
-  return pct > 0 ? `${n} ${lineWord} \u00b7 ${pct}%` : `${n} ${lineWord}`;
+  const base = pct > 0 ? `${n} ${lineWord} \u00b7 ${pct}%` : `${n} ${lineWord}`;
+  const tag = ownershipTag(n, share);
+  return tag ? `${base} \u00b7 ${tag}` : base;
+}
+
+/**
+ * A micro-tag describing skewed ownership for a blame author (W112): "spread
+ * thin" when the author touched many lines but owns a small share of the file
+ * (work scattered across a big codebase), "concentrated" when they own a large
+ * share off relatively few lines (a focused stake in a small file). Empty for a
+ * balanced or stat-less author so the common case carries no tag. Thresholds:
+ * >= 100 lines under 10% reads spread-thin; >= 60% share under 40 lines reads
+ * concentrated. Pure so the bands are testable.
+ */
+export function ownershipTag(lines: number, share: number): string {
+  const n = Math.max(0, Math.floor(lines || 0));
+  const pct = Number.isFinite(share) && share > 0 ? share : 0;
+  if (n >= 100 && pct > 0 && pct < 0.1) return 'spread thin';
+  if (pct >= 0.6 && n > 0 && n < 40) return 'concentrated';
+  return '';
 }
 
 /**

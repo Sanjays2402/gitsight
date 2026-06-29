@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -286,6 +286,39 @@ test('blameAuthorPaletteItems keeps the biggest owners under the cap (W102)', ()
   const items = blameAuthorPaletteItems(authors, null, 2);
   // 2 isolate entries; the 1-line drive-by is dropped, owners survive.
   assert.deepEqual(items.map(i => i.author), ['owner', 'mid']);
+});
+
+// ── ownershipTag / spread-thin + concentrated hint (W112) ────────────
+
+test('ownershipTag flags spread-thin: many lines, tiny share (W112)', () => {
+  assert.equal(ownershipTag(200, 0.05), 'spread thin');
+  assert.equal(ownershipTag(100, 0.09), 'spread thin');
+  // 10% or above is no longer thin.
+  assert.equal(ownershipTag(200, 0.1), '');
+  // Under 100 lines doesn't qualify even at a tiny share.
+  assert.equal(ownershipTag(40, 0.05), '');
+});
+
+test('ownershipTag flags concentrated: big share, few lines (W112)', () => {
+  assert.equal(ownershipTag(20, 0.8), 'concentrated');
+  assert.equal(ownershipTag(39, 0.6), 'concentrated');
+  // At/above 40 lines it's a normal big stake, not concentrated.
+  assert.equal(ownershipTag(40, 0.8), '');
+  // Under 60% isn't concentrated.
+  assert.equal(ownershipTag(20, 0.59), '');
+});
+
+test('ownershipTag is empty for balanced or stat-less authors (W112)', () => {
+  assert.equal(ownershipTag(128, 0.34), '');
+  assert.equal(ownershipTag(0, 0), '');
+  assert.equal(ownershipTag(0, 0.9), ''); // no lines -> not concentrated
+});
+
+test('blameAuthorShareHint appends the W112 tag when skewed', () => {
+  assert.equal(blameAuthorShareHint(200, 0.05), '200 lines \u00b7 5% \u00b7 spread thin');
+  assert.equal(blameAuthorShareHint(20, 0.8), '20 lines \u00b7 80% \u00b7 concentrated');
+  // Balanced -> the W97 shape is unchanged (no tag).
+  assert.equal(blameAuthorShareHint(128, 0.34), '128 lines \u00b7 34%');
 });
 
 // ── sortBlameAuthorsForPalette three-key sort (W107) ─────────────────
