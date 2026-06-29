@@ -7,6 +7,7 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter, sanitizeRailSort, sanitizeOwnershipBand } from './hashRoute.ts';
+import { contributorSortPaletteItems, isContributorSort } from '../../src/shared/contributors.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -726,4 +727,39 @@ test('buildHash(parseHash(x)) round-trips the rail divergence sort', () => {
 test('a sha permalink wins over a rail sort param on the same graph hash', () => {
   // commit/<sha> takes the permalink path before any ?railsort.
   assert.deepEqual(parseHash('#commit/abcd1234'), { view: 'graph', sha: 'abcd1234' });
+});
+
+// ── Contributor sort deep-link / palette agreement (W129) ────────────
+//
+// The W123 command palette emits one `contrib-sort:<key>` per supported sort
+// (via contributorSortPaletteItems, gated by isContributorSort on run); the W66
+// deep link encodes/restores the sort via sanitizeContributorSort. These two
+// surfaces must agree on the key set, or a palette-switched sort could fail to
+// survive a reload. This audit locks that agreement (mirrors W101/W106/W111).
+
+test('every key the W123 palette can emit survives the W66 deep-link sanitiser', () => {
+  // The palette source emits an entry per supported sort except the active one;
+  // unioning across all four actives covers the full key set it can ever run.
+  const emitted = new Set();
+  for (const active of ['commits', 'churn', 'recent', 'name']) {
+    for (const item of contributorSortPaletteItems(active)) emitted.add(item.sort);
+  }
+  // Every emitted key is a real sort the deep-link accepts (no orphan key).
+  for (const key of emitted) {
+    assert.ok(isContributorSort(key), `${key} must be a real ContributorSort`);
+    assert.equal(sanitizeContributorSort(key), key, `${key} must round-trip the deep-link sanitiser`);
+  }
+});
+
+test('a palette-switched sort round-trips through the contributors deep link', () => {
+  // Run-path keys other than the default (commits) encode + parse back intact;
+  // commits is the default so it correctly degrades to the bare tab.
+  for (const sort of ['churn', 'recent', 'name']) {
+    const hash = buildHash({ view: 'contributors', sort });
+    assert.equal(hash, `contributors?sort=${sort}`);
+    assert.deepEqual(parseHash(`#${hash}`), { view: 'contributors', sort });
+  }
+  // The default sort stays the bare tab (no junk param), and parses back to it.
+  assert.equal(buildHash({ view: 'contributors', sort: 'commits' }), 'contributors');
+  assert.deepEqual(parseHash('#contributors'), { view: 'contributors' });
 });
