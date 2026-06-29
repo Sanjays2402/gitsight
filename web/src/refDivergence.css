@@ -1,0 +1,33 @@
+/* Ref-detail popover divergence dot (W105). A monochrome-friendly status dot
+ * before the ahead/behind label so a clean fast-forward (ahead/behind) reads
+ * apart from a real divergence (both) at a glance. Token-only so it inherits
+ * the editorial light/dark themes; co-located + imported from main.ts. */
+
+.rd-div-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+
+/* Even with HEAD: a hollow, quiet dot. */
+.rd-div-dot.level {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--fg-faint);
+}
+
+/* Only ahead (HEAD can fast-forward): the accent. */
+.rd-div-dot.ahead {
+  background: var(--accent);
+}
+
+/* Only behind (it can fast-forward to HEAD): muted. */
+.rd-div-dot.behind {
+  background: var(--fg-muted);
+}
+
+/* Both ahead and behind — a real divergence needing a merge/rebase: danger. */
+.rd-div-dot.diverged {
+  background: var(--danger);
+}

@@ -18,7 +18,7 @@ import { escapeHtml } from '@shared/graphCore';
 import { timeAgo, absoluteTime } from './format';
 import { authorColor } from '@shared/graphPalette';
 import { buildRefInsight, type InsightCommit } from './refInsight';
-import { refInsightDivergenceHint } from './compareFormat';
+import { refInsightDivergenceHint, divergenceClass } from './compareFormat';
 import type { RailRef } from '@shared/refRail';
 
 export interface RefDetailActions {
@@ -71,7 +71,15 @@ export function openRefDetail(
   // Ahead/behind vs HEAD.
   if (!ref.isHead) {
     const ab = el('div', 'rd-aheadbehind');
-    ab.innerHTML = `<span class="rd-ico">${icons.gitCompare}</span><span>${escapeHtml(refInsightDivergenceHint(insight))}</span>`;
+    // W105: a divergence dot whose colour distinguishes a clean fast-forward
+    // (ahead/behind) from a real divergence (both) at a glance. The label is
+    // the W100-unified text; a "diverged" tag is appended when both sides drift.
+    const cls = divergenceClass(insight);
+    const diverged = cls === 'diverged';
+    ab.innerHTML =
+      `<span class="rd-div-dot ${cls}" aria-hidden="true"></span>` +
+      `<span class="rd-ico">${icons.gitCompare}</span>` +
+      `<span>${escapeHtml(refInsightDivergenceHint(insight))}${diverged ? ' \u00b7 diverged' : ''}</span>`;
     if (!insight.exact) ab.title = 'Approximate — history is capped below this ancestry.';
     pop.appendChild(ab);
   }
