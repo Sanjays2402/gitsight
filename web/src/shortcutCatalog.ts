@@ -91,6 +91,7 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
         { keys: ['\u2193'], description: 'Step to the next commit-filter match', views: ['compare'] },
         { keys: ['\u2191'], description: 'Step to the previous commit-filter match', views: ['compare'] },
         { keys: ['Enter'], description: 'Open the focused commit-filter match', views: ['compare'] },
+        { keys: ['s'], description: 'Swap the loaded comparison\u2019s base / head', views: ['compare'] },
       ],
     },
     {

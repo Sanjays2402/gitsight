@@ -33,6 +33,7 @@ import {
   compareDivergence,
   compareSuggestPaletteItems,
   compareSwapPaletteItems,
+  compareSwapPair,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -539,4 +540,30 @@ test('compareSwapPaletteItems trims + sanitises both refs', () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].base, 'v1.0');
   assert.equal(items[0].head, 'main');
+});
+
+// ── compareSwapPair (W128) ───────────────────────────────────────────
+
+test('compareSwapPair reverses a distinct loaded comparison', () => {
+  assert.deepEqual(compareSwapPair('main', 'feature'), { base: 'feature', head: 'main' });
+  // Trim + sanitise mirror the palette source.
+  assert.deepEqual(compareSwapPair('  main  ', '  v1.0  '), { base: 'v1.0', head: 'main' });
+});
+
+test('compareSwapPair returns null for a self-compare or unloaded pair', () => {
+  assert.equal(compareSwapPair('main', 'main'), null);
+  assert.equal(compareSwapPair('Main', 'main'), null); // case-insensitive self
+  assert.equal(compareSwapPair('', 'feature'), null);
+  assert.equal(compareSwapPair('main', ''), null);
+  assert.equal(compareSwapPair('-x', 'main'), null); // flag-shaped
+});
+
+test('compareSwapPair agrees with the W125 palette source guard', () => {
+  // Whatever the palette would emit, the keyboard pair matches (single source).
+  for (const [b, h] of [['main', 'feat'], ['main', 'main'], ['', 'x'], ['v1', 'v2']]) {
+    const items = compareSwapPaletteItems(b, h);
+    const pair = compareSwapPair(b, h);
+    if (items.length) assert.deepEqual(pair, { base: items[0].base, head: items[0].head });
+    else assert.equal(pair, null);
+  }
 });

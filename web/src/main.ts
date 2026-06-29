@@ -82,7 +82,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
-import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems, compareSwapPaletteItems } from './compareFormat';
+import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems, compareSwapPaletteItems, compareSwapPair } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -2567,6 +2567,22 @@ function installKeyboard(): void {
           if (hadWeek) syncHash();
           rebuildMainArea();
           renderView();
+        }
+      }
+      return;
+    }
+    // Compare tab (W128): `s`/`S` swaps a loaded comparison's base/head — one
+    // keystroke vs retyping the form or reaching for the W125 palette. Only
+    // when a real comparison is ready (compareSwapPair guards a self/empty pair
+    // by returning null); runCompare re-applies the W92 route guard. Skipped
+    // while typing in the compare filter box so `s` types normally there.
+    if (state.view === 'compare') {
+      const typing = document.activeElement instanceof HTMLInputElement;
+      if (!typing && (e.key === 's' || e.key === 'S') && state.compare.status === 'ready') {
+        const swap = compareSwapPair(state.compareBase, state.compareHead);
+        if (swap) {
+          e.preventDefault();
+          void runCompare(swap.base, swap.head);
         }
       }
       return;

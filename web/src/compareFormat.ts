@@ -578,3 +578,24 @@ export function compareSwapPaletteItems(base: string, head: string): CompareSwap
   // Swap: the new base is the old head, the new head is the old base.
   return [{ base: h, head: b, label: `Swap comparison: ${h}\u2026${b}` }];
 }
+
+// ── Compare swap keyboard (W128) ─────────────────────────────────────
+
+/**
+ * Reverse a loaded comparison's base/head for the `s`/`S` Compare-view
+ * shortcut (W128), so swapping is one keystroke instead of retyping the form
+ * or reaching for Cmd-K (W125). Returns the swapped pair (new base = old head,
+ * new head = old base) only when both refs sanitise AND they differ
+ * (case-insensitively) — swapping a self-compare is a no-op and an empty/unsafe
+ * ref can't be loaded, so a healthy distinct comparison is the only case that
+ * yields a pair. Returns null otherwise so the key handler can skip cleanly.
+ *
+ * Shares the exact guard the W125 palette source uses (so the keyboard + the
+ * palette agree on what's swappable), but returns the bare pair rather than a
+ * palette item — the keyboard wiring funnels it straight into runCompare (which
+ * re-applies the same runCompare guard). Pure so the swap logic is testable.
+ */
+export function compareSwapPair(base: string, head: string): { base: string; head: string } | null {
+  const items = compareSwapPaletteItems(base, head);
+  return items.length ? { base: items[0].base, head: items[0].head } : null;
+}
