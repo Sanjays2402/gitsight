@@ -13,6 +13,7 @@ import {
   overlapPercent,
   swapComparePair,
   comparePanelKeyAction,
+  nextTrapIndex,
 } from './contributorCompare.ts';
 
 const file = (path, insertions, deletions, commits = 1) => ({ path, insertions, deletions, commits });
@@ -135,4 +136,23 @@ test('comparePanelKeyAction ignores other keys (W93)', () => {
   assert.equal(comparePanelKeyAction('Enter'), 'none');
   assert.equal(comparePanelKeyAction(''), 'none');
   assert.equal(comparePanelKeyAction('Esc'), 'none'); // not the DOM key name
+});
+
+// ── nextTrapIndex (W99): focus trap stepping ─────────────────────────
+
+test('nextTrapIndex wraps both ends to keep focus inside the panel (W99)', () => {
+  assert.equal(nextTrapIndex(3, 2, 1), 0); // Tab past last -> first
+  assert.equal(nextTrapIndex(3, 0, -1), 2); // Shift-Tab past first -> last
+  assert.equal(nextTrapIndex(3, 0, 1), 1); // forward in range
+  assert.equal(nextTrapIndex(3, 2, -1), 1); // backward in range
+});
+
+test('nextTrapIndex enters from outside on the right end (W99)', () => {
+  assert.equal(nextTrapIndex(4, -1, 1), 0); // Tab from outside -> first
+  assert.equal(nextTrapIndex(4, -1, -1), 3); // Shift-Tab from outside -> last
+});
+
+test('nextTrapIndex returns -1 for an empty panel (W99)', () => {
+  assert.equal(nextTrapIndex(0, -1, 1), -1);
+  assert.equal(nextTrapIndex(0, 2, -1), -1);
 });

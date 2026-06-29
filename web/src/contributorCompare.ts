@@ -157,3 +157,21 @@ export function comparePanelKeyAction(key: string): ComparePanelKeyAction {
   if (key === 'Escape') return 'close';
   return 'none';
 }
+
+// ── Compare panel focus trap (W99) ───────────────────────────────────
+
+/**
+ * Next focusable index when Tab cycles within a trapped panel (W99). `count`
+ * is how many focusable controls the panel has; `current` the focused one's
+ * index (-1 when focus is outside); `delta` is +1 (Tab) or -1 (Shift-Tab).
+ * Wraps both ends so Tab past the last lands on the first and Shift-Tab past
+ * the first lands on the last, keeping focus inside the panel. From outside
+ * (-1) a forward step lands on the first control and a backward step on the
+ * last. An empty panel returns -1 (nothing to focus). Pure so the wrap logic
+ * is testable without the DOM; the panel binds Tab to it + calls focus().
+ */
+export function nextTrapIndex(count: number, current: number, delta: number): number {
+  if (count <= 0) return -1;
+  if (current < 0) return delta > 0 ? 0 : count - 1;
+  return ((current + delta) % count + count) % count;
+}

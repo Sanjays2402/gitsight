@@ -16,6 +16,7 @@ import {
   buildContributorComparison,
   overlapPercent,
   comparePanelKeyAction,
+  nextTrapIndex,
   type ContributorComparison,
   type AuthorSummary,
 } from './contributorCompare';
@@ -50,12 +51,15 @@ export class ContributorComparePanel {
   private token = 0;
   /** Bound document keydown listener (W93), live only while the panel is open. */
   private keyListener: ((e: KeyboardEvent) => void) | null = null;
+  /** The element focused before the panel opened, restored on close (W99). */
+  private previousFocus: HTMLElement | null = null;
 
   constructor(handlers: ContributorCompareHandlers) {
     this.handlers = handlers;
     this.root = el('aside', 'cc-panel');
     this.root.setAttribute('role', 'complementary');
     this.root.setAttribute('aria-label', 'Contributor comparison');
+    this.root.tabIndex = -1; // focusable on open without being a tab stop (W99)
     this.root.hidden = true;
 
     const header = el('div', 'cc-head');
@@ -102,13 +106,22 @@ export class ContributorComparePanel {
     this.root.classList.remove('show');
     this.root.hidden = true;
     this.uninstallKeys();
+    // W99: hand focus back to whatever had it before the panel opened (the
+    // leaderboard row), so keyboard users aren't dumped at the document top.
+    const restore = this.previousFocus;
+    this.previousFocus = null;
+    if (restore && restore.isConnected) restore.focus();
   }
 
   async open(a: { email: string; name: string }, b: { email: string; name: string }): Promise<void> {
+    // W99: remember the opener so close() can restore focus to it.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== this.root) this.previousFocus = active;
     this.root.hidden = false;
     this.root.classList.add('show');
     this.installKeys();
     this.showLoading(a.name, b.name);
+    this.root.focus(); // W99: pull focus into the panel so Tab is trapped here
     const mine = ++this.token;
 
     const [ra, rb] = await Promise.all([
@@ -135,6 +148,20 @@ export class ContributorComparePanel {
   private installKeys(): void {
     if (this.keyListener) return;
     this.keyListener = (e: KeyboardEvent) => {
+      // W99: trap Tab/Shift-Tab inside the panel so focus can't escape to the
+      // page behind it. Cycle through the panel's focusable controls, wrapping
+      // both ends (pure nextTrapIndex). Runs before the typing-guard so Tab
+      // works even when an input is focused.
+      if (e.key === 'Tab') {
+        const focusables = this.focusables();
+        if (focusables.length === 0) return;
+        const current = focusables.indexOf(document.activeElement as HTMLElement);
+        const next = nextTrapIndex(focusables.length, current, e.shiftKey ? -1 : 1);
+        e.preventDefault();
+        e.stopPropagation();
+        focusables[next]?.focus();
+        return;
+      }
       // Don't hijack keys while the user is typing in a field.
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
@@ -162,6 +189,14 @@ export class ContributorComparePanel {
     if (!this.keyListener) return;
     document.removeEventListener('keydown', this.keyListener, true);
     this.keyListener = null;
+  }
+
+  /** The panel's tabbable controls in DOM order (W99 focus trap). */
+  private focusables(): HTMLElement[] {
+    const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    return Array.from(this.root.querySelectorAll<HTMLElement>(sel)).filter(
+      e => !e.hasAttribute('disabled') && e.offsetParent !== null,
+    );
   }
 
   private showLoading(a: string, b: string): void {
