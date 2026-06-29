@@ -24,6 +24,7 @@ import {
   compareRouteFromRefs,
   compareRouteError,
   refDivergenceHint,
+  refInsightDivergenceHint,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -353,4 +354,20 @@ test('compareRefPaletteItems omits hints entirely without a lookup (W95/W87)', (
   // The W87 shape (no divergence arg) must be unchanged — no hint key.
   const items = compareRefPaletteItems([{ name: 'dev' }], 'HEAD');
   assert.equal('hint' in items[0], false);
+});
+
+// ── refInsightDivergenceHint (W100): rail popover unification ─────────
+
+test('refInsightDivergenceHint matches refDivergenceHint for the same numbers (W100)', () => {
+  for (const x of [{ ahead: 0, behind: 0, exact: true }, { ahead: 3, behind: 1, exact: true }, { ahead: 2, behind: 0, exact: false }]) {
+    assert.equal(refInsightDivergenceHint(x), refDivergenceHint(x));
+  }
+});
+
+test('refInsightDivergenceHint says "even with HEAD" not "up to date" when level (W100)', () => {
+  assert.equal(refInsightDivergenceHint({ ahead: 0, behind: 0, exact: true }), 'even with HEAD');
+});
+
+test('refInsightDivergenceHint carries ~ on a capped count (W100)', () => {
+  assert.equal(refInsightDivergenceHint({ ahead: 5, behind: 2, exact: false }), '~5 ahead, ~2 behind');
 });

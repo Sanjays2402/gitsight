@@ -239,6 +239,18 @@ export interface RefDivergence {
 }
 
 /**
+ * Adapter from a W29 RefInsight to the W95 divergence hint wording (W100). The
+ * rail popover and the compare palette both show "how far is this ref from
+ * HEAD", but historically diverged on the level-case label ("up to date with
+ * HEAD" vs "even with HEAD"). This funnels the popover through the same
+ * `refDivergenceHint`, so both surfaces read identically. Pure (a thin field
+ * map) so the unification is unit-testable.
+ */
+export function refInsightDivergenceHint(insight: { ahead: number; behind: number; exact: boolean }): string {
+  return refDivergenceHint({ ahead: insight.ahead, behind: insight.behind, exact: insight.exact });
+}
+
+/**
  * Compact divergence readout for a compare-ref palette hint (W95). Mirrors the
  * W29 `aheadBehindLabel` shape but tuned for an inline palette hint: "even with
  * HEAD" when level, else "N ahead, M behind" trimming a zero side, with a `~`

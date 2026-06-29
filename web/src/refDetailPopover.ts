@@ -17,7 +17,8 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { timeAgo, absoluteTime } from './format';
 import { authorColor } from '@shared/graphPalette';
-import { buildRefInsight, aheadBehindLabel, type InsightCommit } from './refInsight';
+import { buildRefInsight, type InsightCommit } from './refInsight';
+import { refInsightDivergenceHint } from './compareFormat';
 import type { RailRef } from '@shared/refRail';
 
 export interface RefDetailActions {
@@ -70,7 +71,7 @@ export function openRefDetail(
   // Ahead/behind vs HEAD.
   if (!ref.isHead) {
     const ab = el('div', 'rd-aheadbehind');
-    ab.innerHTML = `<span class="rd-ico">${icons.gitCompare}</span><span>${escapeHtml(aheadBehindLabel(insight))}</span>`;
+    ab.innerHTML = `<span class="rd-ico">${icons.gitCompare}</span><span>${escapeHtml(refInsightDivergenceHint(insight))}</span>`;
     if (!insight.exact) ab.title = 'Approximate — history is capped below this ancestry.';
     pop.appendChild(ab);
   }
