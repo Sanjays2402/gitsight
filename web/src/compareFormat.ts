@@ -372,3 +372,21 @@ export function compareRouteError(reason: CompareRouteError): string {
       return 'Pick two different refs to compare';
   }
 }
+
+/**
+ * Inline-notice text for a rejected compare pair shown under the form (W98).
+ * Unlike the transient W92 toast, this names the specific clash so two
+ * still-valid-looking ref inputs explain themselves. For a self-compare it
+ * names both refs ("main and HEAD point at the same commit") using the raw,
+ * trimmed values the user typed; for an empty side it falls back to the W92
+ * wording. Returns '' for an ok pair so the caller hides the notice. Pure so
+ * the wording is testable without the form.
+ */
+export function compareInvalidNotice(reason: CompareRouteError, base: string, head: string): string {
+  if (reason === 'self-compare') {
+    const b = base.trim();
+    const h = head.trim();
+    return b && h ? `${b} and ${h} point at the same commit` : 'Pick two different refs to compare';
+  }
+  return compareRouteError(reason);
+}

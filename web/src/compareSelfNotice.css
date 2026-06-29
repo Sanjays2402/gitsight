@@ -1,0 +1,30 @@
+/*
+ * Compare self-compare inline notice (W98).
+ *
+ * A quiet line under the compare ref-pair form that names a rejected pair —
+ * a self-compare ("main and HEAD point at the same commit") or an empty side —
+ * so two still-valid-looking inputs explain themselves beyond the transient
+ * W92 toast. Reuses the W78 empty-filter tint (accent left rule + faint wash)
+ * so the rejection reads consistently across the compare surface. Token-only;
+ * inherits the app's light/dark chrome. No emoji.
+ */
+
+.compare-form-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compare-self-notice {
+  font-size: 11.5px;
+  color: var(--fg-muted, var(--fg-faint));
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm, 5px);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.compare-self-notice[hidden] {
+  display: none;
+}

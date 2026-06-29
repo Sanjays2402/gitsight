@@ -25,6 +25,7 @@ import {
   compareRouteError,
   refDivergenceHint,
   refInsightDivergenceHint,
+  compareInvalidNotice,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -370,4 +371,18 @@ test('refInsightDivergenceHint says "even with HEAD" not "up to date" when level
 
 test('refInsightDivergenceHint carries ~ on a capped count (W100)', () => {
   assert.equal(refInsightDivergenceHint({ ahead: 5, behind: 2, exact: false }), '~5 ahead, ~2 behind');
+});
+
+// ── compareInvalidNotice (W98): inline self-compare clash ────────────
+
+test('compareInvalidNotice names both refs on a self-compare (W98)', () => {
+  assert.equal(compareInvalidNotice('self-compare', 'main', 'HEAD'), 'main and HEAD point at the same commit');
+  assert.equal(compareInvalidNotice('self-compare', ' main ', ' HEAD '), 'main and HEAD point at the same commit');
+});
+
+test('compareInvalidNotice falls back to W92 wording for empty sides (W98)', () => {
+  assert.equal(compareInvalidNotice('empty-base', '', 'HEAD'), 'Enter a base ref to compare');
+  assert.equal(compareInvalidNotice('empty-head', 'main', ''), 'Enter a ref to compare against');
+  // self-compare with a blank side degrades to the generic line.
+  assert.equal(compareInvalidNotice('self-compare', '', ''), 'Pick two different refs to compare');
 });

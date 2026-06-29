@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError, compareInvalidNotice } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -88,6 +88,14 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
     headField.input.value = b;
   });
 
+  // W98: a quiet inline notice under the form that names a self-compare clash
+  // (or empty side) when the W92 guard rejects the pair — so two valid-looking
+  // refs explain themselves, beyond the transient toast. Hidden when the pair
+  // is valid; cleared on the next good submit.
+  const notice = el('div', 'compare-self-notice');
+  notice.setAttribute('aria-live', 'polite');
+  notice.hidden = true;
+
   form.append(baseField.wrap, swap, headField.wrap, submit);
   form.addEventListener('submit', e => {
     e.preventDefault();
@@ -95,10 +103,25 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
     // a self-comparison (main...main, always empty) is rejected with a notice
     // instead of firing a no-op load + writing a junk #compare hash.
     const route = compareRouteFromRefs(baseField.input.value, headField.input.value);
-    if (route.ok) opts.onCompare(route.base, route.head);
-    else opts.onInvalidPair?.(compareRouteError(route.reason));
+    if (route.ok) {
+      notice.hidden = true; // W98: a valid pair clears the inline notice
+      notice.textContent = '';
+      opts.onCompare(route.base, route.head);
+    } else {
+      // W98: name the clash inline + still fire the W92 toast for parity.
+      const text = compareInvalidNotice(route.reason, baseField.input.value, headField.input.value);
+      notice.textContent = text;
+      notice.hidden = false;
+      opts.onInvalidPair?.(compareRouteError(route.reason));
+    }
   });
-  return form;
+  // Editing either ref clears a stale clash notice so it doesn't linger.
+  const clearNotice = () => { if (!notice.hidden) { notice.hidden = true; notice.textContent = ''; } };
+  baseField.input.addEventListener('input', clearNotice);
+  headField.input.addEventListener('input', clearNotice);
+  const wrap = el('div', 'compare-form-wrap');
+  wrap.append(form, notice);
+  return wrap;
 }
 
 function refField(name: string, label: string, value: string): { wrap: HTMLElement; input: HTMLInputElement } {

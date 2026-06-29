@@ -24,6 +24,7 @@ import './blameRangeCommits.css';
 import './graphMinimap.css';
 import './compareSplit.css';
 import './compareCommitFilter.css';
+import './compareSelfNotice.css';
 import './contributorCompare.css';
 import './contributorSort.css';
 import './contributorChurnBar.css';
