@@ -196,6 +196,33 @@ export function isContributorSort(s: unknown): s is ContributorSort {
   return typeof s === 'string' && (CONTRIBUTOR_SORTS as string[]).includes(s);
 }
 
+/**
+ * Map a keypress to a leaderboard sort key on the Contributors view (W122):
+ * `n` -> name, `c` -> commits, `r` -> recent, `m` -> churn (most lines) — so
+ * the W60 segmented control is reachable from the keyboard. Returns null for
+ * any other key so unrelated keys pass through. Pure so the key map is
+ * testable; the view feeds the result into switchContributorSort. Mirrors the
+ * W88 activity-metric / W121 blame-ownership key maps.
+ */
+export function contributorSortKeyAction(key: string): ContributorSort | null {
+  switch (key) {
+    case 'n':
+    case 'N':
+      return 'name';
+    case 'c':
+    case 'C':
+      return 'commits';
+    case 'r':
+    case 'R':
+      return 'recent';
+    case 'm':
+    case 'M':
+      return 'churn';
+    default:
+      return null;
+  }
+}
+
 /** Total churn (insertions + deletions) for a contributor (W60). */
 export function contributorChurn(c: Pick<Contributor, 'insertions' | 'deletions'>): number {
   return Math.max(0, c.insertions) + Math.max(0, c.deletions);

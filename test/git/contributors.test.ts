@@ -8,6 +8,7 @@ import {
   sortContributors,
   contributorChurn,
   isContributorSort,
+  contributorSortKeyAction,
   churnShare,
   maxContributorChurn,
 } from '../../src/shared/contributors';
@@ -165,6 +166,19 @@ test('isContributorSort guards the key set', () => {
   assert.ok(isContributorSort('recent'));
   assert.ok(!isContributorSort('downloads'));
   assert.ok(!isContributorSort(42));
+});
+
+test('contributorSortKeyAction maps n/c/r/m to sorts, ignores others (W122)', () => {
+  assert.equal(contributorSortKeyAction('n'), 'name');
+  assert.equal(contributorSortKeyAction('c'), 'commits');
+  assert.equal(contributorSortKeyAction('r'), 'recent');
+  assert.equal(contributorSortKeyAction('m'), 'churn');
+  // Uppercase mirrors lowercase.
+  assert.equal(contributorSortKeyAction('M'), 'churn');
+  assert.equal(contributorSortKeyAction('x'), null);
+  assert.equal(contributorSortKeyAction('Enter'), null);
+  // Every mapped key is a real sort key (round-trips the guard).
+  for (const k of ['n', 'c', 'r', 'm']) assert.ok(isContributorSort(contributorSortKeyAction(k)));
 });
 
 // ── Churn bars (W67) ─────────────────────────────────────────────────
