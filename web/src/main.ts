@@ -82,7 +82,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
-import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion } from './compareFormat';
+import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -500,6 +500,20 @@ function buildPaletteItems(): PaletteItem[] {
         kind: 'action',
         label: item.label,
         hint: item.hint ? `Compare \u00b7 ${item.hint}` : 'Compare',
+        value: `compare-ref:${item.base}:${item.head}`,
+        weight: 2,
+      });
+    }
+    // W120: when the loaded comparison is a self-compare clash (base === head),
+    // surface the W103/W108 ref suggestion as a Cmd-K recovery action too, so
+    // the fix isn't only the inline pill. Reuses the same client-side divergence
+    // pick + the compare-ref: run path; empty list (no item) when it's healthy.
+    for (const item of compareSuggestPaletteItems(state.compareBase, state.compareHead, suggestCompareRef(state.compareBase))) {
+      items.push({
+        id: `compare-suggest:${item.base}:${item.head}`,
+        kind: 'action',
+        label: item.label,
+        hint: 'Compare',
         value: `compare-ref:${item.base}:${item.head}`,
         weight: 2,
       });

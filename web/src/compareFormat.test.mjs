@@ -31,6 +31,7 @@ import {
   suggestionLabel,
   suggestionFocusTarget,
   compareDivergence,
+  compareSuggestPaletteItems,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -484,4 +485,26 @@ test('compareDivergence sorts a ref list most-diverged first (W110)', () => {
   ];
   const order = refs.slice().sort((a, b) => compareDivergence(a, b)).map(r => r.name);
   assert.deepEqual(order, ['diverged', 'ahead', 'level']);
+});
+
+// ── compareSuggestPaletteItems (W120) ────────────────────────────────
+
+test('compareSuggestPaletteItems offers recovery only on a self-compare', () => {
+  // Self-compare with a distinct suggestion -> one entry.
+  const items = compareSuggestPaletteItems('main', 'main', 'feature');
+  assert.equal(items.length, 1);
+  assert.equal(items[0].base, 'main');
+  assert.equal(items[0].head, 'feature');
+  assert.match(items[0].label, /compare main with feature instead/i);
+  // A healthy comparison contributes nothing.
+  assert.deepEqual(compareSuggestPaletteItems('main', 'feature', 'dev'), []);
+  // Case-insensitive self-compare still counts.
+  assert.equal(compareSuggestPaletteItems('Main', 'main', 'dev').length, 1);
+});
+
+test('compareSuggestPaletteItems drops a missing/equal/unsafe suggestion', () => {
+  assert.deepEqual(compareSuggestPaletteItems('main', 'main', null), []);
+  assert.deepEqual(compareSuggestPaletteItems('main', 'main', 'main'), []); // == base
+  assert.deepEqual(compareSuggestPaletteItems('main', 'main', '-x'), []); // flag-shaped
+  assert.deepEqual(compareSuggestPaletteItems('', '', 'dev'), []); // blank pair
 });

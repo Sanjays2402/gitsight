@@ -511,3 +511,39 @@ export function compareDivergence(
   if (rankDelta !== 0) return rankDelta;
   return (b.ahead + b.behind) - (a.ahead + a.behind);
 }
+
+// ── Self-compare suggestion palette source (W120) ────────────────────
+
+/** One Cmd-K entry for the self-compare recovery suggestion (W120, data only). */
+export interface CompareSuggestPaletteItem {
+  /** The base ref of the recovered comparison (the clashing ref kept as base). */
+  base: string;
+  /** The suggested head ref to compare against instead. */
+  head: string;
+  /** "Compare <base> with <head> instead" — the palette label. */
+  label: string;
+}
+
+/**
+ * Build the command-palette source for the self-compare recovery (W120), so the
+ * W103/W108 suggestion is reachable from Cmd-K too, not just the inline pill.
+ * Pure + data only (the view maps the entry to a real PaletteItem with its run),
+ * mirroring the W82/W87/W119 sources. Returns a single entry only when the
+ * loaded comparison is a genuine self-compare (base === head, case-insensitive)
+ * AND a distinct suggestion exists; both refs run through sanitizeRef so a
+ * suggestion equal to the base, or an unsafe ref, yields nothing. Empty list
+ * otherwise so a healthy comparison contributes no palette noise.
+ */
+export function compareSuggestPaletteItems(
+  base: string,
+  head: string,
+  suggestion: string | null,
+): CompareSuggestPaletteItem[] {
+  const b = sanitizeRef(base ?? '');
+  const h = sanitizeRef(head ?? '');
+  const s = sanitizeRef(suggestion ?? '');
+  // Only on a real self-compare clash, with a distinct suggestion to offer.
+  if (!b || !h || b.toLowerCase() !== h.toLowerCase()) return [];
+  if (!s || s.toLowerCase() === b.toLowerCase()) return [];
+  return [{ base: b, head: s, label: `Compare ${b} with ${s} instead` }];
+}
