@@ -88,6 +88,14 @@ export interface BlameRoute {
    * Absent = no author isolated.
    */
   author?: string;
+  /**
+   * The ownership-band quick filter (W118): 'concentrated' or 'spread-thin'.
+   * The shareable form of the W116 legend scan — narrows the legend to authors
+   * whose stake is concentrated (large share, few lines) or spread thin (many
+   * lines, small share). Restored on load + back/forward, cleared on a file
+   * switch like the live filter. Absent = no band filter.
+   */
+  own?: 'concentrated' | 'spread-thin';
 }
 
 export interface StashesRoute {
@@ -390,6 +398,22 @@ export function sanitizeAuthorFilter(author: string | null | undefined): string 
   return sanitizeBlameAuthor(author);
 }
 
+/** The ownership-band a `#blame?...&own=` deep link can carry (W118). */
+export type OwnershipBand = 'concentrated' | 'spread-thin';
+
+/**
+ * Normalise + validate the blame ownership-band filter for a deep link (W118).
+ * The only two bands are the W116 "concentrated" / "spread-thin" scans, so the
+ * grammar is a closed set; trimmed + lowercased, returns null for anything else
+ * so a junk `own=` param degrades to the full legend rather than scoping to
+ * nonsense. Mirrors the W66 sanitizeContributorSort / W113 sanitizeRailSort
+ * shape — a value never reaching git, only cleaned for the client-side filter.
+ */
+export function sanitizeOwnershipBand(band: string | null | undefined): OwnershipBand | null {
+  const b = (band ?? '').trim().toLowerCase();
+  return b === 'concentrated' || b === 'spread-thin' ? b : null;
+}
+
 /**
  * Normalise + validate a stash filter query for a deep link (W63). The query
  * is purely a client-side substring match against stash subjects/branches (it
@@ -473,6 +497,9 @@ export function buildHash(route: Route): string {
         // W76: an isolated author, when one is set + survives sanitising.
         const author = sanitizeBlameAuthor(route.author);
         if (author) p.set('author', author);
+        // W118: an ownership-band scan filter, when one is set + valid.
+        const own = sanitizeOwnershipBand(route.own);
+        if (own) p.set('own', own);
         return `blame?${p.toString()}`;
       }
     }
@@ -614,6 +641,9 @@ export function parseHash(hash: string): Route | null {
     const rawAuthor = params.get('author');
     const author = rawAuthor !== null ? sanitizeBlameAuthor(decodeURIComponent(rawAuthor)) : null;
     if (author) route.author = author;
+    // W118: an ownership-band scan filter, if present + a valid band.
+    const own = sanitizeOwnershipBand(params.get('own'));
+    if (own) route.own = own;
     return route;
   }
 

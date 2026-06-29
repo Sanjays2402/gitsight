@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter, sanitizeRailSort } from './hashRoute.ts';
+import { buildHash, parseHash, isRouteView, hashChanged, sanitizeSha, sanitizeEmail, sanitizeYear, sanitizePath, sanitizeLine, sanitizeStashQuery, parseLineRange, formatLineParam, sanitizeContributorSort, sanitizeShaList, MAX_GRAPH_COMMITS, sanitizeBlameAuthor, sanitizeDayKey, sanitizeAuthorFilter, sanitizeRailSort, sanitizeOwnershipBand } from './hashRoute.ts';
 
 // ── buildHash ────────────────────────────────────────────────────────
 
@@ -585,6 +585,51 @@ test('parseHash reads a blame author= param back', () => {
 
 test('buildHash(parseHash(x)) round-trips a blame author link', () => {
   const original = 'blame?path=src%2Fmain.ts&author=Ada+Lovelace';
+  const parsed = parseHash(original);
+  assert.ok(parsed);
+  assert.equal(buildHash(parsed), original);
+});
+
+// ── Blame ownership-band deep-link (W118) ────────────────────────────
+
+test('sanitizeOwnershipBand accepts only the two W116 bands', () => {
+  assert.equal(sanitizeOwnershipBand('concentrated'), 'concentrated');
+  assert.equal(sanitizeOwnershipBand('spread-thin'), 'spread-thin');
+  assert.equal(sanitizeOwnershipBand('  Concentrated  '), 'concentrated'); // trim + lowercase
+  // Anything else degrades to the full legend.
+  assert.equal(sanitizeOwnershipBand('spread thin'), null); // space form not accepted
+  assert.equal(sanitizeOwnershipBand('balanced'), null);
+  assert.equal(sanitizeOwnershipBand(''), null);
+  assert.equal(sanitizeOwnershipBand(null), null);
+  assert.equal(sanitizeOwnershipBand(undefined), null);
+});
+
+test('buildHash emits an own= param on a blame link when a band is set', () => {
+  assert.equal(
+    buildHash({ view: 'blame', path: 'src/main.ts', own: 'concentrated' }),
+    'blame?path=src%2Fmain.ts&own=concentrated',
+  );
+  // No band -> no own param.
+  assert.equal(buildHash({ view: 'blame', path: 'src/main.ts' }), 'blame?path=src%2Fmain.ts');
+  // own combines with the W76 author isolate.
+  assert.equal(
+    buildHash({ view: 'blame', path: 'a.ts', author: 'Ada', own: 'spread-thin' }),
+    'blame?path=a.ts&author=Ada&own=spread-thin',
+  );
+});
+
+test('parseHash reads a blame own= param back', () => {
+  assert.deepEqual(parseHash('#blame?path=a.ts&own=concentrated'), {
+    view: 'blame',
+    path: 'a.ts',
+    own: 'concentrated',
+  });
+  // A junk band is dropped (full legend).
+  assert.deepEqual(parseHash('#blame?path=a.ts&own=bogus'), { view: 'blame', path: 'a.ts' });
+});
+
+test('buildHash(parseHash(x)) round-trips a blame ownership link', () => {
+  const original = 'blame?path=a.ts&author=Ada&own=spread-thin';
   const parsed = parseHash(original);
   assert.ok(parsed);
   assert.equal(buildHash(parsed), original);

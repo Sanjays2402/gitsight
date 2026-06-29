@@ -831,9 +831,9 @@ async function boot(): Promise<void> {
   // W76). loadBlameAt blames at the linked rev; the revealLine + range jump +
   // isolated author are threaded through runBlame.
   if (pendingBlame && state.view === 'blame') {
-    const { path, rev, line, lineEnd, author } = pendingBlame;
+    const { path, rev, line, lineEnd, author, own } = pendingBlame;
     pendingBlame = null;
-    void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null, author ?? null);
+    void runBlame(rev ?? 'HEAD', path, line ?? null, lineEnd ?? null, author ?? null, own ?? null);
   }
 
   // Open a deep-linked day panel once the Activity tab is up (W79). The panel
@@ -2001,6 +2001,7 @@ async function runBlame(
   line: number | null,
   lineEnd: number | null = null,
   author: string | null = null,
+  own: 'concentrated' | 'spread-thin' | null = null,
 ): Promise<void> {
   state.blamePath = path;
   state.blameRev = rev;
@@ -2011,8 +2012,9 @@ async function runBlame(
   // (W76) restores one — threaded in so the isolate survives a load.
   state.blameAuthor = author;
   // A fresh file clears any W116 ownership-band filter so it can't hide a new
-  // file's whole legend (bands differ per file).
-  state.blameOwnership = null;
+  // file's whole legend (bands differ per file) — unless a W118 deep link
+  // restores one, threaded in like the author isolate.
+  state.blameOwnership = own;
   state.blame = { status: 'loading', data: null, error: '' };
   renderBlameView();
   const res = await loadBlame(rev, path, {
@@ -2278,12 +2280,13 @@ function setBlameAuthor(author: string | null): void {
 
 /**
  * Toggle the blame legend's ownership-band filter (W116): clicking the active
- * band clears it, clicking the other switches. Pure toggle + a re-render; no
- * hash sync (it's a transient legend scan, not a shareable view like the W76
- * author isolate). No-op off the Blame view.
+ * band clears it, clicking the other switches. Pure toggle + a re-render; W118
+ * syncs the hash too so a narrowed legend is shareable (#blame?...&own=) and
+ * survives back/forward, then re-renders the loaded model. No-op off Blame.
  */
 function toggleBlameOwnership(band: 'concentrated' | 'spread-thin'): void {
   state.blameOwnership = toggleOwnershipFilter(state.blameOwnership, band);
+  syncHash();
   if (state.view === 'blame') renderBlameView();
 }
 
@@ -2542,7 +2545,7 @@ function applyInitialRoute(): void {
   // author W76); boot() loads the file + jumps to the line + isolates the
   // author once the app is up.
   if (route.view === 'blame' && route.path) {
-    pendingBlame = { path: route.path, rev: route.rev, line: route.line, lineEnd: route.lineEnd, author: route.author };
+    pendingBlame = { path: route.path, rev: route.rev, line: route.line, lineEnd: route.lineEnd, author: route.author, own: route.own };
   }
   // Seed a stash filter deep-link (#stashes?q=, W63); the first Stashes render
   // pre-fills the box + narrows the cards. boot() resets stashQuery, so stash
@@ -2580,8 +2583,8 @@ let pendingCompareEmails: [string, string] | null = null;
  */
 let pendingContributorSort: ContributorSort | null = null;
 
-/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65; author W76). */
-let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number; author?: string } | null = null;
+/** A file-blame deep link (#blame?path=&rev=&line=) loaded after boot (W57; range W65; author W76; own W118). */
+let pendingBlame: { path: string; rev?: string; line?: number; lineEnd?: number; author?: string; own?: 'concentrated' | 'spread-thin' } | null = null;
 
 /**
  * A calendar year from an #activity?year= deep-link (W48). boot() resets
@@ -2657,6 +2660,7 @@ function syncHash(): void {
       line: state.blameLine ?? undefined,
       lineEnd: state.blameLineEnd ?? undefined,
       author: state.blameAuthor ?? undefined,
+      own: state.blameOwnership ?? undefined,
     };
   } else if (state.view === 'stashes' && state.stashQuery) {
     // A shareable filtered-stash deep-link (W63): the filter query.
@@ -2856,12 +2860,14 @@ function installHashRouting(): void {
     if (route.view === 'blame' && route.path) {
       const targetRev = route.rev ?? 'HEAD';
       const nextAuthor = route.author ?? null;
+      const nextOwn = route.own ?? null;
       const targetChanged =
         route.path !== state.blamePath ||
         targetRev !== state.blameRev ||
         (route.line ?? null) !== state.blameLine ||
         (route.lineEnd ?? null) !== state.blameLineEnd;
       const authorChanged = nextAuthor !== state.blameAuthor;
+      const ownChanged = nextOwn !== state.blameOwnership;
       if (state.view !== 'blame') {
         state.view = 'blame';
         detailPanel.close();
@@ -2870,11 +2876,13 @@ function installHashRouting(): void {
         rebuildChrome();
       }
       if (targetChanged) {
-        void runBlame(targetRev, route.path, route.line ?? null, route.lineEnd ?? null, nextAuthor);
-      } else if (authorChanged) {
-        // Same file/line, only the isolated author moved — re-render the loaded
-        // model with the new W40 filter instead of re-fetching the blame.
+        void runBlame(targetRev, route.path, route.line ?? null, route.lineEnd ?? null, nextAuthor, nextOwn);
+      } else if (authorChanged || ownChanged) {
+        // Same file/line, only the isolated author (W76) or ownership band
+        // (W118) moved — re-render the loaded model with the new W40/W116
+        // filter instead of re-fetching the blame.
         state.blameAuthor = nextAuthor;
+        state.blameOwnership = nextOwn;
         if (state.view === 'blame') renderBlameView();
       }
       return;
