@@ -179,17 +179,25 @@ export function nextTrapIndex(count: number, current: number, delta: number): nu
 // ── Compare panel initial focus (W104) ───────────────────────────────
 
 /**
- * The control to focus when the compare panel opens (W104). W99 traps Tab but
- * lands focus on the panel root, so a screen-reader user hears the container,
- * not an action. This picks the first ACTIONABLE control instead — the swap
- * button when present (it's the panel's primary action), else the first
- * focusable (the close button) — so opening the panel announces what you can
- * do. `roles` is the panel's tabbable list mapped to what each control is, in
- * DOM order. Returns the index to focus, or -1 when empty. Pure so the choice
- * is testable without the DOM; the panel calls focusables[idx].focus().
+ * The control to focus when the compare panel opens (W104; W109). W99 traps Tab
+ * but lands focus on the panel root, so a screen-reader user hears the
+ * container, not an action. This picks the first ACTIONABLE control instead. By
+ * default it prefers the swap button (the panel's primary action), else the
+ * first focusable (the close button). W109: a deep-link open passes prefer='share'
+ * so a returning sharer lands on the share button (their likely next action),
+ * while a manual open keeps swap; the preferred role is honoured only when it's
+ * present, otherwise the W104 swap->close->first fallback chain runs. `roles` is
+ * the panel's tabbable list mapped to what each control is, in DOM order. Returns
+ * the index to focus, or -1 when empty. Pure so the choice is testable without
+ * the DOM; the panel calls focusables[idx].focus().
  */
-export function firstTrapTarget(roles: ReadonlyArray<'swap' | 'share' | 'close' | 'other'>): number {
+export function firstTrapTarget(
+  roles: ReadonlyArray<'swap' | 'share' | 'close' | 'other'>,
+  prefer: 'swap' | 'share' = 'swap',
+): number {
   if (roles.length === 0) return -1;
+  const preferred = roles.indexOf(prefer);
+  if (preferred >= 0) return preferred;
   const swap = roles.indexOf('swap');
   if (swap >= 0) return swap;
   const close = roles.indexOf('close');

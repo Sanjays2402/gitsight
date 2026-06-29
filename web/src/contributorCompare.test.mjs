@@ -174,3 +174,20 @@ test('firstTrapTarget lands on the first control with no swap/close, -1 empty (W
   assert.equal(firstTrapTarget(['other', 'other']), 0);
   assert.equal(firstTrapTarget([]), -1);
 });
+
+// ── firstTrapTarget prefer (W109): deep-link-aware initial focus ─────
+
+test('firstTrapTarget honours prefer=share for a deep-link open (W109)', () => {
+  // A deep-link open lands on share, not swap.
+  assert.equal(firstTrapTarget(['swap', 'share', 'close'], 'share'), 1);
+  // Manual open (default prefer) still lands on swap.
+  assert.equal(firstTrapTarget(['swap', 'share', 'close']), 0);
+});
+
+test('firstTrapTarget prefer falls back through swap/close when absent (W109)', () => {
+  // prefer=share but no share present -> the W104 swap->close->first chain.
+  assert.equal(firstTrapTarget(['swap', 'close'], 'share'), 0);
+  assert.equal(firstTrapTarget(['close', 'other'], 'share'), 0);
+  // prefer=swap with no swap falls to close.
+  assert.equal(firstTrapTarget(['share', 'close'], 'swap'), 1);
+});

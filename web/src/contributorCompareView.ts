@@ -117,7 +117,7 @@ export class ContributorComparePanel {
     if (restore && restore.isConnected) restore.focus();
   }
 
-  async open(a: { email: string; name: string }, b: { email: string; name: string }): Promise<void> {
+  async open(a: { email: string; name: string }, b: { email: string; name: string }, prefer: 'swap' | 'share' = 'swap'): Promise<void> {
     // W99: remember the opener so close() can restore focus to it.
     const active = document.activeElement;
     if (active instanceof HTMLElement && active !== this.root) this.previousFocus = active;
@@ -125,7 +125,7 @@ export class ContributorComparePanel {
     this.root.classList.add('show');
     this.installKeys();
     this.showLoading(a.name, b.name);
-    this.focusInitial(); // W104: land on the first actionable control, not the root
+    this.focusInitial(prefer); // W104/W109: first actionable control; deep-link prefers share
     const mine = ++this.token;
 
     const [ra, rb] = await Promise.all([
@@ -204,15 +204,17 @@ export class ContributorComparePanel {
   }
 
   /**
-   * Focus the first ACTIONABLE control on open (W104): the swap button if
-   * present (the primary action), else close, else the panel root. So a
-   * screen-reader user hears an action, not just the container. Falls back to
-   * the root when there are no controls yet (covered for the focus trap anyway).
+   * Focus the first ACTIONABLE control on open (W104; W109): the swap button if
+   * present (the primary action), else close, else the panel root. `prefer`
+   * lets a deep-link open land on share instead (a returning sharer's likely
+   * next action); a manual open keeps swap. So a screen-reader user hears an
+   * action, not just the container. Falls back to the root when there are no
+   * controls yet (covered for the focus trap anyway).
    */
-  private focusInitial(): void {
+  private focusInitial(prefer: 'swap' | 'share' = 'swap'): void {
     const ctrls = this.focusables();
     const roles = ctrls.map(c => (c.dataset.ccRole as 'swap' | 'share' | 'close' | 'other') || 'other');
-    const idx = firstTrapTarget(roles);
+    const idx = firstTrapTarget(roles, prefer);
     if (idx >= 0 && ctrls[idx]) ctrls[idx].focus();
     else this.root.focus();
   }
