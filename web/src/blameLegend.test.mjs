@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor, prevBlameAuthor } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -417,4 +417,45 @@ test('nextBlameAuthor returns null for an empty author list (W126)', () => {
   assert.equal(nextBlameAuthor([], 'Ada'), null);
   // Blank author names are skipped, so an all-blank list is effectively empty.
   assert.equal(nextBlameAuthor([{ author: '  ' }], null), null);
+});
+
+// ── prevBlameAuthor: keyboard isolate reverse cycle (W131) ───────────
+
+test('prevBlameAuthor cycles show-all -> owners backward -> show-all (W131)', () => {
+  // Same W102 ownership order: Ada (60) > Grace (30) > Bob (10).
+  // From show-all, the first BACKWARD press isolates the SMALLEST owner.
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, null), 'Bob');
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'Bob'), 'Grace');
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'Grace'), 'Ada');
+  // The biggest owner wraps back to show-all (null), so the cycle never sticks.
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'Ada'), null);
+});
+
+test('prevBlameAuthor matches the active author case-insensitively (W131)', () => {
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'bob'), 'Grace');
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'GRACE'), 'Ada');
+});
+
+test('prevBlameAuthor restarts at the smallest owner when the active is gone (W131)', () => {
+  // An active author no longer in the list -> the last (smallest) owner, the
+  // mirror of nextBlameAuthor restarting at the first (biggest).
+  assert.equal(prevBlameAuthor(CYCLE_AUTHORS, 'Nobody'), 'Bob');
+});
+
+test('prevBlameAuthor returns null for an empty author list (W131)', () => {
+  assert.equal(prevBlameAuthor([], null), null);
+  assert.equal(prevBlameAuthor([], 'Ada'), null);
+  assert.equal(prevBlameAuthor([{ author: '  ' }], null), null);
+});
+
+test('next/prevBlameAuthor are exact inverses across the cycle (W131)', () => {
+  // Stepping forward then back from any state lands where you started, and the
+  // two cover the full owner order in opposite directions (show-all included).
+  const order = ['Ada', 'Grace', 'Bob'];
+  const states = [null, ...order];
+  for (const s of states) {
+    const fwd = nextBlameAuthor(CYCLE_AUTHORS, s);
+    // Stepping back from the forward result returns to the original state.
+    assert.equal(prevBlameAuthor(CYCLE_AUTHORS, fwd), s);
+  }
 });

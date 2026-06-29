@@ -208,6 +208,40 @@ export function nextBlameAuthor(
   return idx >= sorted.length - 1 ? null : sorted[idx + 1];
 }
 
+/**
+ * Pick the PREVIOUS author to isolate when cycling the blame legend backward
+ * from the keyboard (W131: `A`/Shift-a on the Blame view). The mirror of
+ * nextBlameAuthor over the same W102 ownership order, so a long author list is
+ * reachable in both directions. The cycle is:
+ *
+ *   show-all (null) -> author[n-1] -> ... -> author[1] -> author[0] -> null -> ...
+ *
+ * so from "show all" the first backward step lands on the SMALLEST owner (the
+ * tail of the order `a` walks toward), then steps up toward the biggest, and
+ * wraps back to "show all" past the first. Returns the previous author NAME to
+ * isolate, or null to show all. An empty author list yields null. Case-insensitive
+ * match on the active author; an active author no longer in the list restarts at
+ * the LAST entry (mirroring nextBlameAuthor's restart-at-first). Pure so the
+ * cycle is testable; the view feeds the result into setBlameAuthor.
+ */
+export function prevBlameAuthor(
+  authors: ReadonlyArray<{ author: string; lines?: number; share?: number }>,
+  active: string | null,
+): string | null {
+  const sorted = sortBlameAuthorsForPalette(authors)
+    .map(a => (a.author || '').trim())
+    .filter(Boolean);
+  if (sorted.length === 0) return null;
+  const last = sorted.length - 1;
+  if (!active) return sorted[last];
+  const activeNorm = norm(active);
+  const idx = sorted.findIndex(name => norm(name) === activeNorm);
+  // Active not in the list -> restart the backward cycle at the smallest owner.
+  if (idx < 0) return sorted[last];
+  // First author -> wrap back to "show all"; otherwise step to the previous.
+  return idx <= 0 ? null : sorted[idx - 1];
+}
+
 /** A palette action for the blame author isolate (W82). */
 export type BlameAuthorPaletteAction = 'isolate' | 'show-all';
 

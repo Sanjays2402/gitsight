@@ -79,7 +79,7 @@ import { ContributorComparePanel } from './contributorCompareView';
 import { swapComparePair } from './contributorCompare';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
-import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor } from './blameLegend';
+import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter, ownershipKeyAction, nextBlameAuthor, prevBlameAuthor } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems, compareSwapPaletteItems, compareSwapPair } from './compareFormat';
@@ -2608,13 +2608,20 @@ function installKeyboard(): void {
     // spread-thin) without reaching for the legend chips, only when a model is
     // loaded (the bands need stats). Reuses toggleBlameOwnership so the toggle +
     // hash sync + re-render path matches the chips exactly.
-    // W126: `a`/`A` cycles the next legend author isolate (show-all -> biggest
-    // owner -> ... -> show-all), reusing the W102 ownership order + setBlameAuthor.
+    // W126/W131: `a` cycles the next legend author isolate (show-all -> biggest
+    // owner -> ... -> show-all) and `A` (Shift) cycles BACKWARD (show-all ->
+    // smallest owner -> ... -> show-all), so a long author list is reachable
+    // both ways. Both reuse the W102 ownership order + setBlameAuthor.
     if (state.view === 'blame') {
       if (state.blame.data) {
-        if (e.key === 'a' || e.key === 'A') {
+        if (e.key === 'a') {
           e.preventDefault();
           setBlameAuthor(nextBlameAuthor(state.blame.data.authors, state.blameAuthor));
+          return;
+        }
+        if (e.key === 'A') {
+          e.preventDefault();
+          setBlameAuthor(prevBlameAuthor(state.blame.data.authors, state.blameAuthor));
           return;
         }
         const band = ownershipKeyAction(e.key);
