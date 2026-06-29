@@ -397,6 +397,11 @@ export function stashFilterPaletteItems(
   for (const e of entries) {
     const term = (e.branch ?? '').trim();
     if (!term) continue;
+    // W106: a branch term must round-trip the W63 deep-link sanitiser unchanged,
+    // or the reloaded #stashes?q= view would show a DIFFERENT count than the
+    // palette promised. Branches can hold '/' (fine), but a control/space-bearing
+    // name would be altered en route — drop it so palette == deep-link always.
+    if (!stashWordSurvivesQuery(term)) continue;
     const key = term.toLowerCase();
     const existing = byKey.get(key);
     if (existing) {

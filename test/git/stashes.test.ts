@@ -398,3 +398,26 @@ test('palette word count matches the deep-linked filtered count (W101)', () => {
   const deepQuery = sanitizeStashQuery(layout.term) ?? '';
   assert.equal(filterStashes(stashes, deepQuery).length, layout.count);
 });
+
+// ── W106: stash branch palette deep-link agreement ───────────────────
+
+test('stashFilterPaletteItems keeps slash-bearing branches (round-trip clean)', () => {
+  const slashed = [
+    { subject: 'a', branch: 'feature/login' },
+    { subject: 'b', branch: 'feature/login' },
+  ];
+  const items = stashFilterPaletteItems(slashed);
+  const f = items.find(i => i.term === 'feature/login');
+  assert.ok(f);
+  // The slash survives the deep-link sanitiser, so the deep-linked count agrees.
+  const deepQuery = sanitizeStashQuery(f.term) ?? '';
+  assert.equal(filterStashes(slashed, deepQuery).length, f.count);
+});
+
+test('stashFilterPaletteItems drops a branch that would not survive the deep link (W106)', () => {
+  const items = stashFilterPaletteItems([
+    { subject: 'a', branch: 'bad branch' }, // space wouldn't round-trip
+    { subject: 'b', branch: 'main' },
+  ]);
+  assert.deepEqual(items.map(i => i.term), ['main']); // space-bearing branch dropped
+});
