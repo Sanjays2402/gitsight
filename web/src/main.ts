@@ -500,7 +500,7 @@ function buildPaletteItems(): PaletteItem[] {
         id: `activity-metric:${item.metric}`,
         kind: 'action',
         label: item.label,
-        hint: 'Activity',
+        hint: item.hint ? `Activity \u00b7 ${item.hint}` : 'Activity',
         value: `activity-metric:${item.metric}`,
         weight: 2,
       });

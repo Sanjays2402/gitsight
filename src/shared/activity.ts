@@ -400,6 +400,27 @@ export interface ActivityMetricPaletteItem {
   metric: ActivityMetric;
   /** "Activity: chart churn (lines changed)" / "Activity: chart commits". */
   label: string;
+  /**
+   * A short readout of the metric being switched FROM (W130) — e.g. "now
+   * charting commits" — so the single flip entry tells the user what it's
+   * leaving, not just where it lands. Always set (the metric is always known).
+   */
+  hint: string;
+}
+
+/**
+ * A short "what's charted now" hint for the activity metric (W130). The W124
+ * palette offers a single flip entry, which says where it lands but not what
+ * it's switching from; this names the CURRENT metric ("now charting commits" /
+ * "now charting churn") so the user reads the before as well as the after. A
+ * degenerate/unknown current normalises to commits (matching toggleActivityMetric
+ * so the hint + the flip agree). Pure so the wording is testable.
+ */
+export function activityMetricHint(current: unknown): string {
+  // The current metric is the OTHER side of the toggle (toggle flips it), so a
+  // current of churn toggles to commits — meaning we're "now charting churn".
+  const now: ActivityMetric = toggleActivityMetric(current) === 'commits' ? 'churn' : 'commits';
+  return now === 'churn' ? 'now charting churn' : 'now charting commits';
 }
 
 /**
@@ -411,12 +432,16 @@ export interface ActivityMetricPaletteItem {
  * (the view maps the entry to a real PaletteItem with its run). Reuses
  * toggleActivityMetric so the palette agrees with the keyboard on "the other
  * metric" even for a degenerate current value.
+ *
+ * W130: each entry carries a `hint` naming the CURRENT metric ("now charting
+ * commits") so the palette reads what it's switching FROM, not just the label's
+ * destination.
  */
 export function activityMetricPaletteItems(current: unknown): ActivityMetricPaletteItem[] {
   const next = toggleActivityMetric(current);
   const label =
     next === 'churn' ? 'Activity: chart churn (lines changed)' : 'Activity: chart commits';
-  return [{ metric: next, label }];
+  return [{ metric: next, label, hint: activityMetricHint(current) }];
 }
 
 // ── Year scoping (W43) ───────────────────────────────────────────────

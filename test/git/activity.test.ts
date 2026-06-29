@@ -12,6 +12,7 @@ import {
   isActivityMetric,
   toggleActivityMetric,
   activityMetricPaletteItems,
+  activityMetricHint,
   buildStreaks,
   activeDaysOf,
   commitYear,
@@ -320,6 +321,32 @@ test('activityMetricPaletteItems agrees with toggleActivityMetric, even on junk 
   }
   // A degenerate current normalises to commits, so the flip lands on churn.
   assert.equal(activityMetricPaletteItems('lines')[0].metric, 'churn');
+});
+
+// ── Metric palette hint (W130) ───────────────────────────────────────
+
+test('activityMetricHint names the CURRENT metric being charted (W130)', () => {
+  // On commits, we're "now charting commits" (the flip leaves commits).
+  assert.equal(activityMetricHint('commits'), 'now charting commits');
+  assert.equal(activityMetricHint('churn'), 'now charting churn');
+  // A degenerate/unknown current normalises to commits (matches the toggle).
+  assert.equal(activityMetricHint('lines'), 'now charting commits');
+  assert.equal(activityMetricHint(''), 'now charting commits');
+  assert.equal(activityMetricHint(undefined), 'now charting commits');
+});
+
+test('activityMetricPaletteItems carries the W130 current-metric hint', () => {
+  // The hint describes the metric being switched FROM; the label the destination.
+  const fromCommits = activityMetricPaletteItems('commits');
+  assert.equal(fromCommits[0].hint, 'now charting commits');
+  assert.ok(/churn/i.test(fromCommits[0].label)); // lands on churn
+  const fromChurn = activityMetricPaletteItems('churn');
+  assert.equal(fromChurn[0].hint, 'now charting churn');
+  assert.ok(/commits/i.test(fromChurn[0].label));
+  // The hint agrees with the standalone helper for any current.
+  for (const current of ['commits', 'churn', 'lines', '', undefined]) {
+    assert.equal(activityMetricPaletteItems(current)[0].hint, activityMetricHint(current));
+  }
 });
 
 // ── Year scoping (W43) ───────────────────────────────────────────────
