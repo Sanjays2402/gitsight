@@ -26,6 +26,8 @@ import {
   refDivergenceHint,
   refInsightDivergenceHint,
   compareInvalidNotice,
+  nextRefSuggestion,
+  divergenceClass,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -385,4 +387,36 @@ test('compareInvalidNotice falls back to W92 wording for empty sides (W98)', () 
   assert.equal(compareInvalidNotice('empty-head', 'main', ''), 'Enter a ref to compare against');
   // self-compare with a blank side degrades to the generic line.
   assert.equal(compareInvalidNotice('self-compare', '', ''), 'Pick two different refs to compare');
+});
+
+// ── nextRefSuggestion (W103): one-key self-compare recovery ──────────
+
+test('nextRefSuggestion picks the most-diverged other ref (W103)', () => {
+  const refs = [
+    { name: 'main', ahead: 0, behind: 0 },
+    { name: 'feat', ahead: 3, behind: 1 },
+    { name: 'dev', ahead: 1, behind: 1 },
+  ];
+  assert.equal(nextRefSuggestion('main', refs), 'feat'); // 4 > 2, skips main
+});
+
+test('nextRefSuggestion skips the base case-insensitively (W103)', () => {
+  const refs = [{ name: 'Main', ahead: 9, behind: 9 }, { name: 'dev', ahead: 1, behind: 0 }];
+  assert.equal(nextRefSuggestion('main', refs), 'dev');
+});
+
+test('nextRefSuggestion keeps input order on a tie + drops junk (W103)', () => {
+  const refs = [{ name: 'a', ahead: 1 }, { name: 'b', ahead: 1 }, { name: '-bad' }];
+  assert.equal(nextRefSuggestion('main', refs), 'a'); // first of the tie, -bad sanitised out
+  assert.equal(nextRefSuggestion('main', []), null);
+  assert.equal(nextRefSuggestion('main', [{ name: 'main' }]), null); // only the base
+});
+
+// ── divergenceClass (W105): rail popover dot colour ──────────────────
+
+test('divergenceClass distinguishes the four shapes (W105)', () => {
+  assert.equal(divergenceClass({ ahead: 0, behind: 0 }), 'level');
+  assert.equal(divergenceClass({ ahead: 3, behind: 0 }), 'ahead');
+  assert.equal(divergenceClass({ ahead: 0, behind: 2 }), 'behind');
+  assert.equal(divergenceClass({ ahead: 3, behind: 2 }), 'diverged');
 });

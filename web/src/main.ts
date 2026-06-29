@@ -25,6 +25,7 @@ import './graphMinimap.css';
 import './compareSplit.css';
 import './compareCommitFilter.css';
 import './compareSelfNotice.css';
+import './refDivergence.css';
 import './contributorCompare.css';
 import './contributorSort.css';
 import './contributorChurnBar.css';
@@ -80,7 +81,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
-import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError } from './compareFormat';
+import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -1628,6 +1629,25 @@ function renderBlameView(): void {
   if (s.data) updateCount(s.data.totalLines, s.data.totalLines, 'lines');
 }
 
+/**
+ * Most-diverged other ref to retype into HEAD on a self-compare (W103). Builds
+ * the same ref divergence map the W87 palette uses (client-side from the loaded
+ * snapshot, no backend), then picks the busiest ref via nextRefSuggestion so a
+ * `main...main` clash recovers in one keystroke. Null when no snapshot/other ref.
+ */
+function suggestCompareRef(base: string): string | null {
+  const snap = state.snapshot;
+  if (!snap) return null;
+  const refs = buildRailSections(snap.commits).flatMap(s => s.refs);
+  const nodes = indexNodes(snap.commits);
+  const headSha = headTipSha();
+  const scored = refs.map(r => {
+    const ab = headSha ? aheadBehind(r.tipSha, headSha, nodes) : { ahead: 0, behind: 0 };
+    return { name: r.name, ahead: ab.ahead, behind: ab.behind };
+  });
+  return nextRefSuggestion(base, scored);
+}
+
 function renderCompareView(): void {
   const surface = document.getElementById('surface');
   if (!surface) return;
@@ -1638,6 +1658,9 @@ function renderCompareView(): void {
     onCompare: (base: string, head: string) => runCompare(base, head),
     // W92: surface a rejected ref pair (empty / self-compare) as a toast.
     onInvalidPair: (message: string) => toast(message),
+    // W103: on a self-compare, pre-fill HEAD with the most-diverged other ref
+    // (from the loaded snapshot) so the user recovers in one keystroke.
+    suggestRef: (base: string) => suggestCompareRef(base),
     loadDiff: (rev: string, path: string) =>
       loadFileDiff(rev, path, {
         repo: state.repo ?? undefined,

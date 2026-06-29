@@ -390,3 +390,61 @@ export function compareInvalidNotice(reason: CompareRouteError, base: string, he
   }
   return compareRouteError(reason);
 }
+
+// ── Self-compare one-key recovery (W103) ─────────────────────────────
+
+/**
+ * Suggest the most useful OTHER ref to compare against when a self-compare is
+ * detected (W103). On a `main...main` clash the user almost always wants to
+ * retype the HEAD side; this picks the ref that's diverged the MOST from the
+ * base (ahead + behind, vs HEAD as a tie-break weight) so a one-key fix lands
+ * on the ref with something worth comparing, not a level sibling.
+ *
+ * `base` is the clashing ref; `refs` carry an optional ahead/behind position.
+ * Refs equal to the base (case-insensitive) are skipped, blanks dropped, and a
+ * ref's score is ahead+behind (higher = more diverged). Ties keep the input
+ * order so a snapshot's natural ordering (current branch first) decides. Returns
+ * null when there's no other ref to suggest. Pure so the pick is testable; the
+ * form focuses + selects the head field with the suggestion on Enter.
+ */
+export function nextRefSuggestion(
+  base: string,
+  refs: ReadonlyArray<{ name: string; ahead?: number; behind?: number }>,
+): string | null {
+  const b = (base ?? '').trim().toLowerCase();
+  let best: string | null = null;
+  let bestScore = -1;
+  for (const r of refs) {
+    const name = sanitizeRef(r?.name ?? '');
+    if (!name || name.toLowerCase() === b) continue;
+    const score = Math.max(0, r.ahead ?? 0) + Math.max(0, r.behind ?? 0);
+    if (score > bestScore) {
+      best = name;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+// ── Divergence classification (W105) ─────────────────────────────────
+
+/**
+ * The shape of a ref's position vs HEAD, for a one-glance dot colour (W105).
+ * A clean fast-forward reads differently from a real divergence at a glance:
+ *   - 'level'    : even with HEAD (no ahead, no behind);
+ *   - 'ahead'    : only ahead (HEAD can fast-forward to it);
+ *   - 'behind'   : only behind (it can fast-forward to HEAD);
+ *   - 'diverged' : both ahead AND behind (a merge/rebase is needed).
+ * Reused by the rail popover so the W100-unified label gains a colour band.
+ */
+export type DivergenceClass = 'level' | 'ahead' | 'behind' | 'diverged';
+
+/** Classify a ref's ahead/behind into one of the four divergence shapes (W105). */
+export function divergenceClass(div: { ahead: number; behind: number }): DivergenceClass {
+  const ahead = div.ahead > 0;
+  const behind = div.behind > 0;
+  if (ahead && behind) return 'diverged';
+  if (ahead) return 'ahead';
+  if (behind) return 'behind';
+  return 'level';
+}
