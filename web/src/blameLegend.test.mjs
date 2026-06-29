@@ -287,3 +287,29 @@ test('blameAuthorPaletteItems keeps the biggest owners under the cap (W102)', ()
   // 2 isolate entries; the 1-line drive-by is dropped, owners survive.
   assert.deepEqual(items.map(i => i.author), ['owner', 'mid']);
 });
+
+// ── sortBlameAuthorsForPalette three-key sort (W107) ─────────────────
+
+test('sortBlameAuthorsForPalette breaks an equal-lines tie by share desc (W107)', () => {
+  const out = sortBlameAuthorsForPalette([
+    { author: 'thin', lines: 100, share: 0.10 },
+    { author: 'thick', lines: 100, share: 0.40 },
+  ]);
+  assert.deepEqual(out.map(a => a.author), ['thick', 'thin']); // higher share first
+});
+
+test('sortBlameAuthorsForPalette keeps stable name order on identical stats (W107)', () => {
+  const out = sortBlameAuthorsForPalette([
+    { author: 'Bob', lines: 50, share: 0.5 },
+    { author: 'Ada', lines: 50, share: 0.5 },
+  ]);
+  assert.deepEqual(out.map(a => a.author), ['Ada', 'Bob']); // name tie-break
+});
+
+test('sortBlameAuthorsForPalette: lines still dominate share (W107)', () => {
+  const out = sortBlameAuthorsForPalette([
+    { author: 'few', lines: 10, share: 0.9 },
+    { author: 'many', lines: 90, share: 0.1 },
+  ]);
+  assert.deepEqual(out.map(a => a.author), ['many', 'few']); // lines win over share
+});

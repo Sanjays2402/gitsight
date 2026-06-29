@@ -208,22 +208,28 @@ export function blameAuthorShareHint(lines: number, share: number): string {
 }
 
 /**
- * Sort blame authors for the palette by ownership (W102): most lines first,
- * name as a stable case-insensitive tie-break, so the biggest owners survive a
- * `limit` cap on a many-author file. Stat-less authors (no `lines`) count as
- * zero and sink below anyone with a line count, then sort by name. Pure + does
- * NOT mutate the input (works over a fresh copy) so a frozen author list stays
- * intact. The `share` ordering is implied by `lines` over a single file, so
- * lines alone is the ownership key. Generic over any author-shape with the
- * optional `lines`.
+ * Sort blame authors for the palette by ownership (W102; W107): most lines
+ * first, share as a secondary tie-break, name as the final stable key — so the
+ * biggest owners survive a `limit` cap on a many-author file. Stat-less authors
+ * (no `lines`) count as zero and sink below anyone with a line count. W107: when
+ * two authors touched the same number of lines, the one owning a larger SHARE of
+ * the file sorts first (a low-share author at equal lines is spread thinner), and
+ * only then does name (case-insensitive) break a true tie so identical-stat
+ * authors keep a stable order. Pure + does NOT mutate the input (works over a
+ * fresh copy) so a frozen author list stays intact. Generic over any author-shape
+ * with the optional `lines`/`share`.
  */
-export function sortBlameAuthorsForPalette<T extends { author: string; lines?: number }>(
+export function sortBlameAuthorsForPalette<T extends { author: string; lines?: number; share?: number }>(
   authors: ReadonlyArray<T>,
 ): T[] {
   return authors.slice().sort((a, b) => {
     const la = typeof a.lines === 'number' ? a.lines : 0;
     const lb = typeof b.lines === 'number' ? b.lines : 0;
-    return lb - la || norm(a.author).localeCompare(norm(b.author));
+    if (lb !== la) return lb - la;
+    const sa = typeof a.share === 'number' ? a.share : 0;
+    const sb = typeof b.share === 'number' ? b.share : 0;
+    if (sb !== sa) return sb - sa;
+    return norm(a.author).localeCompare(norm(b.author));
   });
 }
 
