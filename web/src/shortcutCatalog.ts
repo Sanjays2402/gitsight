@@ -97,7 +97,18 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
       title: 'Contributors',
       shortcuts: [
         { keys: ['s'], description: 'Swap the open comparison\u2019s left / right order', views: ['contributors'] },
+        { keys: ['n'], description: 'Sort by name', views: ['contributors'] },
+        { keys: ['c'], description: 'Sort by commits', views: ['contributors'] },
+        { keys: ['r'], description: 'Sort by most recent', views: ['contributors'] },
+        { keys: ['m'], description: 'Sort by churn (most lines)', views: ['contributors'] },
         { keys: ['Esc'], description: 'Close the open comparison panel', views: ['contributors'] },
+      ],
+    },
+    {
+      title: 'Blame',
+      shortcuts: [
+        { keys: ['c'], description: 'Filter to concentrated-ownership authors', views: ['blame'] },
+        { keys: ['t'], description: 'Filter to spread-thin authors', views: ['blame'] },
       ],
     },
   ];

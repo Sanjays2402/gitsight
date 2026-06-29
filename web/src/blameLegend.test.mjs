@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter } from './blameLegend.ts';
+import { buildAgeRamp, isAuthorDimmed, toggleAuthorFilter, authorEmailFromLines, buildBlameLineMenu, blameAuthorPaletteItems, blameAuthorShareHint, sortBlameAuthorsForPalette, ownershipTag, matchesOwnership, toggleOwnershipFilter, ownershipKeyAction } from './blameLegend.ts';
 
 test('buildAgeRamp returns evenly-spaced stops cold -> hot', () => {
   const ramp = buildAgeRamp(1000, 2000, 5);
@@ -344,6 +344,18 @@ test('toggleOwnershipFilter switches bands and clears on the active one (W116)',
   assert.equal(toggleOwnershipFilter(null, 'concentrated'), 'concentrated');
   assert.equal(toggleOwnershipFilter('concentrated', 'spread-thin'), 'spread-thin');
   assert.equal(toggleOwnershipFilter('concentrated', 'concentrated'), null);
+});
+
+// ── ownershipKeyAction blame keyboard (W121) ─────────────────────────
+
+test('ownershipKeyAction maps c/t to the bands, ignores others (W121)', () => {
+  assert.equal(ownershipKeyAction('c'), 'concentrated');
+  assert.equal(ownershipKeyAction('C'), 'concentrated');
+  assert.equal(ownershipKeyAction('t'), 'spread-thin');
+  assert.equal(ownershipKeyAction('T'), 'spread-thin');
+  assert.equal(ownershipKeyAction('x'), null);
+  assert.equal(ownershipKeyAction('Enter'), null);
+  assert.equal(ownershipKeyAction(''), null);
 });
 
 // ── sortBlameAuthorsForPalette three-key sort (W107) ─────────────────

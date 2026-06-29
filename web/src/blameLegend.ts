@@ -256,6 +256,20 @@ export function toggleOwnershipFilter(current: OwnershipFilter | null, clicked: 
 }
 
 /**
+ * Map a keypress to an ownership-band toggle on the Blame view (W121): `c`/`C`
+ * toggles "concentrated", `t`/`T` toggles "spread-thin" (mnemonic: thin), so the
+ * W116 legend bands are reachable without the chips. Returns the band to toggle,
+ * or null for any other key. Pure so the key map is testable; the view feeds the
+ * result into toggleOwnershipFilter. Mirrors the W88 toggleActivityMetric /
+ * W122 contributor-sort key-map shape.
+ */
+export function ownershipKeyAction(key: string): OwnershipFilter | null {
+  if (key === 'c' || key === 'C') return 'concentrated';
+  if (key === 't' || key === 'T') return 'spread-thin';
+  return null;
+}
+
+/**
  * Sort blame authors for the palette by ownership (W102; W107): most lines
  * first, share as a secondary tie-break, name as the final stable key — so the
  * biggest owners survive a `limit` cap on a many-author file. Stat-less authors

@@ -76,6 +76,23 @@ test('shortcutsForView on the graph view includes the j/k navigation group', () 
   assert.ok(navGroup.shortcuts.some(s => s.keys.includes('j')));
 });
 
+test('shortcutsForView blame view documents the W121 ownership keys', () => {
+  const blame = shortcutsForView(buildShortcutCatalog(false), 'blame');
+  const group = blame.find(g => g.title === 'Blame');
+  assert.ok(group);
+  assert.ok(group.shortcuts.some(s => s.keys.includes('c')));
+  assert.ok(group.shortcuts.some(s => s.keys.includes('t')));
+});
+
+test('shortcutsForView contributors view documents the W122 sort keys', () => {
+  const contrib = shortcutsForView(buildShortcutCatalog(false), 'contributors');
+  const group = contrib.find(g => g.title === 'Contributors');
+  assert.ok(group);
+  for (const k of ['n', 'c', 'r', 'm']) {
+    assert.ok(group.shortcuts.some(s => s.keys.includes(k)), `missing ${k}`);
+  }
+});
+
 // ── countShortcuts ───────────────────────────────────────────────────
 
 test('countShortcuts sums across groups', () => {

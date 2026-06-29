@@ -79,7 +79,7 @@ import { ContributorComparePanel } from './contributorCompareView';
 import { swapComparePair } from './contributorCompare';
 import { renderBlame } from './blameView';
 import { parseBlameTarget } from './blameWindow';
-import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter } from './blameLegend';
+import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter, ownershipKeyAction } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
 import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems } from './compareFormat';
@@ -101,7 +101,7 @@ import { buildRailSections, refQuery } from '@shared/refRail';
 import { stashFilterPaletteItems, stashSubjectFilterPaletteItems } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear, toggleActivityMetric } from '@shared/activity';
-import { sortContributors, type ContributorSort } from '@shared/contributors';
+import { sortContributors, contributorSortKeyAction, type ContributorSort } from '@shared/contributors';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { Contributor } from '@shared/contributors';
@@ -2501,6 +2501,31 @@ function installKeyboard(): void {
       } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         switchActivityMetric(toggleActivityMetric(state.activityMetric));
+      }
+      return;
+    }
+    // Blame tab (W121): c/t toggle the W116 ownership bands (concentrated /
+    // spread-thin) without reaching for the legend chips, only when a model is
+    // loaded (the bands need stats). Reuses toggleBlameOwnership so the toggle +
+    // hash sync + re-render path matches the chips exactly.
+    if (state.view === 'blame') {
+      if (state.blame.data) {
+        const band = ownershipKeyAction(e.key);
+        if (band) {
+          e.preventDefault();
+          toggleBlameOwnership(band);
+        }
+      }
+      return;
+    }
+    // Contributors tab (W122): n/c/r/m switch the W60 leaderboard sort (name /
+    // commits / recent / churn) without the segmented control. switchContributor
+    // Sort already invalidates + syncs the W66 hash + re-renders.
+    if (state.view === 'contributors') {
+      const sort = contributorSortKeyAction(e.key);
+      if (sort) {
+        e.preventDefault();
+        switchContributorSort(sort);
       }
       return;
     }
