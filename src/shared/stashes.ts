@@ -429,12 +429,33 @@ const STASH_STOP_WORDS = new Set([
 ]);
 
 /**
+ * Whether a tokenised stash word survives the W63 `#stashes?q=` deep-link
+ * sanitiser unchanged (W101). The deep link routes a palette word through
+ * setStashQuery -> sanitizeStashQuery (trim, strip control chars, cap 200), so
+ * a word that would be altered en route would show a DIFFERENT count after a
+ * reload than the palette promised. stashSubjectWords already splits on
+ * non-`[a-z0-9]`, so today every token is clean — this is the defensive lock:
+ * a word must be 1..200 chars and free of control/whitespace chars to count.
+ * Pure so the agreement is unit-testable without the web sanitiser in scope.
+ */
+export function stashWordSurvivesQuery(word: string): boolean {
+  if (!word || word.length > 200) return false;
+  // eslint-disable-next-line no-control-regex
+  return !/[\u0000-\u001f\u007f\s]/.test(word) && word.trim() === word;
+}
+
+/**
  * Tokenise a stash subject into significant lowercased words (W96). Strips the
  * leading "WIP on <branch>:" / "On <branch>:" boilerplate git prepends (so the
  * branch name + the scaffolding don't pollute the word list), splits on
  * non-word characters, drops stop-words + very short tokens + bare numbers, and
  * de-dupes within the one subject so a word repeated in a message counts once
  * for that stash. Pure so the tokenising is unit-testable.
+ *
+ * W101: every emitted token must survive the W63 deep-link sanitiser unchanged
+ * (stashWordSurvivesQuery) so the palette count and the reloaded `#stashes?q=`
+ * view always agree — already true given the a-z0-9 split, but locked here so a
+ * future split-grammar change can't leak a word that round-trips differently.
  */
 export function stashSubjectWords(subject: string): string[] {
   // Drop the "WIP on <branch>:" / "On <branch>:" prefix git writes.
@@ -446,6 +467,7 @@ export function stashSubjectWords(subject: string): string[] {
     if (w.length < 3) continue; // too short to be meaningful
     if (/^\d+$/.test(w)) continue; // bare numbers aren't useful filters
     if (STASH_STOP_WORDS.has(w)) continue;
+    if (!stashWordSurvivesQuery(w)) continue; // W101: must round-trip the deep link
     if (seen.has(w)) continue;
     seen.add(w);
     out.push(w);

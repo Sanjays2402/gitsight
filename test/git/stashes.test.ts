@@ -24,6 +24,7 @@ import {
   stashFilterPaletteItems,
   stashSubjectWords,
   stashSubjectFilterPaletteItems,
+  stashWordSurvivesQuery,
 } from '../../src/shared/stashes';
 
 const F = '\x1f';
@@ -359,4 +360,41 @@ test('stashSubjectFilterPaletteItems caps the list and respects minCount', () =>
   assert.equal(capped.length, 4);
   // With minCount 3 nothing qualifies (each word hits only 2 stashes).
   assert.deepEqual(stashSubjectFilterPaletteItems(stashes, 8, 3), []);
+});
+
+// ── W101: stash word deep-link round-trip agreement ──────────────────
+
+// Mirror of web/src/hashRoute.ts sanitizeStashQuery so the test verifies the
+// SAME transform the deep link applies, without importing the web alias.
+function sanitizeStashQuery(query: string): string | null {
+  // eslint-disable-next-line no-control-regex
+  const q = query.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  return q ? q.slice(0, 200) : null;
+}
+
+test('stashWordSurvivesQuery rejects words altered by the deep-link sanitiser', () => {
+  assert.equal(stashWordSurvivesQuery('layout'), true);
+  assert.equal(stashWordSurvivesQuery('a'), true);
+  assert.equal(stashWordSurvivesQuery('two words'), false); // space would not survive
+  assert.equal(stashWordSurvivesQuery('x'.repeat(201)), false); // capped
+  assert.equal(stashWordSurvivesQuery(''), false);
+});
+
+test('every stashSubjectWords token round-trips sanitizeStashQuery unchanged (W101)', () => {
+  const words = stashSubjectWords('WIP on main: lane-layout compare patch assembly');
+  for (const w of words) assert.equal(sanitizeStashQuery(w), w);
+});
+
+test('palette word count matches the deep-linked filtered count (W101)', () => {
+  const stashes = [
+    { index: 0, subject: 'WIP on main: lane layout', branch: 'main' },
+    { index: 1, subject: 'WIP on feat: layout polish', branch: 'feat' },
+    { index: 2, subject: 'WIP on dev: unrelated', branch: 'dev' },
+  ];
+  const items = stashSubjectFilterPaletteItems(stashes, 8, 2);
+  const layout = items.find(i => i.term === 'layout');
+  assert.ok(layout);
+  // The deep-linked view applies sanitize then filterStashes — same count.
+  const deepQuery = sanitizeStashQuery(layout.term) ?? '';
+  assert.equal(filterStashes(stashes, deepQuery).length, layout.count);
 });
