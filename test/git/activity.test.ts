@@ -11,6 +11,7 @@ import {
   buildChurnCalendar,
   isActivityMetric,
   toggleActivityMetric,
+  activityMetricPaletteItems,
   buildStreaks,
   activeDaysOf,
   commitYear,
@@ -295,6 +296,30 @@ test('toggleActivityMetric normalises a junk current value to churn', () => {
   assert.equal(toggleActivityMetric('lines'), 'churn');
   assert.equal(toggleActivityMetric(undefined), 'churn');
   assert.equal(toggleActivityMetric(''), 'churn');
+});
+
+// ── Metric palette source (W124) ─────────────────────────────────────
+
+test('activityMetricPaletteItems offers a single flip to the other metric (W124)', () => {
+  // On commits -> the only entry charts churn.
+  const fromCommits = activityMetricPaletteItems('commits');
+  assert.equal(fromCommits.length, 1);
+  assert.equal(fromCommits[0].metric, 'churn');
+  assert.ok(/churn/i.test(fromCommits[0].label));
+  // On churn -> the only entry charts commits.
+  const fromChurn = activityMetricPaletteItems('churn');
+  assert.equal(fromChurn.length, 1);
+  assert.equal(fromChurn[0].metric, 'commits');
+  assert.ok(/commits/i.test(fromChurn[0].label));
+});
+
+test('activityMetricPaletteItems agrees with toggleActivityMetric, even on junk (W124)', () => {
+  // The palette + keyboard must pick the same "other metric" for any current.
+  for (const current of ['commits', 'churn', 'lines', '', undefined]) {
+    assert.equal(activityMetricPaletteItems(current)[0].metric, toggleActivityMetric(current));
+  }
+  // A degenerate current normalises to commits, so the flip lands on churn.
+  assert.equal(activityMetricPaletteItems('lines')[0].metric, 'churn');
 });
 
 // ── Year scoping (W43) ───────────────────────────────────────────────

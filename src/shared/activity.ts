@@ -394,6 +394,31 @@ export function toggleActivityMetric(current: unknown): ActivityMetric {
   return current === 'churn' ? 'commits' : 'churn';
 }
 
+/** One Cmd-K entry that flips the activity metric (W124, data only). */
+export interface ActivityMetricPaletteItem {
+  /** The metric this entry switches to (the OTHER metric). */
+  metric: ActivityMetric;
+  /** "Activity: chart churn (lines changed)" / "Activity: chart commits". */
+  label: string;
+}
+
+/**
+ * Build the command-palette source for the activity metric (W124), so the
+ * W39 segmented control / W88 keyboard toggle is reachable from Cmd-K too.
+ * Mirrors the W119 rail-sort source: a single entry that flips to the OTHER
+ * metric (charting churn when on commits, commits when on churn) — there's only
+ * ever one useful action, so the palette stays uncluttered. Pure + data only
+ * (the view maps the entry to a real PaletteItem with its run). Reuses
+ * toggleActivityMetric so the palette agrees with the keyboard on "the other
+ * metric" even for a degenerate current value.
+ */
+export function activityMetricPaletteItems(current: unknown): ActivityMetricPaletteItem[] {
+  const next = toggleActivityMetric(current);
+  const label =
+    next === 'churn' ? 'Activity: chart churn (lines changed)' : 'Activity: chart commits';
+  return [{ metric: next, label }];
+}
+
 // ── Year scoping (W43) ───────────────────────────────────────────────
 
 /**

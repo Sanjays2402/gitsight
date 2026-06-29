@@ -100,7 +100,7 @@ import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
 import { stashFilterPaletteItems, stashSubjectFilterPaletteItems } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
-import { adjacentYear, toggleActivityMetric } from '@shared/activity';
+import { adjacentYear, toggleActivityMetric, activityMetricPaletteItems, isActivityMetric } from '@shared/activity';
 import { sortContributors, contributorSortKeyAction, contributorSortPaletteItems, isContributorSort, type ContributorSort } from '@shared/contributors';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
@@ -489,6 +489,23 @@ function buildPaletteItems(): PaletteItem[] {
       });
     }
   }
+  // Activity metric (W124): on the Activity view, surface a single flip to the
+  // OTHER metric (commits <-> churn) so the W39 segmented control / W88 keyboard
+  // toggle is reachable from Cmd-K. Mirrors the W119 rail-sort source; the run
+  // path reuses switchActivityMetric (invalidates the cached calendar + syncs
+  // the W48 deep link).
+  if (state.view === 'activity') {
+    for (const item of activityMetricPaletteItems(state.activityMetric)) {
+      items.push({
+        id: `activity-metric:${item.metric}`,
+        kind: 'action',
+        label: item.label,
+        hint: 'Activity',
+        value: `activity-metric:${item.metric}`,
+        weight: 2,
+      });
+    }
+  }
   // Compare ref pairs (W87): on the Compare view, surface every branch/tag/remote
   // in the loaded snapshot as "Compare <ref> with HEAD" (+ the reverse) so a
   // comparison is reachable from Cmd-K without typing into the form. Mirrors the
@@ -644,6 +661,15 @@ function runPaletteItem(item: PaletteItem): void {
       if (isContributorSort(sort)) {
         if (state.view !== 'contributors') switchView('contributors');
         switchContributorSort(sort);
+      }
+    } else if (item.value.startsWith('activity-metric:')) {
+      // W124: flip the activity metric from the palette. Switches to the
+      // Activity tab if needed; switchActivityMetric guards a no-op, invalidates
+      // the cached calendar, and syncs the W48 deep link.
+      const metric = item.value.slice('activity-metric:'.length);
+      if (isActivityMetric(metric)) {
+        if (state.view !== 'activity') switchView('activity');
+        switchActivityMetric(metric);
       }
     } else if (item.value.startsWith('compare-ref:')) {
       // W87: load a ref-pair comparison from the palette. The payload is
