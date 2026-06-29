@@ -101,7 +101,7 @@ import { buildRailSections, refQuery } from '@shared/refRail';
 import { stashFilterPaletteItems, stashSubjectFilterPaletteItems } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear, toggleActivityMetric } from '@shared/activity';
-import { sortContributors, contributorSortKeyAction, type ContributorSort } from '@shared/contributors';
+import { sortContributors, contributorSortKeyAction, contributorSortPaletteItems, isContributorSort, type ContributorSort } from '@shared/contributors';
 import type { GraphSnapshot, GraphSnapshotCommit } from '@shared/graphSnapshot';
 import type { RepoEntry } from '@shared/repoPicker';
 import type { Contributor } from '@shared/contributors';
@@ -473,6 +473,22 @@ function buildPaletteItems(): PaletteItem[] {
       });
     }
   }
+  // Contributor sort (W123): on the Contributors view, surface each leaderboard
+  // sort (name / commits / recent / churn) except the active one so the W60
+  // segmented control / W122 keyboard sort is reachable from Cmd-K. Mirrors the
+  // W119 rail-sort source; the run path re-sorts client-side (no refetch).
+  if (state.view === 'contributors' && state.contributors.data) {
+    for (const item of contributorSortPaletteItems(state.contributorSort)) {
+      items.push({
+        id: `contrib-sort:${item.sort}`,
+        kind: 'action',
+        label: item.label,
+        hint: 'Contributors',
+        value: `contrib-sort:${item.sort}`,
+        weight: 2,
+      });
+    }
+  }
   // Compare ref pairs (W87): on the Compare view, surface every branch/tag/remote
   // in the loaded snapshot as "Compare <ref> with HEAD" (+ the reverse) so a
   // comparison is reachable from Cmd-K without typing into the form. Mirrors the
@@ -620,6 +636,15 @@ function runPaletteItem(item: PaletteItem): void {
       // W119: restore the rail's natural alphabetical order from the palette.
       if (state.view !== 'graph') switchView('graph');
       setRailSort(false);
+    } else if (item.value.startsWith('contrib-sort:')) {
+      // W123: switch the leaderboard sort from the palette. Switches to the
+      // Contributors tab if needed, then re-sorts client-side (switchContributor
+      // Sort guards a no-op + syncs the W66 deep link).
+      const sort = item.value.slice('contrib-sort:'.length);
+      if (isContributorSort(sort)) {
+        if (state.view !== 'contributors') switchView('contributors');
+        switchContributorSort(sort);
+      }
     } else if (item.value.startsWith('compare-ref:')) {
       // W87: load a ref-pair comparison from the palette. The payload is
       // `compare-ref:<base>:<head>`; git refs can't contain ':' so the first

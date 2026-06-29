@@ -9,6 +9,8 @@ import {
   contributorChurn,
   isContributorSort,
   contributorSortKeyAction,
+  contributorSortLabel,
+  contributorSortPaletteItems,
   churnShare,
   maxContributorChurn,
 } from '../../src/shared/contributors';
@@ -179,6 +181,37 @@ test('contributorSortKeyAction maps n/c/r/m to sorts, ignores others (W122)', ()
   assert.equal(contributorSortKeyAction('Enter'), null);
   // Every mapped key is a real sort key (round-trips the guard).
   for (const k of ['n', 'c', 'r', 'm']) assert.ok(isContributorSort(contributorSortKeyAction(k)));
+});
+
+// ── Sort palette source (W123) ───────────────────────────────────────
+
+test('contributorSortPaletteItems omits the active sort, keeps the rest in order (W123)', () => {
+  const items = contributorSortPaletteItems('commits');
+  // 4 sorts, the active one dropped -> 3 entries, in CONTRIBUTOR_SORTS order.
+  assert.deepEqual(items.map(i => i.sort), ['churn', 'recent', 'name']);
+  // Each entry's run sort is a real sort key + the label names it.
+  for (const i of items) {
+    assert.ok(isContributorSort(i.sort));
+    assert.ok(i.label.startsWith('Contributors: sort by '));
+    assert.ok(i.label.includes(contributorSortLabel(i.sort)));
+  }
+});
+
+test('contributorSortPaletteItems with churn active drops only churn (W123)', () => {
+  const items = contributorSortPaletteItems('churn');
+  assert.deepEqual(items.map(i => i.sort), ['commits', 'recent', 'name']);
+});
+
+test('contributorSortPaletteItems keeps every sort for an unknown active (W123)', () => {
+  // Defensive: a junk active value never silently empties the palette.
+  assert.equal(contributorSortPaletteItems('downloads').length, 4);
+  assert.equal(contributorSortPaletteItems(undefined).length, 4);
+});
+
+test('contributorSortLabel gives a distinct human label per sort (W123)', () => {
+  const labels = (['commits', 'churn', 'recent', 'name'] as const).map(contributorSortLabel);
+  assert.equal(new Set(labels).size, 4);
+  assert.equal(contributorSortLabel('churn'), 'churn (most lines)');
 });
 
 // ── Churn bars (W67) ─────────────────────────────────────────────────

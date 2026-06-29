@@ -223,6 +223,48 @@ export function contributorSortKeyAction(key: string): ContributorSort | null {
   }
 }
 
+/**
+ * Human label for a leaderboard sort key (W123), used by the command-palette
+ * source + (potentially) the segmented control. Pure so the wording is testable.
+ */
+export function contributorSortLabel(sort: ContributorSort): string {
+  switch (sort) {
+    case 'commits':
+      return 'commits';
+    case 'churn':
+      return 'churn (most lines)';
+    case 'recent':
+      return 'most recent';
+    case 'name':
+      return 'name';
+  }
+}
+
+/** One Cmd-K entry that switches the leaderboard sort (W123, data only). */
+export interface ContributorSortPaletteItem {
+  /** The sort key this entry switches to. */
+  sort: ContributorSort;
+  /** "Contributors: sort by <label>" — the palette label. */
+  label: string;
+}
+
+/**
+ * Build the command-palette source for the leaderboard sort (W123), so the W60
+ * segmented control / W122 keyboard sort is reachable from Cmd-K too. Mirrors
+ * the W119 rail-sort / W82 blame-author sources: pure + data only (the view maps
+ * each entry to a real PaletteItem with its run). Emits one entry per supported
+ * sort EXCEPT the currently-active one (switching to it would be a no-op), in
+ * the canonical CONTRIBUTOR_SORTS order so the list reads stably; the palette's
+ * own fuzzy filter narrows from there. An unknown `active` (defensive) keeps
+ * every entry so the palette never silently empties.
+ */
+export function contributorSortPaletteItems(active: unknown): ContributorSortPaletteItem[] {
+  return CONTRIBUTOR_SORTS.filter(sort => sort !== active).map(sort => ({
+    sort,
+    label: `Contributors: sort by ${contributorSortLabel(sort)}`,
+  }));
+}
+
 /** Total churn (insertions + deletions) for a contributor (W60). */
 export function contributorChurn(c: Pick<Contributor, 'insertions' | 'deletions'>): number {
   return Math.max(0, c.insertions) + Math.max(0, c.deletions);
