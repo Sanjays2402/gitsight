@@ -46,6 +46,43 @@
   white-space: nowrap;
 }
 
+/*
+ * Visible "Clear" affordance beside the stash filter box (W132), so the W127
+ * Esc-clear has a mouse path too. Mirrors the W83 compare clear button: a quiet
+ * hairline pill that brightens to the accent on hover/focus, hidden (via the
+ * [hidden] attribute the view toggles) until there's a clearing-worthy query.
+ * Token-driven so it tracks the theme.
+ */
+.stash-filter-clear {
+  flex: 0 0 auto;
+  appearance: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-muted, var(--fg-faint));
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 5px);
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s var(--ease), border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+
+.stash-filter-clear:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.stash-filter-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stash-filter-clear[hidden] {
+  display: none;
+}
+
 .stash-cards {
   display: flex;
   flex-direction: column;

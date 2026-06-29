@@ -15,7 +15,7 @@ import { el } from './format';
 import { timeAgo, absoluteTime } from './format';
 import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
-import { stashSummary, filterStashes, type StashList, type StashEntry, type StashFile } from '@shared/stashes';
+import { stashSummary, filterStashes, stashEscapeClears, type StashList, type StashEntry, type StashFile } from '@shared/stashes';
 import { compareGlyph, compareLabel, compareChurn, splitComparePath } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult, StashActionKind } from './data';
@@ -127,17 +127,35 @@ function buildStashFilter(
   input.setAttribute('autocomplete', 'off');
   input.value = initialQuery;
   const count = el('span', 'stash-filter-count');
+  // Visible "Clear" affordance (W132) so the W127 Esc-clear has a mouse path
+  // too. Mirrors the W83 compare clear button; shown only while there's a
+  // clearing-worthy query (the same stashEscapeClears guard the Esc path uses).
+  const clear = el('button', 'stash-filter-clear') as HTMLButtonElement;
+  clear.type = 'button';
+  clear.textContent = 'Clear';
+  clear.title = 'Clear the stash filter';
+  const syncClear = () => {
+    clear.hidden = !stashEscapeClears(input.value);
+  };
   const apply = () => {
     const matches = filterStashes(entries, input.value);
     renderStashCards(host, matches, opts);
     count.textContent = matches.length === entries.length ? '' : `${matches.length} of ${entries.length}`;
+    syncClear();
   };
   input.addEventListener('input', () => {
     apply();
     opts.onFilterChange?.(input.value.trim());
   });
+  clear.addEventListener('click', () => {
+    input.value = '';
+    apply();
+    opts.onFilterChange?.('');
+    input.focus();
+  });
   if (initialQuery) apply();
-  wrap.append(input, count);
+  else syncClear();
+  wrap.append(input, count, clear);
   return wrap;
 }
 
