@@ -17,6 +17,7 @@ import {
   overlapPercent,
   comparePanelKeyAction,
   nextTrapIndex,
+  firstTrapTarget,
   type ContributorComparison,
   type AuthorSummary,
 } from './contributorCompare';
@@ -71,6 +72,7 @@ export class ContributorComparePanel {
       const swap = el('button', 'btn icon-only');
       swap.title = 'Swap left and right';
       swap.setAttribute('aria-label', 'Swap comparison order');
+      swap.dataset.ccRole = 'swap';
       swap.innerHTML = icons.swap;
       swap.addEventListener('click', () => handlers.onSwap!());
       actions.appendChild(swap);
@@ -80,6 +82,7 @@ export class ContributorComparePanel {
       const share = el('button', 'btn icon-only');
       share.title = 'Copy a shareable link to this comparison';
       share.setAttribute('aria-label', 'Copy comparison link');
+      share.dataset.ccRole = 'share';
       share.innerHTML = icons.link;
       share.addEventListener('click', () => handlers.onShareLink!());
       actions.appendChild(share);
@@ -87,6 +90,7 @@ export class ContributorComparePanel {
     const close = el('button', 'btn icon-only');
     close.title = 'Close (Esc)';
     close.setAttribute('aria-label', 'Close comparison');
+    close.dataset.ccRole = 'close';
     close.innerHTML = icons.close;
     close.addEventListener('click', () => this.close());
     actions.append(close);
@@ -121,7 +125,7 @@ export class ContributorComparePanel {
     this.root.classList.add('show');
     this.installKeys();
     this.showLoading(a.name, b.name);
-    this.root.focus(); // W99: pull focus into the panel so Tab is trapped here
+    this.focusInitial(); // W104: land on the first actionable control, not the root
     const mine = ++this.token;
 
     const [ra, rb] = await Promise.all([
@@ -197,6 +201,20 @@ export class ContributorComparePanel {
     return Array.from(this.root.querySelectorAll<HTMLElement>(sel)).filter(
       e => !e.hasAttribute('disabled') && e.offsetParent !== null,
     );
+  }
+
+  /**
+   * Focus the first ACTIONABLE control on open (W104): the swap button if
+   * present (the primary action), else close, else the panel root. So a
+   * screen-reader user hears an action, not just the container. Falls back to
+   * the root when there are no controls yet (covered for the focus trap anyway).
+   */
+  private focusInitial(): void {
+    const ctrls = this.focusables();
+    const roles = ctrls.map(c => (c.dataset.ccRole as 'swap' | 'share' | 'close' | 'other') || 'other');
+    const idx = firstTrapTarget(roles);
+    if (idx >= 0 && ctrls[idx]) ctrls[idx].focus();
+    else this.root.focus();
   }
 
   private showLoading(a: string, b: string): void {

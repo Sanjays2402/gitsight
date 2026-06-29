@@ -14,6 +14,7 @@ import {
   swapComparePair,
   comparePanelKeyAction,
   nextTrapIndex,
+  firstTrapTarget,
 } from './contributorCompare.ts';
 
 const file = (path, insertions, deletions, commits = 1) => ({ path, insertions, deletions, commits });
@@ -155,4 +156,21 @@ test('nextTrapIndex enters from outside on the right end (W99)', () => {
 test('nextTrapIndex returns -1 for an empty panel (W99)', () => {
   assert.equal(nextTrapIndex(0, -1, 1), -1);
   assert.equal(nextTrapIndex(0, 2, -1), -1);
+});
+
+// ── firstTrapTarget (W104): initial focus target ─────────────────────
+
+test('firstTrapTarget prefers swap, the panel primary action (W104)', () => {
+  assert.equal(firstTrapTarget(['swap', 'share', 'close']), 0);
+  assert.equal(firstTrapTarget(['share', 'swap', 'close']), 1);
+});
+
+test('firstTrapTarget falls back to close when there is no swap (W104)', () => {
+  assert.equal(firstTrapTarget(['share', 'close']), 1);
+  assert.equal(firstTrapTarget(['close']), 0);
+});
+
+test('firstTrapTarget lands on the first control with no swap/close, -1 empty (W104)', () => {
+  assert.equal(firstTrapTarget(['other', 'other']), 0);
+  assert.equal(firstTrapTarget([]), -1);
 });

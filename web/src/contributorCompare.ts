@@ -175,3 +175,24 @@ export function nextTrapIndex(count: number, current: number, delta: number): nu
   if (current < 0) return delta > 0 ? 0 : count - 1;
   return ((current + delta) % count + count) % count;
 }
+
+// ── Compare panel initial focus (W104) ───────────────────────────────
+
+/**
+ * The control to focus when the compare panel opens (W104). W99 traps Tab but
+ * lands focus on the panel root, so a screen-reader user hears the container,
+ * not an action. This picks the first ACTIONABLE control instead — the swap
+ * button when present (it's the panel's primary action), else the first
+ * focusable (the close button) — so opening the panel announces what you can
+ * do. `roles` is the panel's tabbable list mapped to what each control is, in
+ * DOM order. Returns the index to focus, or -1 when empty. Pure so the choice
+ * is testable without the DOM; the panel calls focusables[idx].focus().
+ */
+export function firstTrapTarget(roles: ReadonlyArray<'swap' | 'share' | 'close' | 'other'>): number {
+  if (roles.length === 0) return -1;
+  const swap = roles.indexOf('swap');
+  if (swap >= 0) return swap;
+  const close = roles.indexOf('close');
+  if (close >= 0) return close;
+  return 0;
+}
