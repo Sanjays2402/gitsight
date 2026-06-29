@@ -112,6 +112,12 @@ export function buildShortcutCatalog(isMac: boolean): ShortcutGroup[] {
         { keys: ['t'], description: 'Filter to spread-thin authors', views: ['blame'] },
       ],
     },
+    {
+      title: 'Stashes',
+      shortcuts: [
+        { keys: ['Esc'], description: 'Clear the active stash filter', views: ['stashes'] },
+      ],
+    },
   ];
 }
 

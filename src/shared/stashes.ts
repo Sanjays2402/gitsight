@@ -360,6 +360,17 @@ export function filterStashes<T extends FilterableStash>(entries: T[], query: st
   return entries.filter(e => stashMatchesQuery(e, q));
 }
 
+/**
+ * Whether pressing Esc on the Stashes view should clear the active W63 filter
+ * (W127). True only when there's a non-empty query to clear (after trimming),
+ * so Esc is a no-op when the box is already empty — mirroring the graph search
+ * Esc-clears behaviour. Pure (a thin guard over normalizeStashQuery) so the
+ * gating is testable; the view calls clearStashQuery only when this is true.
+ */
+export function stashEscapeClears(query: string): boolean {
+  return normalizeStashQuery(query).length > 0;
+}
+
 // ── Stash filter command-palette source (W91) ────────────────────────
 
 /** One Cmd-K entry that jumps to a filtered Stashes view (W91, data only). */

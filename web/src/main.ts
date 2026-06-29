@@ -98,7 +98,7 @@ import { SearchHistory } from './searchHistory';
 import { DiffSettingsStore } from './diffSettingsStore';
 import { assemblePatch, patchSummary } from './patchAssemble';
 import { buildRailSections, refQuery } from '@shared/refRail';
-import { stashFilterPaletteItems, stashSubjectFilterPaletteItems } from '@shared/stashes';
+import { stashFilterPaletteItems, stashSubjectFilterPaletteItems, stashEscapeClears } from '@shared/stashes';
 import { commitWebUrl } from '@shared/remoteUrl';
 import { adjacentYear, toggleActivityMetric, activityMetricPaletteItems, isActivityMetric } from '@shared/activity';
 import { sortContributors, contributorSortKeyAction, contributorSortPaletteItems, isContributorSort, type ContributorSort } from '@shared/contributors';
@@ -1870,6 +1870,20 @@ function setStashQuery(query: string): void {
 }
 
 /**
+ * Clear the active stash filter (W127), reflecting it in the URL and
+ * re-rendering the view so the box empties + every card shows again. Unlike
+ * setStashQuery (which deliberately skips a re-render so it doesn't steal focus
+ * mid-type), Esc-clearing is an explicit, focus-free action, so it DOES
+ * re-render. A no-op when the filter is already empty.
+ */
+function clearStashQuery(): void {
+  if (!state.stashQuery) return;
+  state.stashQuery = '';
+  syncHash();
+  if (state.view === 'stashes') renderStashesView();
+}
+
+/**
  * Create a stash from the web app (W42). POSTs to the guarded endpoint and
  * re-renders from the fresh list. `created: false` (nothing to stash) is a
  * friendly toast, not an error.
@@ -2603,6 +2617,17 @@ function installKeyboard(): void {
       if (sort) {
         e.preventDefault();
         switchContributorSort(sort);
+      }
+      return;
+    }
+    // Stashes tab (W127): Esc clears an active W63 message/branch filter (mirrors
+    // the graph search Esc-clears). stashEscapeClears guards the no-op when the
+    // box is already empty so Esc still bubbles to close an overlay otherwise.
+    // Works whether or not the filter box is focused — the re-render rebuilds it.
+    if (state.view === 'stashes') {
+      if (e.key === 'Escape' && stashEscapeClears(state.stashQuery)) {
+        e.preventDefault();
+        clearStashQuery();
       }
       return;
     }

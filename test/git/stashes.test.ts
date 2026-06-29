@@ -21,6 +21,7 @@ import {
   normalizeStashQuery,
   stashMatchesQuery,
   filterStashes,
+  stashEscapeClears,
   stashFilterPaletteItems,
   stashSubjectWords,
   stashSubjectFilterPaletteItems,
@@ -275,6 +276,23 @@ test('filterStashes narrows by query, preserving order + identity', () => {
   assert.notEqual(all, FILTER_STASHES); // new array
   // No matches -> empty.
   assert.deepEqual(filterStashes(FILTER_STASHES, 'zzzzz'), []);
+});
+
+// ── stashEscapeClears (W127) ─────────────────────────────────────────
+
+test('stashEscapeClears is true only for a non-empty query (W127)', () => {
+  assert.equal(stashEscapeClears('main'), true);
+  assert.equal(stashEscapeClears('  wip  '), true);
+  // Empty / whitespace-only -> Esc is a no-op so it can bubble to close overlays.
+  assert.equal(stashEscapeClears(''), false);
+  assert.equal(stashEscapeClears('   '), false);
+});
+
+test('stashEscapeClears agrees with normalizeStashQuery emptiness (W127)', () => {
+  // The guard is exactly "there is something to clear" after the W63 normalise.
+  for (const q of ['main', '  ', '', 'feature/web', '\t']) {
+    assert.equal(stashEscapeClears(q), normalizeStashQuery(q).length > 0);
+  }
 });
 
 // ── stashFilterPaletteItems (W91) ────────────────────────────────────
