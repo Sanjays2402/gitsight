@@ -82,7 +82,7 @@ import { parseBlameTarget } from './blameWindow';
 import { toggleAuthorFilter, buildBlameLineMenu, blameAuthorPaletteItems, toggleOwnershipFilter, ownershipKeyAction } from './blameLegend';
 import { commitsInRange } from '@shared/blame';
 import { renderCompare } from './compareView';
-import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems } from './compareFormat';
+import { compareRefPaletteItems, compareRouteFromRefs, compareRouteError, nextRefSuggestion, compareSuggestPaletteItems, compareSwapPaletteItems } from './compareFormat';
 import { renderStashes } from './stashView';
 import { downloadGraphSvg } from './exportGraph';
 import { buildHash, parseHash, hashChanged, type Route, type PlainRoute, type GraphCommitsRoute, type GraphAuthorWeekRoute } from './hashRoute';
@@ -550,6 +550,25 @@ function buildPaletteItems(): PaletteItem[] {
         value: `compare-ref:${item.base}:${item.head}`,
         weight: 2,
       });
+    }
+    // W125: when a healthy distinct comparison is LOADED, offer a single swap
+    // action that reverses base...head — one keystroke instead of retyping the
+    // form. Gated on a ready comparison (not just the form's default pre-fill)
+    // so the action only appears once there's a real comparison to flip. Reuses
+    // the same compare-ref: run path (which funnels through the runCompare
+    // guard); empty list (no item) for a self-compare, so the palette stays
+    // uncluttered.
+    if (state.compare.status === 'ready') {
+      for (const item of compareSwapPaletteItems(state.compareBase, state.compareHead)) {
+        items.push({
+          id: `compare-swap:${item.base}:${item.head}`,
+          kind: 'action',
+          label: item.label,
+          hint: 'Compare',
+          value: `compare-ref:${item.base}:${item.head}`,
+          weight: 2,
+        });
+      }
     }
   }
   // Stash filter (W91): on the Stashes view, surface each branch the loaded

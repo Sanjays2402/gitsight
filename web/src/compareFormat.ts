@@ -547,3 +547,34 @@ export function compareSuggestPaletteItems(
   if (!s || s.toLowerCase() === b.toLowerCase()) return [];
   return [{ base: b, head: s, label: `Compare ${b} with ${s} instead` }];
 }
+
+// ── Compare swap palette source (W125) ───────────────────────────────
+
+/** One Cmd-K entry that swaps the loaded comparison's base/head (W125, data only). */
+export interface CompareSwapPaletteItem {
+  /** The swapped base (the loaded comparison's head). */
+  base: string;
+  /** The swapped head (the loaded comparison's base). */
+  head: string;
+  /** "Swap comparison: <head>...<base>" — the palette label. */
+  label: string;
+}
+
+/**
+ * Build the command-palette source for swapping a loaded comparison (W125), so
+ * reversing base...head is one keystroke instead of retyping the form. Mirrors
+ * the W120 self-compare-suggestion source: pure + data only (the view maps the
+ * entry to a real PaletteItem reusing the W87 `compare-ref:` run path, which
+ * funnels through the same runCompare guard). Returns a single SWAPPED entry
+ * only when a real comparison is loaded — both refs sanitise AND they differ
+ * (case-insensitively): swapping a self-compare (base === head) is a no-op, and
+ * an empty/unsafe ref can't be loaded — so a healthy distinct comparison is the
+ * only case that contributes a swap action.
+ */
+export function compareSwapPaletteItems(base: string, head: string): CompareSwapPaletteItem[] {
+  const b = sanitizeRef(base ?? '');
+  const h = sanitizeRef(head ?? '');
+  if (!b || !h || b.toLowerCase() === h.toLowerCase()) return [];
+  // Swap: the new base is the old head, the new head is the old base.
+  return [{ base: h, head: b, label: `Swap comparison: ${h}\u2026${b}` }];
+}

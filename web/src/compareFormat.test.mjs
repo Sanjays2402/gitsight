@@ -32,6 +32,7 @@ import {
   suggestionFocusTarget,
   compareDivergence,
   compareSuggestPaletteItems,
+  compareSwapPaletteItems,
 } from './compareFormat.ts';
 
 test('compareGlyph maps each status to a single letter', () => {
@@ -507,4 +508,35 @@ test('compareSuggestPaletteItems drops a missing/equal/unsafe suggestion', () =>
   assert.deepEqual(compareSuggestPaletteItems('main', 'main', 'main'), []); // == base
   assert.deepEqual(compareSuggestPaletteItems('main', 'main', '-x'), []); // flag-shaped
   assert.deepEqual(compareSuggestPaletteItems('', '', 'dev'), []); // blank pair
+});
+
+// ── compareSwapPaletteItems (W125) ───────────────────────────────────
+
+test('compareSwapPaletteItems reverses a distinct loaded comparison', () => {
+  const items = compareSwapPaletteItems('main', 'feature');
+  assert.equal(items.length, 1);
+  // Swapped: the new base is the old head, the new head is the old base.
+  assert.equal(items[0].base, 'feature');
+  assert.equal(items[0].head, 'main');
+  assert.match(items[0].label, /swap comparison/i);
+  assert.ok(items[0].label.includes('main'));
+  assert.ok(items[0].label.includes('feature'));
+});
+
+test('compareSwapPaletteItems is a no-op for a self-compare or unloaded pair', () => {
+  // Same ref both sides -> swapping is pointless.
+  assert.deepEqual(compareSwapPaletteItems('main', 'main'), []);
+  // Case-insensitive self-compare still counts as a no-op.
+  assert.deepEqual(compareSwapPaletteItems('Main', 'main'), []);
+  // Empty / unsafe refs can't be loaded, so nothing to swap.
+  assert.deepEqual(compareSwapPaletteItems('', 'feature'), []);
+  assert.deepEqual(compareSwapPaletteItems('main', ''), []);
+  assert.deepEqual(compareSwapPaletteItems('-x', 'main'), []);
+});
+
+test('compareSwapPaletteItems trims + sanitises both refs', () => {
+  const items = compareSwapPaletteItems('  main  ', '  v1.0  ');
+  assert.equal(items.length, 1);
+  assert.equal(items[0].base, 'v1.0');
+  assert.equal(items[0].head, 'main');
 });
