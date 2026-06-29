@@ -463,6 +463,18 @@ export function suggestionLabel(ref: string): string {
   return r ? `Compare with ${r} instead` : '';
 }
 
+/**
+ * Where to land focus after a self-compare clash (W115). W108 surfaces a
+ * clickable \"Compare with <ref> instead\" suggestion, but recovery still needed
+ * the mouse. When a suggestion is present, focus it ('suggest') so a single
+ * Enter runs the comparison; otherwise focus the head field ('head') so the
+ * user can retype. Pure so the choice is testable; the view focuses the matching
+ * element. Keeps keyboard recovery to one key when a suggestion exists.
+ */
+export function suggestionFocusTarget(hasSuggestion: boolean): 'suggest' | 'head' {
+  return hasSuggestion ? 'suggest' : 'head';
+}
+
 // ── Divergence ordering (W110) ───────────────────────────────────────
 
 /**

@@ -29,6 +29,7 @@ import {
   nextRefSuggestion,
   divergenceClass,
   suggestionLabel,
+  suggestionFocusTarget,
   compareDivergence,
 } from './compareFormat.ts';
 
@@ -437,6 +438,18 @@ test('suggestionLabel returns empty for a blank or unsafe ref (W108)', () => {
   assert.equal(suggestionLabel('   '), '');
   assert.equal(suggestionLabel('--flag'), ''); // sanitizeRef rejects a flag
   assert.equal(suggestionLabel('a b'), ''); // and a spaced ref
+});
+
+// ── suggestionFocusTarget (W115): one-key self-compare recovery ──────
+
+test('suggestionFocusTarget lands on the suggestion when one exists (W115)', () => {
+  // With a suggestion present, focus it so a single Enter runs the comparison.
+  assert.equal(suggestionFocusTarget(true), 'suggest');
+});
+
+test('suggestionFocusTarget falls back to the head field with no suggestion (W115)', () => {
+  // No suggestion -> focus + select HEAD so the user can retype.
+  assert.equal(suggestionFocusTarget(false), 'head');
 });
 
 // ── compareDivergence (W110): rail divergence ordering ───────────────

@@ -17,7 +17,7 @@ import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { authorColor } from '@shared/graphPalette';
 import { compareHeadline, type RangeComparison, type CompareCommit, type CompareFile } from '@shared/rangeCompare';
-import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError, compareInvalidNotice, suggestionLabel } from './compareFormat';
+import { compareGlyph, compareLabel, compareChurn, splitComparePath, filterCompareCommits, stepMatch, matchSummary, shouldRevealEmpty, emptyFilterMessage, compareRouteFromRefs, compareRouteError, compareInvalidNotice, suggestionLabel, suggestionFocusTarget } from './compareFormat';
 import { renderFileDiff } from './diffView';
 import type { FileDiffResult } from './data';
 import { filterFileChanges } from './fileFilter';
@@ -140,8 +140,14 @@ function buildForm(opts: CompareViewOptions): HTMLElement {
             suggestBtn.hidden = false;
           }
         }
-        headField.input.focus();
-        headField.input.select();
+        // W115: with a suggestion present, land focus on it so a single Enter
+        // runs the comparison (no mouse); otherwise focus + select HEAD to retype.
+        if (suggestionFocusTarget(!suggestBtn.hidden) === 'suggest') {
+          suggestBtn.focus();
+        } else {
+          headField.input.focus();
+          headField.input.select();
+        }
       }
       opts.onInvalidPair?.(compareRouteError(route.reason));
     }
