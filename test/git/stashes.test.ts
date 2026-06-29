@@ -421,3 +421,38 @@ test('stashFilterPaletteItems drops a branch that would not survive the deep lin
   ]);
   assert.deepEqual(items.map(i => i.term), ['main']); // space-bearing branch dropped
 });
+
+// ── W111: stash subject-word three-tier audit ────────────────────────
+
+test('every surfaced subject word survives the deep-link sanitiser + count agrees (W111)', () => {
+  const stashes = [
+    { subject: 'WIP on main: refactor lane layout', branch: 'main' },
+    { subject: 'WIP on feat: lane polish layout pass', branch: 'feat' },
+    { subject: 'WIP on dev: refactor cache', branch: 'dev' },
+  ];
+  const items = stashSubjectFilterPaletteItems(stashes, 8, 2);
+  assert.ok(items.length >= 1);
+  for (const item of items) {
+    // Three-tier: word survives sanitize, AND palette count == deep-linked count.
+    assert.equal(stashWordSurvivesQuery(item.term), true);
+    const deepQuery = sanitizeStashQuery(item.term) ?? '';
+    assert.equal(filterStashes(stashes, deepQuery).length, item.count);
+  }
+});
+
+test('stashSubjectFilterPaletteItems caps defensively + never surfaces a control-bearing token (W111)', () => {
+  // A control char in a subject body: tokeniser splits on it, so no token ever
+  // carries it; the assembly-time re-gate is the lock if the grammar changed.
+  const items = stashSubjectFilterPaletteItems(
+    [
+      { subject: 'WIP on main: deploy\u0007pipeline deploy now', branch: 'main' },
+      { subject: 'WIP on dev: deploy retry now', branch: 'dev' },
+    ],
+    8,
+    2,
+  );
+  assert.ok(items.every(i => stashWordSurvivesQuery(i.term)));
+  assert.ok(!items.some(i => /[\u0000-\u001f]/.test(i.term)));
+  // Cap is honoured even with a 0 limit.
+  assert.deepEqual(stashSubjectFilterPaletteItems([{ subject: 'WIP on a: x x', branch: 'a' }], 0), []);
+});

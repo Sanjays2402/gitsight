@@ -524,6 +524,11 @@ export function stashSubjectFilterPaletteItems(
   const cap = Math.max(0, Math.floor(limit));
   const floor = Math.max(1, Math.floor(minCount));
   const list = order
+    // W111: re-gate every word through the deep-link sanitiser at assembly time
+    // (mirrors the W106 branch tier) so a future stashSubjectWords grammar change
+    // can never leak a control-bearing token whose reloaded #stashes?q= count
+    // would diverge from the palette's. stashWordSurvivesQuery is the lock.
+    .filter(word => stashWordSurvivesQuery(word))
     // Count via the real matcher so the palette + the filtered view agree.
     .map(word => ({ term: word, count: filterStashes(entries as FilterableStash[], word).length }))
     .filter(w => w.count >= floor)
