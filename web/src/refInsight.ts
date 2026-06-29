@@ -153,3 +153,29 @@ export function aheadBehindLabel(insight: RefInsight): string {
   if (insight.behind > 0) parts.push(`${approx}${insight.behind} behind`);
   return parts.join(', ');
 }
+
+// ── Rail sort command-palette source (W119) ──────────────────────────
+
+/** A palette action for the W110/W113 rail divergence sort (W119). */
+export type RailSortPaletteAction = 'rail-divergence' | 'rail-natural';
+
+/** One Cmd-K entry that toggles the rail sort (W119, data only). */
+export interface RailSortPaletteItem {
+  action: RailSortPaletteAction;
+  label: string;
+}
+
+/**
+ * Build the command-palette source for the rail's "most diverged" sort (W119),
+ * so the W110 toggle + its W113 deep link are reachable from Cmd-K, not just the
+ * rail header — mirroring the W82 blame-author / W87 compare sources. Pure +
+ * data only (the view maps each entry to a real PaletteItem with its run): when
+ * the sort is on, the only useful action is turning it back to natural order;
+ * when it's off, the only one is sorting by divergence. So the source returns a
+ * single item that flips the current state, keeping the palette uncluttered.
+ */
+export function railSortPaletteItems(sortByDivergence: boolean): RailSortPaletteItem[] {
+  return sortByDivergence
+    ? [{ action: 'rail-natural', label: 'Rail: sort branches alphabetically' }]
+    : [{ action: 'rail-divergence', label: 'Rail: sort branches by divergence' }];
+}

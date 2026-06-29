@@ -12,6 +12,7 @@ import {
   aheadBehind,
   buildRefInsight,
   aheadBehindLabel,
+  railSortPaletteItems,
 } from './refInsight.ts';
 
 // A small linear+branch graph (newest-first), shas as letters:
@@ -107,4 +108,25 @@ test('aheadBehindLabel summarises both sides, trimming zeros', () => {
 
 test('aheadBehindLabel marks an inexact count with ~', () => {
   assert.equal(aheadBehindLabel({ tip: null, ahead: 5, behind: 0, exact: false }), '~5 ahead');
+});
+
+// ── railSortPaletteItems (W119) ──────────────────────────────────────
+
+test('railSortPaletteItems offers the divergence sort when off', () => {
+  const items = railSortPaletteItems(false);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].action, 'rail-divergence');
+  assert.match(items[0].label, /divergence/i);
+});
+
+test('railSortPaletteItems offers the natural sort when on', () => {
+  const items = railSortPaletteItems(true);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].action, 'rail-natural');
+  assert.match(items[0].label, /alphabetically/i);
+});
+
+test('railSortPaletteItems always returns exactly one flip action', () => {
+  // The single item flips the current state, so it never offers a no-op.
+  assert.notEqual(railSortPaletteItems(true)[0].action, railSortPaletteItems(false)[0].action);
 });

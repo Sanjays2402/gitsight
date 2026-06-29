@@ -67,7 +67,7 @@ import { createPalettePicker } from './palettePicker';
 import { createRepoPicker } from './repoPicker';
 import { createRefRail, activeRefFromFilter } from './refRailView';
 import { openRefDetail } from './refDetailPopover';
-import { aheadBehind, indexNodes } from './refInsight';
+import { aheadBehind, indexNodes, railSortPaletteItems } from './refInsight';
 import type { RailRef } from '@shared/refRail';
 import { CommitDetailPanel } from './detailPanel';
 import { DayPanel } from './dayPanel';
@@ -457,6 +457,22 @@ function buildPaletteItems(): PaletteItem[] {
       items.push({ id: `blame:${value}`, kind: 'action', label: item.label, hint, value, weight: 2 });
     }
   }
+  // Rail divergence sort (W119): on the graph view, surface a single toggle so
+  // the W110/W113 "most diverged" rail sort is reachable from Cmd-K, not just
+  // the rail header. Mirrors the W82 blame / W87 compare sources; the item flips
+  // the current sort state (sort-by-divergence when off, alphabetical when on).
+  if (state.view === 'graph') {
+    for (const item of railSortPaletteItems(state.railSortByDivergence)) {
+      items.push({
+        id: `railsort:${item.action}`,
+        kind: 'action',
+        label: item.label,
+        hint: 'Rail',
+        value: `railsort:${item.action}`,
+        weight: 2,
+      });
+    }
+  }
   // Compare ref pairs (W87): on the Compare view, surface every branch/tag/remote
   // in the loaded snapshot as "Compare <ref> with HEAD" (+ the reverse) so a
   // comparison is reachable from Cmd-K without typing into the form. Mirrors the
@@ -582,6 +598,14 @@ function runPaletteItem(item: PaletteItem): void {
     } else if (item.value.startsWith('blame-isolate:')) {
       // W82: isolate the named author in the loaded blame from the palette.
       isolateBlameAuthor(item.value.slice('blame-isolate:'.length));
+    } else if (item.value === 'railsort:rail-divergence') {
+      // W119: turn on the rail "most diverged" sort from the palette.
+      if (state.view !== 'graph') switchView('graph');
+      setRailSort(true);
+    } else if (item.value === 'railsort:rail-natural') {
+      // W119: restore the rail's natural alphabetical order from the palette.
+      if (state.view !== 'graph') switchView('graph');
+      setRailSort(false);
     } else if (item.value.startsWith('compare-ref:')) {
       // W87: load a ref-pair comparison from the palette. The payload is
       // `compare-ref:<base>:<head>`; git refs can't contain ':' so the first
@@ -1202,11 +1226,10 @@ function buildMainArea(): HTMLElement {
       sortByDivergence: state.railSortByDivergence,
       divergence: ref => (railHead ? aheadBehind(ref.tipSha, railHead, railNodes) : null),
       onToggleSort: () => {
-        state.railSortByDivergence = !state.railSortByDivergence;
         // W113: reflect the sort in the URL so it's shareable + survives back/
-        // forward, mirroring the W66 contributor-sort deep link.
-        syncHash();
-        rebuildChrome();
+        // forward, mirroring the W66 contributor-sort deep link. W119 shares
+        // setRailSort so the palette action behaves identically.
+        setRailSort(!state.railSortByDivergence);
       },
     });
     if (rail) {
@@ -2276,6 +2299,19 @@ function setBlameAuthor(author: string | null): void {
   state.blameAuthor = author;
   syncHash();
   if (state.view === 'blame') renderBlameView();
+}
+
+/**
+ * Set the rail "most diverged" sort (W110), reflecting it in the URL (W113) so
+ * it's shareable + survives back/forward, then rebuilding the chrome. Shared by
+ * the rail header toggle and the W119 command-palette action so both behave
+ * identically. A no-op when already at the requested state.
+ */
+function setRailSort(on: boolean): void {
+  if (state.railSortByDivergence === on) return;
+  state.railSortByDivergence = on;
+  syncHash();
+  rebuildChrome();
 }
 
 /**
