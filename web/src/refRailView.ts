@@ -15,6 +15,7 @@ import { el } from './format';
 import { icons } from './icons';
 import { escapeHtml } from '@shared/graphCore';
 import { buildRailSections, refQuery, type RailRef } from '@shared/refRail';
+import { compareDivergence } from './compareFormat';
 import type { GraphSnapshot } from '@shared/graphSnapshot';
 
 const GROUP_ICON = {
@@ -33,6 +34,12 @@ export interface RefRailOptions {
   onClear: () => void;
   /** Fired when a ref's detail caret is clicked (W29 popover) with the anchor. */
   onShowDetail?: (ref: RailRef, anchor: HTMLElement) => void;
+  /** Sort refs by divergence from HEAD, most-diverged first (W110), else natural. */
+  sortByDivergence?: boolean;
+  /** A ref's ahead/behind vs HEAD for the W110 sort; null when level/unknown. */
+  divergence?: (ref: RailRef) => { ahead: number; behind: number } | null;
+  /** Toggle the W110 divergence sort (persisted by the caller). */
+  onToggleSort?: () => void;
 }
 
 /** Build the rail node from a snapshot. Returns null when there are no refs. */
@@ -49,6 +56,20 @@ export function createRefRail(opts: RefRailOptions): HTMLElement | null {
   allRow.addEventListener('click', () => opts.onClear());
   rail.appendChild(allRow);
 
+  // W110: a header toggle to sort refs by how far they've diverged from HEAD
+  // (most-diverged first) so the busiest branches surface — handy on a repo
+  // with many refs. Off by default (natural alphabetical sections).
+  if (opts.onToggleSort) {
+    const on = !!opts.sortByDivergence;
+    const sortBtn = el('button', 'rail-sort' + (on ? ' on' : ''));
+    sortBtn.type = 'button';
+    sortBtn.title = on ? 'Sorting by divergence from HEAD' : 'Sort by divergence from HEAD';
+    sortBtn.setAttribute('aria-pressed', String(on));
+    sortBtn.innerHTML = `<span class="rail-ico">${icons.gitCompare}</span><span>Most diverged</span>`;
+    sortBtn.addEventListener('click', () => opts.onToggleSort!());
+    rail.appendChild(sortBtn);
+  }
+
   for (const section of sections) {
     const sec = el('div', 'rail-section');
     const head = el('div', 'rail-section-head');
@@ -56,7 +77,17 @@ export function createRefRail(opts: RefRailOptions): HTMLElement | null {
       `<span>${escapeHtml(section.label)}</span><span class="rail-count">${section.refs.length}</span>`;
     sec.appendChild(head);
 
-    for (const ref of section.refs) {
+    // W110: optionally order this section's refs by divergence vs HEAD. The
+    // pure compareDivergence ranks diverged > ahead/behind > level (W105), then
+    // by total drift; a missing lookup reads as level so it sinks. Natural order
+    // (the section's build order) when the toggle is off.
+    let refs = section.refs;
+    if (opts.sortByDivergence && opts.divergence) {
+      refs = section.refs.slice().sort((a, b) =>
+        compareDivergence(opts.divergence!(a) ?? { ahead: 0, behind: 0 }, opts.divergence!(b) ?? { ahead: 0, behind: 0 }),
+      );
+    }
+    for (const ref of refs) {
       const item = el('div', 'rail-ref' + (ref.name === opts.activeRef ? ' active' : ''));
       item.title = ref.name;
       const ico = icons[GROUP_ICON[ref.group]] ?? icons.branch;

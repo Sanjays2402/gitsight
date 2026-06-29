@@ -139,6 +139,8 @@ interface AppState {
   repos: RepoEntry[];
   repo: string | null;
   railOpen: boolean;
+  /** Rail sorts refs by divergence from HEAD, most-diverged first (W110). */
+  railSortByDivergence: boolean;
   /** Active primary view. */
   view: AppView;
   /** Current responsive layout mode. */
@@ -199,6 +201,7 @@ const state: AppState = {
   repos: [],
   repo: null,
   railOpen: true,
+  railSortByDivergence: false,
   view: 'graph',
   layout: layoutFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
   activity: slot<ActivityPayload>(),
@@ -841,7 +844,9 @@ async function boot(): Promise<void> {
 /**
  * Open the contributor comparison panel from two author emails (W47 deep
  * link). Seeds the selection so the leaderboard marks both rows, then opens
- * the panel (which fetches each author's W23 detail itself).
+ * the panel (which fetches each author's W23 detail itself). W109: a deep-link
+ * open lands focus on the share button — a returning sharer's likely next
+ * action — rather than swap (which a fresh manual open keeps).
  */
 function openCompareFromEmails(emails: [string, string]): void {
   state.compareSelection = emails.map(e => ({ email: e, name: e }));
@@ -849,7 +854,7 @@ function openCompareFromEmails(emails: [string, string]): void {
     void ensureContributors();
     renderContributorsView();
   }
-  void contributorComparePanel.open(state.compareSelection[0], state.compareSelection[1]);
+  void contributorComparePanel.open(state.compareSelection[0], state.compareSelection[1], 'share');
 }
 
 /**
@@ -1177,12 +1182,24 @@ function buildMainArea(): HTMLElement {
   const area = el('div', 'main-area');
   // The ref rail only belongs to the graph view.
   if (state.view === 'graph' && state.railOpen) {
+    // W110: a divergence lookup vs HEAD so the rail can offer a "most diverged"
+    // sort. Index the parent graph + resolve HEAD's tip once; each ref maps to
+    // its ahead/behind via the in-memory walk (no backend). Shares the W29/W95
+    // refInsight math used elsewhere.
+    const railNodes = indexNodes(state.snapshot.commits);
+    const railHead = headTipSha();
     const rail = createRefRail({
       snapshot: state.snapshot,
       activeRef: activeRefFromFilter(state.filter),
       onPick: query => applyFilter(query),
       onClear: () => applyFilter(''),
       onShowDetail: (ref, anchor) => showRefDetail(ref, anchor),
+      sortByDivergence: state.railSortByDivergence,
+      divergence: ref => (railHead ? aheadBehind(ref.tipSha, railHead, railNodes) : null),
+      onToggleSort: () => {
+        state.railSortByDivergence = !state.railSortByDivergence;
+        rebuildChrome();
+      },
     });
     if (rail) {
       if (state.layout.railIsDrawer) rail.classList.add('drawer');

@@ -31,3 +31,39 @@
 .rd-div-dot.diverged {
   background: var(--danger);
 }
+
+/*
+ * Rail "Most diverged" sort toggle (W110). A quiet full-width row under the
+ * clear row that orders the ref list by divergence from HEAD. Borrows the
+ * rail-all/rail-ref-pick geometry; when on it tints to the accent so the active
+ * sort is obvious. Token-only so it tracks the editorial themes.
+ */
+.rail-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  margin-bottom: 2px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg-faint);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rail-sort:hover {
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+}
+
+.rail-sort.on {
+  color: var(--accent);
+}
+
+.rail-sort.on .rail-ico {
+  color: var(--accent);
+}
