@@ -5,6 +5,7 @@ import {
   stagedPaths,
   dirtyWorktreePaths,
   parseRecentTouches,
+  unquotePath,
   findForgottenFiles,
   summariseForgotten,
 } from '../../src/git/forgottenFiles';
@@ -154,4 +155,33 @@ test('summariseForgotten: 0/1/2/3+ wording', () => {
     ]),
     /4 files edited recently aren't staged: a\.ts, b\.ts \+2$/,
   );
+});
+
+test('unquotePath: passes plain paths through untouched', () => {
+  assert.equal(unquotePath('src/a.ts'), 'src/a.ts');
+  assert.equal(unquotePath('already"partial'), 'already"partial');
+});
+
+test('parsePorcelain: unquotes git C-quoted paths (spaces, unicode octal)', () => {
+  const out = parsePorcelain([
+    ' M "docs/my notes.md"',
+    ' M "\\303\\244pfel.txt"',
+    'R  "old name.ts" -> "new name.ts"',
+  ].join('\n'));
+  assert.deepEqual(out.map(r => r.path), ['docs/my notes.md', 'äpfel.txt', 'new name.ts']);
+});
+
+test('parsePorcelain: quoted names now match staged/dirty sets', () => {
+  const rows = parsePorcelain([' M "docs/my notes.md"', 'M  "docs/other file.md"'].join('\n'));
+  assert.deepEqual(stagedPaths(rows), ['docs/other file.md']);
+  assert.deepEqual(dirtyWorktreePaths(rows), ['docs/my notes.md']);
+});
+
+test('parseRecentTouches: unquotes quoted log paths so they match porcelain', () => {
+  const touches = parseRecentTouches([
+    'abc123|2026-05-20T10:00:00+00:00',
+    '"docs/my notes.md"',
+    '',
+  ].join('\n'));
+  assert.deepEqual(touches, [{ path: 'docs/my notes.md', lastTouchedIso: '2026-05-20T10:00:00+00:00' }]);
 });

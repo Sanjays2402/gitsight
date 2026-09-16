@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+### Fixed
+- **Forgotten-file nudge + stash naming**: unquote git's C-style quoted paths (`"docs/my notes.md"`, octal escapes like `"\303\244pfel.txt"`). Paths with spaces or unicode no longer slip out of the forgotten-file diagnostic or get quoted names in stash suggestions.
+
 ## 1.16.0 — 2026-05-24
 ### Added
 - **Stacked PR Navigator** — Graphite/Sapling-style stacked-branch workflow. Auto-infers parent branches via merge-base, lets you walk up/down the stack, rebase onto parent, restack the whole chain, and push all branches atomically. Stores explicit overrides in `branch.<name>.gitsight-parent`. Command: `GitSight: Stacked PR Navigator` (default keybinding `Cmd/Ctrl+Shift+K`).

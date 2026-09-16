@@ -33,6 +33,53 @@ export interface PorcelainRow {
 }
 
 /**
+ * Unquote a git-quoted path.
+ *
+ * When `core.quotePath` is on (git's default), any path containing spaces,
+ * unicode, or quotes is wrapped in double quotes and its bytes C-escaped:
+ * `"docs/my notes.md"`, `"\303\244pfel.txt"` (octal bytes, here `äpfel.txt`).
+ * Without this, quoted paths never match real filesystem names — so a
+ * recently-touched `my notes.md` silently drops out of the forgotten-file
+ * diagnostic (and stash-naming suggestions get the raw quoted text).
+ */
+export function unquotePath(p: string): string {
+  if (p.length < 2 || p[0] !== '"' || p[p.length - 1] !== '"') return p;
+  const body = p.slice(1, -1);
+  const bytes: number[] = [];
+  const pushUtf8 = (s: string) => { for (const b of Buffer.from(s, 'utf8')) bytes.push(b); };
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c !== '\\' || i + 1 >= body.length) { pushUtf8(c); continue; }
+    const e = body[++i];
+    switch (e) {
+      case 'n': bytes.push(0x0a); break;
+      case 't': bytes.push(0x09); break;
+      case 'r': bytes.push(0x0d); break;
+      case 'a': bytes.push(0x07); break;
+      case 'b': bytes.push(0x08); break;
+      case 'v': bytes.push(0x0b); break;
+      case 'f': bytes.push(0x0c); break;
+      case '\\': bytes.push(0x5c); break;
+      case '"': bytes.push(0x22); break;
+      default:
+        if (/[0-7]/.test(e)) {
+          // Octal byte sequence — decodes raw UTF-8 bytes, not characters.
+          let oct = e;
+          while (oct.length < 3 && i + 1 < body.length && /[0-7]/.test(body[i + 1])) {
+            oct += body[++i];
+          }
+          bytes.push(parseInt(oct, 8) & 0xff);
+        } else {
+          // Unknown escape — keep it literal rather than dropping data.
+          bytes.push(0x5c);
+          pushUtf8(e);
+        }
+    }
+  }
+  return Buffer.from(bytes).toString('utf8');
+}
+
+/**
  * Parse `git status --porcelain=v1` output. Stable across git versions and
  * easy to reason about. We don't try to expand renames here — the path is
  * always the *new* name for R/C entries.
@@ -46,7 +93,7 @@ export function parsePorcelain(raw: string): PorcelainRow[] {
     let path = line.slice(3);
     const arrow = path.indexOf(' -> ');
     if (arrow >= 0) path = path.slice(arrow + 4);
-    path = path.trim();
+    path = unquotePath(path.trim());
     if (!path) continue;
     out.push({ x, y, path });
   }
@@ -95,7 +142,8 @@ export function parseRecentTouches(raw: string): RecentTouch[] {
       continue;
     }
     if (!currentIso) continue;
-    if (!newest.has(line)) newest.set(line, currentIso);
+    const path = unquotePath(line);
+    if (!newest.has(path)) newest.set(path, currentIso);
   }
   return [...newest.entries()].map(([path, iso]) => ({ path, lastTouchedIso: iso }));
 }
