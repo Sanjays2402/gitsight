@@ -4,12 +4,16 @@
 
 > Commit Graph. Inline Blame. File & Line History. Worktrees. Branch & Tag Explorer. Compare. AI Commit Messages. All free.
 
+[![GitSight commit graph inside VS Code](screenshots/commit-graph-hero.png)](#package--install)
+
+**[Build & install GitSight →](#package--install)** · [Browse the feature tour](#screenshots)
+
+Open a Git repository in VS Code, explore its commit graph, and select a commit to inspect its changes. Installation currently uses a locally packaged VSIX.
+
 ## Screenshots
 
 ### Commit Graph
 Multi-lane graph webview with branch/tag/HEAD ref pills, per-author colors, live search.
-
-![Commit Graph](screenshots/commit-graph-hero.png)
 
 ### Sidebar Views
 12 tree views — Repositories, Commits, Branches, Remotes, Tags, Stashes, Worktrees, Contributors, File History, Line History, Search, **Pull Requests**.
